@@ -81,14 +81,12 @@ namespace HaggisTests.Strategies
         [TestCase(300, 1000l)]
         public void ShouldRunTillGameOver(int maxIteration, long timeBudget)
         {
-            var game = new HaggisGame();
+           
             AIPlayer piotr = new AIPlayer("PiotrAI");
             AIPlayer slawek = new AIPlayer("SławekAI");
             AIPlayer robert = new AIPlayer("RobertAIs");
 
-            piotr.Hand = game.DealSetupCards();
-            slawek.Hand = game.DealSetupCards();
-            robert.Hand = game.DealSetupCards();
+            var game = new HaggisGame(new List<IHaggisPlayer>{piotr,slawek,robert});
 
             piotr.PlayStrategy = new ContinuationStrategy(false, true);
             slawek.PlayStrategy = new ContinuationStrategy(false, true);

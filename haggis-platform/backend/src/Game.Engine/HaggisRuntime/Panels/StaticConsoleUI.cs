@@ -1,23 +1,73 @@
-﻿using Haggis.Model;
+using Haggis.Model;
 using Haggis.Strategies;
 
 public class StaticConsoleUI
 {
-    int W = Console.WindowWidth;
-    int H = Console.WindowHeight;
-    int leftWidth;
+    private readonly int W;
+    private readonly int H;
+    private readonly int leftWidth;
     private List<PanelRegionBase> panels = new List<PanelRegionBase>();
 
     public StaticConsoleUI(HaggisGameState state)
     {
+        W = SafeConsoleWidth();
+        H = SafeConsoleHeight();
         leftWidth = W / 2 + 30;
         Initialize(state);
     }
-   
+
+    private static int SafeConsoleWidth()
+    {
+        try
+        {
+            return Math.Max(120, Console.WindowWidth);
+        }
+        catch
+        {
+            return 120;
+        }
+    }
+
+    private static int SafeConsoleHeight()
+    {
+        try
+        {
+            return Math.Max(30, Console.WindowHeight);
+        }
+        catch
+        {
+            return 30;
+        }
+    }
+
+    private static void SafeClear()
+    {
+        try
+        {
+            Console.Clear();
+        }
+        catch
+        {
+            // Output can be redirected or console unavailable.
+        }
+    }
+
+    private static void SafeSetCursorVisible(bool visible)
+    {
+        try
+        {
+            Console.CursorVisible = visible;
+        }
+        catch
+        {
+            // Ignore when terminal does not support cursor control.
+        }
+    }
+
     private void Initialize(HaggisGameState state)
     {
-        Console.Clear();
-        Console.CursorVisible = false;
+        SafeClear();
+        SafeSetCursorVisible(false);
 
         panels.AddRange(new PanelRegionBase[]
         {
@@ -52,13 +102,9 @@ public class StaticConsoleUI
 
     }
 
-    // -----------------------------------------------
-    //                 MAIN RENDER
-    // -----------------------------------------------
-
     public void Render(HaggisGameState state)
     {
-        Console.Clear();
+        SafeClear();
 
         foreach (var panel in panels)
         {
@@ -72,9 +118,7 @@ public class StaticConsoleUI
         var uiInput = panels.OfType<UIInput>().FirstOrDefault();
         if (uiInput != null)
             return uiInput.ReadHumanInput(state);
-        
+
         return -1;
     }
-
-
 }
