@@ -1,0 +1,14 @@
+﻿# .NET
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+# Flutter/Dart
+**/.dart_tool/
+**/.packages
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+# Env / secrets
+.env

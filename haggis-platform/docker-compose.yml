@@ -1,0 +1,24 @@
+﻿services:
+  api:
+    build:
+      context: .
+      dockerfile: deploy/docker/api.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__Main: "Server=db,1433;Database=Game;User Id=sa;Password=\;TrustServerCertificate=True;Encrypt=False;"
+    depends_on:
+      - db
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      SA_PASSWORD: "\"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+volumes:
+  mssql_data:
