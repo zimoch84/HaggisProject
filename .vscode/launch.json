@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "HaggisRuntime (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/haggis-platform/backend/src/Game.Engine/HaggisRuntime/bin/Debug/net8.0/HaggisRuntime.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/haggis-platform/backend/src/Game.Engine/HaggisRuntime",
+      "stopAtEntry": false,
+      "console": "externalTerminal"
+    }
+  ]
+}
