@@ -1,94 +1,89 @@
-# REST API
+# WebSocket API
 
 ## Cel
 
-Backend C# udostepnia REST API jako warstwe komunikacji dla klienta Flutter.
+Backend C# udostepnia API WebSocket jako warstwe komunikacji dla klienta Flutter.
 
 ## Zrodlo prawdy kontraktu API
 
-- Glowne zrodlo: `OpenApiYaml/HaggisAPI.yaml`
-- Kopia robocza: `haggis-platform/openapi/HaggisAPI.yaml`
+- Gra (glowne zrodlo): `haggis-platform/openapi/HaggisAPI.yaml`
+- Gra (kopia robocza): `haggis-platform/docs/api/HaggisAPI.yaml`
+- Czat (glowne zrodlo): `haggis-platform/openapi/ChatAPI.yaml`
+- Czat (kopia robocza): `haggis-platform/docs/api/ChatAPI.yaml`
 
-Jesli jest rozjazd miedzy dokumentem i implementacja, prawda jest plik OpenAPI.
+Jesli jest rozjazd miedzy dokumentem i implementacja, prawda sa pliki AsyncAPI.
 
-## Szybki przeglad endpointow (MVP)
+## Szybki przeglad kanalow (MVP)
 
-| Metoda | Sciezka | Opis |
+| Kierunek | Kanal | Opis |
 |---|---|---|
-| POST | `/games` | Tworzy nowa gre |
-| GET | `/games/{gameId}` | Pobiera aktualny stan gry |
+| client -> server | `games/create` | Tworzenie nowej gry |
+| client -> server | `games/{gameId}/actions` | Ruch gracza (`Play`/`Pass`) |
+| server -> client | `games/create` | Wynik tworzenia gry |
+| server -> client | `games/{gameId}/actions` | `PlayerAction` (AI lub Human), wynik akcji i nowy stan |
+| server -> client | `games/{gameId}/state` | Strumien aktualizacji stanu |
+| client -> server | `chat/global` | Wyslanie wiadomosci czatu |
+| server -> client | `chat/global` | Strumien wiadomosci czatu |
 
-## Endpointy
+## Wiadomosci
 
-### POST `/games`
+### CreateGameRequest
 
-Tworzy nowa gre na podstawie listy graczy i opcjonalnych ustawien.
+Wysylana przez klienta na kanal `games/create`.
 
-Request body (`CreateGameRequest`):
+Pola:
 
 - `players` (wymagane): 2-3 graczy
 - `rules.seed` (opcjonalne): seed do deterministycznego tasowania
 - `rules.maxPlayers` (opcjonalne): domyslnie `3`
 - `options.includeHandsInState` (opcjonalne): czy zwracac rece w stanie gry
 
-Przyklad request:
+### CreateGameResponse
 
-```json
-{
-  "players": [
-    { "id": "piotr", "displayName": "Piotr", "type": "Human" },
-    { "id": "slawek", "displayName": "Slawek", "type": "AI", "aiProfile": "MonteCarlo" },
-    { "id": "robert", "displayName": "Robert", "type": "AI", "aiProfile": "MonteCarlo" }
-  ],
-  "rules": { "seed": 12345, "maxPlayers": 3 },
-  "options": { "includeHandsInState": false }
-}
-```
+Wysylana przez serwer na kanal `games/create` po utworzeniu gry.
 
-Odpowiedzi:
+- `gameId`
+- `createdAt`
+- `state` (`GameState`)
 
-- `201 Created` - `CreateGameResponse` (`gameId`, `createdAt`, `state`)
-- `400 Bad Request` - `ProblemDetails`
+### PlayerAction
 
-### GET `/games/{gameId}`
+Wysylana przez klienta na kanal `games/{gameId}/actions`, a przez serwer moze byc odeslana jako wykonana akcja (AI lub Human).
 
-Pobiera stan gry.
+- `type`: `Play` | `Pass`
+- `playerId`
+- `cards` (wymagane dla `Play`)
 
-Parametry:
+### GameState
 
-- path: `gameId` (wymagany)
-- query: `view` (opcjonalny): `Public` | `Player` | `Debug`, domyslnie `Public`
-- query: `playerId` (wymagany tylko gdy `view=Player`)
+Wysylana przez serwer na `games/{gameId}/actions` i `games/{gameId}/state`.
 
-Przyklady:
+### ProblemDetails
 
-- `GET /games/{gameId}`
-- `GET /games/{gameId}?view=Public`
-- `GET /games/{gameId}?view=Player&playerId=piotr`
-- `GET /games/{gameId}?view=Debug`
+Wysylana przez serwer przy bledzie walidacji albo domenowym.
 
-Odpowiedzi:
+### SendChatMessageRequest
 
-- `200 OK` - `GameState`
-- `404 Not Found` - `ProblemDetails`
-- `400 Bad Request` - `ProblemDetails` (np. `view=Player` bez `playerId`)
+Wysylana przez klienta na kanal `chat/global`.
 
-## Kluczowe modele (OpenAPI)
+- `playerId`
+- `text` (1-500 znakow)
 
-- `CreateGameRequest`
-- `CreateGameResponse`
-- `GameState`
-- `PlayerState`
-- `TurnState`
-- `TableState`
-- `ScoreState`
-- `ProblemDetails`
+### ChatMessage
+
+Wysylana przez serwer na kanal `chat/global`.
+
+- `messageId`
+- `playerId`
+- `text`
+- `createdAt`
 
 ## Konwencje API
 
-- Content-Type: `application/json`
-- Bledy: `application/problem+json`
-- Identyfikatory: `string` (np. `gameId`, `playerId`)
+- Format wiadomosci: `application/json`
+- Transport: `ws://` (lokalnie `ws://localhost:8080`)
+- Bledy: `ProblemDetails`
+- Identyfikatory: `string` (`gameId`, `playerId`)
 - Daty: `date-time` (ISO 8601)
 - Enumy domenowe: status gry, faza tury, typ gracza
 
@@ -96,15 +91,15 @@ Odpowiedzi:
 
 Flutter powinien:
 
-- traktowac OpenAPI jako kontrakt,
-- miec osobna warstwe klienta HTTP (np. repository/data source),
+- traktowac AsyncAPI jako kontrakt,
+- miec osobna warstwe klienta WebSocket,
 - mapowac `ProblemDetails` do jednego modelu bledu aplikacyjnego,
 - rozdzielic modele transportowe (DTO) od modeli UI.
 
 ## TODO przed produkcja
 
-- Dodac endpointy ruchow gracza (`play`, `pass`, akcje rundy).
-- Dodac wersjonowanie API (np. `/api/v1`).
-- Dodac autoryzacje i mapowanie user -> playerId.
+- Dodac autoryzacje polaczen i mapowanie user -> playerId.
+- Dodac heartbeat/reconnect oraz idempotencje dla komend klienta.
+- Dodac wersjonowanie kontraktu wiadomosci.
 - Dodac polityki observability (logs, metrics, tracing).
 

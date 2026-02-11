@@ -1,0 +1,99 @@
+asyncapi: 2.6.0
+info:
+  title: Haggis Chat Async API
+  version: 1.0.0
+  description: Niezalezny kontrakt czatu przez WebSocket.
+defaultContentType: application/json
+
+servers:
+  local:
+    url: localhost:8080
+    protocol: ws
+    description: Lokalny serwer WebSocket
+
+channels:
+  chat/global:
+    description: Globalny czat niezalezny od konkretnej gry.
+    publish:
+      operationId: sendChatMessage
+      summary: Klient wysyla wiadomosc czatu.
+      message:
+        $ref: '#/components/messages/SendChatMessageRequestMessage'
+    subscribe:
+      operationId: chatStream
+      summary: Serwer emituje wiadomosci czatu albo blad.
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ChatMessage'
+          - $ref: '#/components/messages/ErrorMessage'
+
+components:
+  messages:
+    SendChatMessageRequestMessage:
+      name: SendChatMessageRequestMessage
+      title: Send chat message command
+      payload:
+        $ref: '#/components/schemas/SendChatMessageRequest'
+
+    ChatMessage:
+      name: ChatMessage
+      title: Chat message event
+      payload:
+        $ref: '#/components/schemas/ChatMessage'
+
+    ErrorMessage:
+      name: ErrorMessage
+      title: Error event
+      payload:
+        $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    SendChatMessageRequest:
+      type: object
+      required: [playerId, text]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    ChatMessage:
+      type: object
+      required: [messageId, playerId, text, createdAt]
+      additionalProperties: false
+      properties:
+        messageId:
+          type: string
+        playerId:
+          type: string
+        text:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ProblemDetails:
+      type: object
+      required: [title, status]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string

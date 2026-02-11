@@ -1,4 +1,4 @@
-﻿# Decyzje projektowe (ADR index)
+# Decyzje projektowe (ADR index)
 
 Kazda istotna decyzja architektoniczna powinna miec osobny plik ADR w katalogu `docs/decisions/adr`.
 
@@ -11,7 +11,7 @@ Kazda istotna decyzja architektoniczna powinna miec osobny plik ADR w katalogu `
 
 ## Spis ADR
 
-- `ADR-0001` - Architektura backend C# + REST API + Flutter UI (`docs/decisions/adr/ADR-0001-architecture.md`) - Accepted
+- `ADR-0001` - Architektura backend C# + AsyncAPI WebSocket + Flutter UI (`docs/decisions/adr/ADR-0001-architecture.md`) - Accepted
 
 ## Jak dodac nowa decyzje
 
@@ -19,3 +19,4 @@ Kazda istotna decyzja architektoniczna powinna miec osobny plik ADR w katalogu `
 2. Nazwij plik: `ADR-XXXX-krotki-temat.md`.
 3. Uzupelnij sekcje: Context, Decision, Consequences, Alternatives.
 4. Dodaj wpis do listy powyzej.
+

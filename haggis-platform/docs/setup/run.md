@@ -1,4 +1,4 @@
-﻿# Uruchomienie projektu
+# Uruchomienie projektu
 
 ## Wariant A: uruchomienie przez Docker (zalecane na start)
 
@@ -14,9 +14,9 @@ cd haggis-platform
 .\deploy\scripts\run.ps1 -Build
 ```
 
-3. Sprawdz API:
+3. Sprawdz polaczenie WebSocket:
 
-- `http://localhost:8080/swagger`
+- `ws://localhost:8080`
 
 ## Wariant B: lokalnie bez kontenerow (backend)
 
@@ -36,6 +36,6 @@ dotnet test .\backend\tests\Game.Engine.Tests\HaggisTests.csproj
 
 ## Integracja z Flutter UI
 
-- Flutter konsumuje REST API backendu.
-- Bazowy URL w dev: `http://localhost:8080`.
-- Modele danych i endpointy trzymac zgodnie z OpenAPI.
+- Flutter konsumuje API WebSocket backendu.
+- Bazowy URL w dev: `ws://localhost:8080`.
+- Modele danych i typy wiadomosci trzymac zgodnie z AsyncAPI.

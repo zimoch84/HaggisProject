@@ -1,0 +1,383 @@
+asyncapi: 2.6.0
+info:
+  title: Haggis Game Async API
+  version: 1.0.0
+  description: Komunikacja klienta z serwerem gry Haggis przez WebSocket.
+defaultContentType: application/json
+
+servers:
+  local:
+    url: localhost:8080
+    protocol: ws
+    description: Lokalny serwer WebSocket
+
+channels:
+  games/create:
+    description: Tworzenie nowej gry i odbior odpowiedzi o stanie poczatkowym.
+    publish:
+      operationId: createGame
+      summary: Klient wysyla prosbe o utworzenie gry.
+      message:
+        $ref: '#/components/messages/CreateGameRequestMessage'
+    subscribe:
+      operationId: createGameResult
+      summary: Serwer zwraca wynik tworzenia gry.
+      message:
+        oneOf:
+          - $ref: '#/components/messages/GameCreatedMessage'
+          - $ref: '#/components/messages/ErrorMessage'
+
+  games/{gameId}/actions:
+    description: Klient wysyla akcje gracza (play/pass), serwer emituje akcje i stan gry.
+    parameters:
+      gameId:
+        description: Id gry.
+        schema:
+          type: string
+          minLength: 1
+    publish:
+      operationId: sendPlayerAction
+      summary: Klient wysyla akcje gracza.
+      message:
+        $ref: '#/components/messages/PlayerActionMessage'
+    subscribe:
+      operationId: actionResult
+      summary: Serwer emituje PlayerAction, nowy stan gry albo blad walidacji ruchu.
+      message:
+        oneOf:
+          - $ref: '#/components/messages/PlayerActionMessage'
+          - $ref: '#/components/messages/GameStateMessage'
+          - $ref: '#/components/messages/ErrorMessage'
+
+  games/{gameId}/state:
+    description: Strumien aktualizacji stanu gry.
+    parameters:
+      gameId:
+        description: Id gry.
+        schema:
+          type: string
+          minLength: 1
+    subscribe:
+      operationId: gameStateStream
+      summary: Serwer publikuje zmiany stanu gry.
+      message:
+        $ref: '#/components/messages/GameStateMessage'
+
+components:
+  messages:
+    CreateGameRequestMessage:
+      name: CreateGameRequestMessage
+      title: Create game request
+      payload:
+        $ref: '#/components/schemas/CreateGameRequest'
+
+    GameCreatedMessage:
+      name: GameCreatedMessage
+      title: Game created event
+      payload:
+        $ref: '#/components/schemas/CreateGameResponse'
+
+    PlayerActionMessage:
+      name: PlayerActionMessage
+      title: Player action command
+      payload:
+        $ref: '#/components/schemas/PlayerAction'
+
+    GameStateMessage:
+      name: GameStateMessage
+      title: Game state event
+      payload:
+        $ref: '#/components/schemas/GameState'
+
+    ErrorMessage:
+      name: ErrorMessage
+      title: Error event
+      payload:
+        $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    CreateGameRequest:
+      type: object
+      required: [players]
+      properties:
+        players:
+          type: array
+          minItems: 2
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/PlayerSpec'
+        rules:
+          $ref: '#/components/schemas/GameRules'
+        options:
+          $ref: '#/components/schemas/CreateGameOptions'
+
+    CreateGameOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        includeHandsInState:
+          type: boolean
+          default: false
+          description: Jesli true, API moze zwracac rece w stanie gry (debug/dev).
+
+    CreateGameResponse:
+      type: object
+      required: [gameId, createdAt, state]
+      properties:
+        gameId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        state:
+          $ref: '#/components/schemas/GameState'
+
+    PlayerAction:
+      type: object
+      required: [type, playerId]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum: [Play, Pass]
+        playerId:
+          type: string
+        cards:
+          type: array
+          description: Wymagane dla type=Play.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Card'
+
+    PlayerSpec:
+      type: object
+      required: [id, displayName, type]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Stabilny identyfikator gracza (np. piotr, ai-1)
+          minLength: 1
+        displayName:
+          type: string
+          minLength: 1
+        type:
+          $ref: '#/components/schemas/PlayerType'
+        aiProfile:
+          type: string
+          description: Opcjonalne dla AI (np. MonteCarlo, Random, Heuristic)
+          example: MonteCarlo
+
+    PlayerType:
+      type: string
+      enum: [Human, AI]
+
+    GameRules:
+      type: object
+      additionalProperties: false
+      properties:
+        seed:
+          type: integer
+          format: int64
+          description: Seed do deterministycznego tasowania (ulatwia testy).
+        maxPlayers:
+          type: integer
+          format: int32
+          minimum: 2
+          maximum: 3
+          default: 3
+
+    GameState:
+      type: object
+      required: [gameId, status, players, turn, table, scores, orderPointer, updatedAt]
+      properties:
+        gameId:
+          type: string
+        status:
+          $ref: '#/components/schemas/GameStatus'
+        players:
+          type: array
+          minItems: 2
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/PlayerState'
+        turn:
+          $ref: '#/components/schemas/TurnState'
+        table:
+          $ref: '#/components/schemas/TableState'
+        scores:
+          $ref: '#/components/schemas/ScoreState'
+        orderPointer:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Rosnacy wskaznik kolejnosci aktualizacji stanu gry.
+        updatedAt:
+          type: string
+          format: date-time
+
+    GameStatus:
+      type: string
+      enum: [WaitingForStart, InProgress, Finished]
+
+    PlayerState:
+      type: object
+      required: [id, displayName, type, handCount, isEliminated]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        type:
+          $ref: '#/components/schemas/PlayerType'
+        handCount:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Ile kart ma na rece (publiczna informacja).
+        hand:
+          type: array
+          description: Opcjonalne, obecne tylko jesli backend zwraca reke gracza.
+          items:
+            $ref: '#/components/schemas/Card'
+        isEliminated:
+          type: boolean
+
+    TurnState:
+      type: object
+      required: [currentPlayerId, phase, trickNumber]
+      additionalProperties: false
+      properties:
+        currentPlayerId:
+          type: string
+        phase:
+          type: string
+          enum: [Play, Pass, Resolve]
+        trickNumber:
+          type: integer
+          format: int32
+          minimum: 1
+        lastAction:
+          $ref: '#/components/schemas/LastAction'
+
+    LastAction:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum: [Play, Pass, StartGame]
+        byPlayerId:
+          type: string
+        playedCards:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+        at:
+          type: string
+          format: date-time
+
+    TableState:
+      type: object
+      required: [currentTrick, pile]
+      additionalProperties: false
+      properties:
+        currentTrick:
+          $ref: '#/components/schemas/Trick'
+        pile:
+          type: array
+          description: Zebrane tricki lub stos odrzuconych.
+          items:
+            $ref: '#/components/schemas/Trick'
+
+    Trick:
+      type: object
+      required: [plays]
+      additionalProperties: false
+      properties:
+        plays:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrickPlay'
+        leadingPlayerId:
+          type: string
+          nullable: true
+        trickType:
+          type: string
+          nullable: true
+          description: Np. Single, Pair, Sequence, Bomb.
+
+    TrickPlay:
+      type: object
+      required: [playerId, cards]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+        cards:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Card'
+
+    ScoreState:
+      type: object
+      additionalProperties: false
+      properties:
+        pointsByPlayerId:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+        winnerPlayerId:
+          type: string
+          nullable: true
+
+    Card:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          description: Kod karty w formacie ustalonym przez silnik, np. 5H, JD.
+          example: 5H
+        suit:
+          type: string
+          nullable: true
+          enum: [Clubs, Diamonds, Hearts, Spades]
+        rank:
+          type: string
+          nullable: true
+          description: 2..10,J,Q,K,A lub inny system.
+        isWild:
+          type: boolean
+          nullable: true
+
+    ProblemDetails:
+      type: object
+      required: [title, status]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+
+
+
+

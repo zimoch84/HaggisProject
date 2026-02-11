@@ -1,4 +1,4 @@
-﻿# Kontenery Docker
+# Kontenery Docker
 
 ## Co uruchamia docker-compose
 
@@ -29,8 +29,8 @@ Szybki start bez przebudowy obrazu:
 
 ## Adresy lokalne
 
-- API: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/swagger`
+- API HTTP: `http://localhost:8080`
+- WebSocket: `ws://localhost:8080`
 - SQL Server: `localhost,1433`
 
 ## Konfiguracja i sekrety
