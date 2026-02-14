@@ -27,3 +27,5 @@ app.Map("/ws/games/{gameId}", async (HttpContext context, GameWebSocketHub hub, 
 });
 
 app.Run();
+
+public partial class Program;

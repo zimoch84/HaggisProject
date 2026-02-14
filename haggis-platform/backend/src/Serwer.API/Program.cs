@@ -27,3 +27,5 @@ app.Map("/ws/chat/global", async (HttpContext context, GlobalChatHub hub) =>
 });
 
 app.Run();
+
+public partial class Program;
