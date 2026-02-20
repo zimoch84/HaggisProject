@@ -2,7 +2,9 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using Game.API.Services;
+using Game.API.Services.Engine;
+using Game.API.Services.Hubs;
+using Game.API.Services.Sessions;
 using NUnit.Framework;
 
 namespace Game.API.Tests;
@@ -11,14 +13,14 @@ namespace Game.API.Tests;
 public class GameWebSocketHubTests
 {
     [Test]
-    public async Task HandleClientAsync_BroadcastsPlayerActionToClientsInSameGame()
+    public async Task HandleClientAsync_BroadcastsAppliedCommandToClientsInSameGame()
     {
         var senderSocket = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"type\":\"Play\",\"playerId\":\"p1\"}", delayMs: 50),
+            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Play\",\"playerId\":\"p1\",\"payload\":{}}}", delayMs: 50),
             FakeWebSocket.Close());
 
         var receiverSocket = FakeWebSocket.FromClientMessages(FakeWebSocket.Close(delayMs: 250));
-        var hub = new GameWebSocketHub();
+        var hub = CreateHub();
 
         var receiverTask = hub.HandleClientAsync("game-1", receiverSocket, CancellationToken.None);
         var senderTask = hub.HandleClientAsync("game-1", senderSocket, CancellationToken.None);
@@ -29,21 +31,21 @@ public class GameWebSocketHubTests
         Assert.That(receiverSocket.GetSentTextMessages().Count, Is.EqualTo(1));
 
         using var payload = JsonDocument.Parse(receiverSocket.GetSentTextMessages()[0]);
-        Assert.That(payload.RootElement.GetProperty("Type").GetString(), Is.EqualTo("PlayerAction"));
+        Assert.That(payload.RootElement.GetProperty("Type").GetString(), Is.EqualTo("CommandApplied"));
         Assert.That(payload.RootElement.GetProperty("GameId").GetString(), Is.EqualTo("game-1"));
         Assert.That(payload.RootElement.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(1));
-        Assert.That(payload.RootElement.GetProperty("Payload").GetString(), Is.EqualTo("{\"type\":\"Play\",\"playerId\":\"p1\"}"));
+        Assert.That(payload.RootElement.GetProperty("Command").GetProperty("Type").GetString(), Is.EqualTo("Play"));
     }
 
     [Test]
     public async Task HandleClientAsync_IncrementsOrderPointerPerGame()
     {
         var senderSocket = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"type\":\"Play\",\"playerId\":\"p1\"}", delayMs: 50),
-            FakeWebSocket.Text("{\"type\":\"Pass\",\"playerId\":\"p2\"}"),
+            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Play\",\"playerId\":\"p1\",\"payload\":{}}}", delayMs: 50),
+            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Pass\",\"playerId\":\"p2\",\"payload\":{}}}"),
             FakeWebSocket.Close());
 
-        var hub = new GameWebSocketHub();
+        var hub = CreateHub();
 
         await hub.HandleClientAsync("game-2", senderSocket, CancellationToken.None);
 
@@ -61,13 +63,13 @@ public class GameWebSocketHubTests
     public async Task HandleClientAsync_DoesNotBroadcastAcrossDifferentGames()
     {
         var senderGameA = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"type\":\"Play\",\"playerId\":\"p1\"}", delayMs: 50),
+            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Play\",\"playerId\":\"p1\",\"payload\":{}}}", delayMs: 50),
             FakeWebSocket.Close());
 
         var receiverGameA = FakeWebSocket.FromClientMessages(FakeWebSocket.Close(delayMs: 250));
         var receiverGameB = FakeWebSocket.FromClientMessages(FakeWebSocket.Close(delayMs: 250));
 
-        var hub = new GameWebSocketHub();
+        var hub = CreateHub();
 
         var taskA1 = hub.HandleClientAsync("game-A", senderGameA, CancellationToken.None);
         var taskA2 = hub.HandleClientAsync("game-A", receiverGameA, CancellationToken.None);
@@ -77,6 +79,13 @@ public class GameWebSocketHubTests
 
         Assert.That(receiverGameA.GetSentTextMessages().Count, Is.EqualTo(1));
         Assert.That(receiverGameB.GetSentTextMessages().Count, Is.EqualTo(0));
+    }
+
+    private static GameWebSocketHub CreateHub()
+    {
+        var engine = new GenericGameEngine();
+        var store = new GameSessionStore(engine);
+        return new GameWebSocketHub(store);
     }
 
     private sealed class FakeWebSocket : WebSocket
@@ -193,4 +202,3 @@ public class GameWebSocketHubTests
         public readonly record struct IncomingFrame(WebSocketMessageType MessageType, byte[] Payload, bool EndOfMessage, int DelayMs);
     }
 }
-

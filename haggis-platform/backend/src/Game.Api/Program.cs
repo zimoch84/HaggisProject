@@ -1,7 +1,12 @@
 using System.Net.WebSockets;
-using Game.API.Services;
+using Game.API.Services.Engine;
+using Game.API.Services.Hubs;
+using Game.API.Services.Interfaces;
+using Game.API.Services.Sessions;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddSingleton<IGameEngine, GenericGameEngine>();
+builder.Services.AddSingleton<IGameSessionStore, GameSessionStore>();
 builder.Services.AddSingleton<GameWebSocketHub>();
 
 var app = builder.Build();
