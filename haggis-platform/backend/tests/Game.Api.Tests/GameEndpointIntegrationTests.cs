@@ -28,23 +28,75 @@ public class GameEndpointIntegrationTests
     public async Task GameEndpoint_WhenCommandSent_BroadcastsAppliedEventToConnectedClients()
     {
         await using var factory = new WebApplicationFactory<Program>();
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeoutCts.Token;
 
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
 
-        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/games/game-9"), CancellationToken.None);
-        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/games/game-9"), CancellationToken.None);
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/games/game-9"), cancellationToken);
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/games/game-9"), cancellationToken);
 
-        await SendTextAsync(socketA, "{\"type\":\"Command\",\"command\":{\"type\":\"Play\",\"playerId\":\"alice\",\"payload\":{\"card\":\"A\"}}}", CancellationToken.None);
+        // Initialize game first so the next Play command is valid for Haggis engine.
+        await SendTextAsync(socketA,
+            JsonSerializer.Serialize(new
+            {
+                type = "Command",
+                command = new
+                {
+                    type = "Initialize",
+                    playerId = "alice",
+                    payload = new
+                    {
+                        players = new[] { "alice", "bob", "carol" },
+                        seed = 123
+                    }
+                }
+            }),
+            cancellationToken);
 
-        var messageA = await ReceiveTextAsync(socketA, CancellationToken.None);
-        var messageB = await ReceiveTextAsync(socketB, CancellationToken.None);
+        var initializeMessageA = await ReceiveTextAsync(socketA, cancellationToken);
+        var initializeMessageB = await ReceiveTextAsync(socketB, cancellationToken);
 
-        AssertAppliedEvent(messageA, expectedOrderPointer: 1, expectedGameId: "game-9", expectedVersion: 1, expectedPlayerId: "alice", expectedCommandType: "Play");
-        AssertAppliedEvent(messageB, expectedOrderPointer: 1, expectedGameId: "game-9", expectedVersion: 1, expectedPlayerId: "alice", expectedCommandType: "Play");
+        AssertAppliedEvent(initializeMessageA, expectedOrderPointer: 1, expectedGameId: "game-9", expectedVersion: 1, expectedPlayerId: "alice", expectedCommandType: "Initialize");
+        AssertAppliedEvent(initializeMessageB, expectedOrderPointer: 1, expectedGameId: "game-9", expectedVersion: 1, expectedPlayerId: "alice", expectedCommandType: "Initialize");
 
-        await socketA.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
-        await socketB.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+        using var initializedDoc = JsonDocument.Parse(initializeMessageA);
+        var initializedStateData = initializedDoc.RootElement.GetProperty("State").GetProperty("Data");
+        var currentPlayerId = initializedStateData.GetProperty("currentPlayerId").GetString();
+        Assert.That(currentPlayerId, Is.Not.Null.And.Not.Empty);
+
+        var chosenPlay = initializedStateData.GetProperty("possibleActions")
+            .EnumerateArray()
+            .First(x => x.GetProperty("type").GetString() == "Play")
+            .GetProperty("action")
+            .GetString();
+        Assert.That(chosenPlay, Is.Not.Null.And.Not.Empty);
+
+        await SendTextAsync(socketA,
+            JsonSerializer.Serialize(new
+            {
+                type = "Command",
+                command = new
+                {
+                    type = "Play",
+                    playerId = currentPlayerId,
+                    payload = new
+                    {
+                        action = chosenPlay
+                    }
+                }
+            }),
+            cancellationToken);
+
+        var messageA = await ReceiveTextAsync(socketA, cancellationToken);
+        var messageB = await ReceiveTextAsync(socketB, cancellationToken);
+
+        AssertAppliedEvent(messageA, expectedOrderPointer: 2, expectedGameId: "game-9", expectedVersion: 2, expectedPlayerId: currentPlayerId!, expectedCommandType: "Play");
+        AssertAppliedEvent(messageB, expectedOrderPointer: 2, expectedGameId: "game-9", expectedVersion: 2, expectedPlayerId: currentPlayerId!, expectedCommandType: "Play");
+
+        await socketA.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", cancellationToken);
+        await socketB.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", cancellationToken);
     }
 
     [Test]

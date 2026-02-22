@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Game.Engine\HaggisDotNetStandard\Haggis.csproj" />
+    <ProjectReference Include="..\Game.Core\Game.Core.csproj" />
   </ItemGroup>
 
 </Project>

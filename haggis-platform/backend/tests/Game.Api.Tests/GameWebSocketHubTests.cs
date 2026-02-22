@@ -3,6 +3,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Haggis.API.Services.Engine;
+using Haggis.API.Services.Engine.Haggis;
 using Haggis.API.Services.Hubs;
 using Haggis.API.Services.Sessions;
 using NUnit.Framework;
@@ -83,7 +84,10 @@ public class GameWebSocketHubTests
 
     private static GameWebSocketHub CreateHub()
     {
-        var engine = new HaggisGameEngine();
+        var gameLoop = new HaggisServerGameLoop(
+            new HaggisAiMoveStrategy(),
+            new HaggisMoveRuleValidator());
+        var engine = new HaggisGameEngine(gameLoop);
         var store = new GameSessionStore(engine);
         return new GameWebSocketHub(store);
     }

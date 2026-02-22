@@ -1,7 +1,6 @@
 ﻿using Haggis.Interfaces;
 using Haggis.StartingTrickFilterStrategies;
 using Haggis.Strategies;
-using SBWinCrypt;
 using System;
 using System.Collections.Generic;
 

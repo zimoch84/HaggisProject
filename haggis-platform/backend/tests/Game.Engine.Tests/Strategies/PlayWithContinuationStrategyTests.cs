@@ -86,7 +86,7 @@ namespace HaggisTests.Strategies
             AIPlayer slawek = new AIPlayer("SławekAI");
             AIPlayer robert = new AIPlayer("RobertAIs");
 
-            var game = new HaggisGame(new List<IHaggisPlayer>{piotr,slawek,robert});
+           
 
             piotr.PlayStrategy = new ContinuationStrategy(false, true);
             slawek.PlayStrategy = new ContinuationStrategy(false, true);
@@ -96,6 +96,9 @@ namespace HaggisTests.Strategies
             slawek.StartingTrickFilterStrategy = new FilterContinuations(8, false);
             robert.StartingTrickFilterStrategy = new FilterContinuations(8, false);
 
+
+            var game = new HaggisGame(new List<IHaggisPlayer>{piotr,slawek,robert});
+            game.NewRound();
 
             var gameState = new HaggisGameState(new List<IHaggisPlayer> { piotr, slawek, robert });
 

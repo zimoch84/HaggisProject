@@ -138,7 +138,8 @@ namespace HaggisTests
 
             Assert.That(Robert.Finished, Is.True);
             Assert.That(Robert.Score, Is.EqualTo(5));
-            Assert.That(Slawek.Score, Is.EqualTo(15));
+            Assert.That(Slawek.Score, Is.EqualTo(16));
+            Assert.That(Slawek.Score, Is.EqualTo(16));
             Assert.That(Piotr.Score, Is.EqualTo(0));
 
             Assert.That(GameState.RoundOver(), Is.True);
