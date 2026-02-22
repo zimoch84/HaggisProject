@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Game.API\Game.API.csproj" />
+    <ProjectReference Include="..\..\src\Haggis.API\Haggis.API.csproj" />
   </ItemGroup>
 
 </Project>

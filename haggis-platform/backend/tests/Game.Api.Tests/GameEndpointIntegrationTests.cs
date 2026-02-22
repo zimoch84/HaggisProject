@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using NUnit.Framework;
 
-namespace Game.API.Tests;
+namespace Haggis.API.Tests;
 
 [TestFixture]
 public class GameEndpointIntegrationTests
@@ -89,6 +89,75 @@ public class GameEndpointIntegrationTests
         Assert.That(state.GetProperty("Version").GetInt64(), Is.EqualTo(6));
         Assert.That(state.GetProperty("Data").GetProperty("round").GetInt32(), Is.EqualTo(2));
         Assert.That(state.GetProperty("Data").GetProperty("phase").GetString(), Is.EqualTo("trick"));
+
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+    }
+
+    [Test]
+    public async Task GameEndpoint_HaggisInitializeAndPlay_UsesEngineState()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-haggis"), CancellationToken.None);
+
+        await SendTextAsync(socket,
+            JsonSerializer.Serialize(new
+            {
+                type = "Command",
+                command = new
+                {
+                    type = "Initialize",
+                    playerId = "alice",
+                    payload = new
+                    {
+                        players = new[] { "alice", "bob", "carol" },
+                        seed = 123
+                    }
+                }
+            }),
+            CancellationToken.None);
+
+        var initializedPayload = await ReceiveTextAsync(socket, CancellationToken.None);
+        using var initializedDoc = JsonDocument.Parse(initializedPayload);
+        var initializedStateData = initializedDoc.RootElement.GetProperty("State").GetProperty("Data");
+
+        Assert.That(initializedStateData.GetProperty("game").GetString(), Is.EqualTo("haggis"));
+
+        var currentPlayerId = initializedStateData.GetProperty("currentPlayerId").GetString();
+        Assert.That(currentPlayerId, Is.Not.Null.And.Not.Empty);
+
+        var chosenPlay = initializedStateData.GetProperty("possibleActions")
+            .EnumerateArray()
+            .First(x => x.GetProperty("type").GetString() == "Play")
+            .GetProperty("action")
+            .GetString();
+        Assert.That(chosenPlay, Is.Not.Null.And.Not.Empty);
+
+        await SendTextAsync(socket,
+            JsonSerializer.Serialize(new
+            {
+                type = "Command",
+                command = new
+                {
+                    type = "Play",
+                    playerId = currentPlayerId,
+                    payload = new
+                    {
+                        action = chosenPlay
+                    }
+                }
+            }),
+            CancellationToken.None);
+
+        var playedPayload = await ReceiveTextAsync(socket, CancellationToken.None);
+        using var playedDoc = JsonDocument.Parse(playedPayload);
+        var playedRoot = playedDoc.RootElement;
+
+        Assert.That(playedRoot.GetProperty("Type").GetString(), Is.EqualTo("CommandApplied"));
+        Assert.That(playedRoot.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(2));
+        Assert.That(playedRoot.GetProperty("State").GetProperty("Version").GetInt64(), Is.EqualTo(2));
+        Assert.That(playedRoot.GetProperty("State").GetProperty("Data").GetProperty("game").GetString(), Is.EqualTo("haggis"));
 
         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
     }

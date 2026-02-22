@@ -2,10 +2,10 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using Game.API.Services.Interfaces;
-using Game.API.Services.Models;
+using Haggis.API.Services.Interfaces;
+using Haggis.API.Services.Models;
 
-namespace Game.API.Services.Hubs;
+namespace Haggis.API.Services.Hubs;
 
 public sealed class GameWebSocketHub
 {

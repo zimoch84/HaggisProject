@@ -2,12 +2,12 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Haggis.Interfaces;
 using Haggis.Model;
-using Game.API.Services.Interfaces;
-using Game.API.Services.Models;
+using Haggis.API.Services.Interfaces;
+using Haggis.API.Services.Models;
 
-namespace Game.API.Services.Engine;
+namespace Haggis.API.Services.Engine;
 
-public sealed class GenericGameEngine : IGameEngine
+public sealed class HaggisGameEngine : IGameEngine
 {
     private readonly ConcurrentDictionary<string, HaggisGameState> _haggisStates = new();
 

@@ -2,12 +2,12 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using Game.API.Services.Engine;
-using Game.API.Services.Hubs;
-using Game.API.Services.Sessions;
+using Haggis.API.Services.Engine;
+using Haggis.API.Services.Hubs;
+using Haggis.API.Services.Sessions;
 using NUnit.Framework;
 
-namespace Game.API.Tests;
+namespace Haggis.API.Tests;
 
 [TestFixture]
 public class GameWebSocketHubTests
@@ -83,7 +83,7 @@ public class GameWebSocketHubTests
 
     private static GameWebSocketHub CreateHub()
     {
-        var engine = new GenericGameEngine();
+        var engine = new HaggisGameEngine();
         var store = new GameSessionStore(engine);
         return new GameWebSocketHub(store);
     }
