@@ -1,8 +1,8 @@
-﻿using static Haggis.Enums.Suit;
-using static Haggis.Enums.Rank;
-using Haggis.Extentions;
-using Haggis.Enums;
-using Haggis.Model;
+using static Haggis.Domain.Enums.Suit;
+using static Haggis.Domain.Enums.Rank;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Enums;
+using Haggis.Domain.Model;
 using NUnit.Framework;
 
 namespace HaggisTests

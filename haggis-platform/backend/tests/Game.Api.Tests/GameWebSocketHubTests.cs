@@ -2,13 +2,14 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using Haggis.API.Services.Engine;
-using Haggis.API.Services.Engine.Haggis;
-using Haggis.API.Services.Hubs;
-using Haggis.API.Services.Sessions;
+using Haggis.Infrastructure.Services.Application;
+using Haggis.Infrastructure.Services.Engine;
+using Haggis.Infrastructure.Services.Engine.Haggis;
+using Haggis.Infrastructure.Services.Hubs;
+using Haggis.Infrastructure.Services.Infrastructure.Sessions;
 using NUnit.Framework;
 
-namespace Haggis.API.Tests;
+namespace Haggis.Infrastructure.Tests;
 
 [TestFixture]
 public class GameWebSocketHubTests
@@ -17,7 +18,7 @@ public class GameWebSocketHubTests
     public async Task HandleClientAsync_BroadcastsAppliedCommandToClientsInSameGame()
     {
         var senderSocket = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Play\",\"playerId\":\"p1\",\"payload\":{}}}", delayMs: 50),
+            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}", delayMs: 50),
             FakeWebSocket.Close());
 
         var receiverSocket = FakeWebSocket.FromClientMessages(FakeWebSocket.Close(delayMs: 250));
@@ -35,15 +36,15 @@ public class GameWebSocketHubTests
         Assert.That(payload.RootElement.GetProperty("Type").GetString(), Is.EqualTo("CommandApplied"));
         Assert.That(payload.RootElement.GetProperty("GameId").GetString(), Is.EqualTo("game-1"));
         Assert.That(payload.RootElement.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(1));
-        Assert.That(payload.RootElement.GetProperty("Command").GetProperty("Type").GetString(), Is.EqualTo("Play"));
+        Assert.That(payload.RootElement.GetProperty("Command").GetProperty("Type").GetString(), Is.EqualTo("Initialize"));
     }
 
     [Test]
     public async Task HandleClientAsync_IncrementsOrderPointerPerGame()
     {
         var senderSocket = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Play\",\"playerId\":\"p1\",\"payload\":{}}}", delayMs: 50),
-            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Pass\",\"playerId\":\"p2\",\"payload\":{}}}"),
+            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}", delayMs: 50),
+            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":456}}}"),
             FakeWebSocket.Close());
 
         var hub = CreateHub();
@@ -64,7 +65,7 @@ public class GameWebSocketHubTests
     public async Task HandleClientAsync_DoesNotBroadcastAcrossDifferentGames()
     {
         var senderGameA = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Play\",\"playerId\":\"p1\",\"payload\":{}}}", delayMs: 50),
+            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}", delayMs: 50),
             FakeWebSocket.Close());
 
         var receiverGameA = FakeWebSocket.FromClientMessages(FakeWebSocket.Close(delayMs: 250));
@@ -89,7 +90,8 @@ public class GameWebSocketHubTests
             new HaggisMoveRuleValidator());
         var engine = new HaggisGameEngine(gameLoop);
         var store = new GameSessionStore(engine);
-        return new GameWebSocketHub(store);
+        var appService = new GameCommandApplicationService(store);
+        return new GameWebSocketHub(appService);
     }
 
     private sealed class FakeWebSocket : WebSocket

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using NUnit.Framework;
 
-namespace Haggis.API.Tests;
+namespace Haggis.Infrastructure.Tests;
 
 [TestFixture]
 public class GameEndpointIntegrationTests
@@ -103,20 +103,64 @@ public class GameEndpointIntegrationTests
     public async Task GameEndpoint_OrderPointerAndStateVersionIncreaseForSubsequentCommands()
     {
         await using var factory = new WebApplicationFactory<Program>();
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeoutCts.Token;
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-42"), CancellationToken.None);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-42"), cancellationToken);
 
-        await SendTextAsync(socket, "{\"type\":\"Command\",\"command\":{\"type\":\"Play\",\"playerId\":\"p1\",\"payload\":{\"card\":\"Q\"}}}", CancellationToken.None);
-        await SendTextAsync(socket, "{\"type\":\"Command\",\"command\":{\"type\":\"Pass\",\"playerId\":\"p2\",\"payload\":{}}}", CancellationToken.None);
+        await SendTextAsync(socket,
+            JsonSerializer.Serialize(new
+            {
+                type = "Command",
+                command = new
+                {
+                    type = "Initialize",
+                    playerId = "alice",
+                    payload = new
+                    {
+                        players = new[] { "alice", "bob", "carol" },
+                        seed = 321
+                    }
+                }
+            }),
+            cancellationToken);
 
-        var first = await ReceiveTextAsync(socket, CancellationToken.None);
-        var second = await ReceiveTextAsync(socket, CancellationToken.None);
+        var first = await ReceiveTextAsync(socket, cancellationToken);
+        using var firstDoc = JsonDocument.Parse(first);
+        var firstStateData = firstDoc.RootElement.GetProperty("State").GetProperty("Data");
+        var currentPlayerId = firstStateData.GetProperty("currentPlayerId").GetString();
+        Assert.That(currentPlayerId, Is.Not.Null.And.Not.Empty);
 
-        AssertAppliedEvent(first, expectedOrderPointer: 1, expectedGameId: "game-42", expectedVersion: 1, expectedPlayerId: "p1", expectedCommandType: "Play");
-        AssertAppliedEvent(second, expectedOrderPointer: 2, expectedGameId: "game-42", expectedVersion: 2, expectedPlayerId: "p2", expectedCommandType: "Pass");
+        var chosenAction = firstStateData.GetProperty("possibleActions")
+            .EnumerateArray()
+            .First();
+        var secondCommandType = chosenAction.GetProperty("type").GetString();
+        Assert.That(secondCommandType, Is.Not.Null.And.Not.Empty);
 
-        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+        object secondPayload = secondCommandType == "Pass"
+            ? new { }
+            : new { action = chosenAction.GetProperty("action").GetString() };
+
+        await SendTextAsync(socket,
+            JsonSerializer.Serialize(new
+            {
+                type = "Command",
+                command = new
+                {
+                    type = secondCommandType,
+                    playerId = currentPlayerId,
+                    payload = secondPayload
+                }
+            }),
+            cancellationToken);
+
+        var second = await ReceiveTextAsync(socket, cancellationToken);
+
+        AssertAppliedEvent(first, expectedOrderPointer: 1, expectedGameId: "game-42", expectedVersion: 1, expectedPlayerId: "alice", expectedCommandType: "Initialize");
+        AssertAppliedEvent(second, expectedOrderPointer: 2, expectedGameId: "game-42", expectedVersion: 2, expectedPlayerId: currentPlayerId!, expectedCommandType: secondCommandType!);
+
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", cancellationToken);
     }
 
     [Test]

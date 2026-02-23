@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Game.Engine\HaggisDotNetStandard\Haggis.csproj" />
+    <ProjectReference Include="..\Haggis.Domain\Haggis.Domain.csproj" />
   </ItemGroup>
 
 </Project>

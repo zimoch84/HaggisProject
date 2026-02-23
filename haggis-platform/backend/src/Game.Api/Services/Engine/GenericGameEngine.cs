@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using Haggis.Interfaces;
-using Haggis.Model;
+using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
 using Game.API.Services.Interfaces;
 using Game.API.Services.Models;
 

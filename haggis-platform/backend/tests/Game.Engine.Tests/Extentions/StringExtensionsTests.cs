@@ -1,7 +1,7 @@
-ï»¿using NUnit.Framework;
-using Haggis.Extentions;
-using Haggis.Enums;
-using Haggis.Model;
+using NUnit.Framework;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Enums;
+using Haggis.Domain.Model;
 using System;
 using System.Collections.Generic;
 
@@ -59,13 +59,13 @@ namespace HaggisTests
 
             var cards = "[2O|3O|4O|6B|6G|7Y|7G|7O|8G|9B|9R|10O|10Y|10B|J|Q|K]".ToCards();
 
-            Assert.That(cards, Is.InstanceOf<List<Card>>()); // SprawdÅº, czy jest listÄ… Card
-            Assert.That(cards.Count, Is.GreaterThan(0)); // SprawdÅº, czy lista nie jest pusta
+            Assert.That(cards, Is.InstanceOf<List<Card>>()); // SprawdŸ, czy jest list¹ Card
+            Assert.That(cards.Count, Is.GreaterThan(0)); // SprawdŸ, czy lista nie jest pusta
 
-            // Sprawdzenie zawartoÅ›ci listy, moÅ¼esz dodaÄ‡ wiÄ™cej asercji w zaleÅ¼noÅ›ci od oczekiwaÅ„
-            Assert.That(cards[0], Is.EqualTo(new Card(Rank.TWO, Suit.ORANGE))); // PrzykÅ‚ad - sprawdÅº pierwszÄ… kartÄ™
-            Assert.That(cards[1], Is.EqualTo(new Card(Rank.THREE, Suit.ORANGE))); // SprawdÅº drugÄ… kartÄ™
-            Assert.That(cards[2], Is.EqualTo(new Card(Rank.FOUR, Suit.ORANGE))); // SprawdÅº trzeciÄ… kartÄ™
+            // Sprawdzenie zawartoœci listy, mo¿esz dodaæ wiêcej asercji w zale¿noœci od oczekiwañ
+            Assert.That(cards[0], Is.EqualTo(new Card(Rank.TWO, Suit.ORANGE))); // Przyk³ad - sprawdŸ pierwsz¹ kartê
+            Assert.That(cards[1], Is.EqualTo(new Card(Rank.THREE, Suit.ORANGE))); // SprawdŸ drug¹ kartê
+            Assert.That(cards[2], Is.EqualTo(new Card(Rank.FOUR, Suit.ORANGE))); // SprawdŸ trzeci¹ kartê
         }
 
     }

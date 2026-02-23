@@ -1,9 +1,10 @@
-﻿using Haggis.Interfaces;
-using Haggis.Model;
-using Haggis.StartingTrickFilterStrategies;
-using Haggis.Strategies;
+﻿using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
+using Haggis.AI.StartingTrickFilterStrategies;
+using Haggis.AI.Strategies;
+using Haggis.AI.Model;
 
-InitConsole.Apply();  // ✔ powiększenie konsoli
+InitConsole.Apply();  // ? powiększenie konsoli
 
 var piotr = new HaggisPlayer("Piotr");
 
@@ -31,3 +32,4 @@ var players = new List<IHaggisPlayer>() { piotr, slawek, robert };
 
 
 new GameLoop(players).Run();
+

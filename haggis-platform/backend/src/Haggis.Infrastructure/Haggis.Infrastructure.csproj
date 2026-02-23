@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Haggis.Domain\Haggis.Domain.csproj" />
+    <ProjectReference Include="..\Haggis.Application\Haggis.Application.csproj" />
+    <ProjectReference Include="..\Haggis.AI\Haggis.AI.csproj" />
+  </ItemGroup>
+
+</Project>

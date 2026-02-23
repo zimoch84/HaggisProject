@@ -1,5 +1,5 @@
-﻿using Haggis.Interfaces;
-using Haggis.Model;
+using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
 using System.Collections.Generic;
 
 namespace HaggisTests
@@ -23,28 +23,28 @@ namespace HaggisTests
         public void MinimalDeck() {
 
             Cards = new List<Card>();
-            Cards.Add(new Card(Haggis.Enums.Rank.TWO, Haggis.Enums.Suit.RED));
-            Cards.Add(new Card(Haggis.Enums.Rank.THREE, Haggis.Enums.Suit.RED));
-            Cards.Add(new Card(Haggis.Enums.Rank.FOUR, Haggis.Enums.Suit.RED));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.TWO, Haggis.Domain.Enums.Suit.RED));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.THREE, Haggis.Domain.Enums.Suit.RED));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.FOUR, Haggis.Domain.Enums.Suit.RED));
 
 
-            Cards.Add(new Card(Haggis.Enums.Rank.TWO, Haggis.Enums.Suit.GREEN));
-            Cards.Add(new Card(Haggis.Enums.Rank.THREE, Haggis.Enums.Suit.GREEN));
-            Cards.Add(new Card(Haggis.Enums.Rank.FOUR, Haggis.Enums.Suit.GREEN));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.TWO, Haggis.Domain.Enums.Suit.GREEN));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.THREE, Haggis.Domain.Enums.Suit.GREEN));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.FOUR, Haggis.Domain.Enums.Suit.GREEN));
            
 
-            Cards.Add(new Card(Haggis.Enums.Rank.TWO, Haggis.Enums.Suit.ORANGE));
-            Cards.Add(new Card(Haggis.Enums.Rank.THREE, Haggis.Enums.Suit.ORANGE));
-            Cards.Add(new Card(Haggis.Enums.Rank.FOUR, Haggis.Enums.Suit.ORANGE));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.TWO, Haggis.Domain.Enums.Suit.ORANGE));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.THREE, Haggis.Domain.Enums.Suit.ORANGE));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.FOUR, Haggis.Domain.Enums.Suit.ORANGE));
            
 
-            Cards.Add(new Card(Haggis.Enums.Rank.TWO, Haggis.Enums.Suit.YELLOW));
-            Cards.Add(new Card(Haggis.Enums.Rank.THREE, Haggis.Enums.Suit.YELLOW));
-            Cards.Add(new Card(Haggis.Enums.Rank.FOUR, Haggis.Enums.Suit.YELLOW));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.TWO, Haggis.Domain.Enums.Suit.YELLOW));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.THREE, Haggis.Domain.Enums.Suit.YELLOW));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.FOUR, Haggis.Domain.Enums.Suit.YELLOW));
 
-            Cards.Add(new Card(Haggis.Enums.Rank.TWO, Haggis.Enums.Suit.BLACK));
-            Cards.Add(new Card(Haggis.Enums.Rank.THREE, Haggis.Enums.Suit.BLACK));
-            Cards.Add(new Card(Haggis.Enums.Rank.FOUR, Haggis.Enums.Suit.BLACK));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.TWO, Haggis.Domain.Enums.Suit.BLACK));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.THREE, Haggis.Domain.Enums.Suit.BLACK));
+            Cards.Add(new Card(Haggis.Domain.Enums.Rank.FOUR, Haggis.Domain.Enums.Suit.BLACK));
 
         }
 

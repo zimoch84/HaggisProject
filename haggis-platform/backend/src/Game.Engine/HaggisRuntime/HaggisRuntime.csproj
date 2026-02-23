@@ -8,7 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HaggisDotNetStandard\Haggis.csproj" />
+    <ProjectReference Include="..\..\Haggis.Domain\Haggis.Domain.csproj" />
+    <ProjectReference Include="..\..\Haggis.AI\Haggis.AI.csproj" />
   </ItemGroup>
 
   <ItemGroup>

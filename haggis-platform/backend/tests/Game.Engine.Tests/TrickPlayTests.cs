@@ -1,6 +1,6 @@
-﻿using Haggis.Enums;
-using Haggis.Extentions;
-using Haggis.Model;
+using Haggis.Domain.Enums;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Model;
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -22,7 +22,7 @@ namespace HaggisTests
 
 
             Piotr = new HaggisPlayer("Piotr");
-            Slawek = new HaggisPlayer("Sławek");
+            Slawek = new HaggisPlayer("S�awek");
             Robert = new HaggisPlayer("Robert");
 
             Piotr.Hand = new List<String> { "2Y", "3Y" }.ToCards();
@@ -94,7 +94,7 @@ namespace HaggisTests
 
             //Play Bomb
             trickPlay.AddAction(
-                HaggisAction.FromTrick(new Trick(Haggis.Enums.TrickType.BOMB, new string[] { "3Y", "5O", "7R", "9B" }.ToCards()), Slawek));
+                HaggisAction.FromTrick(new Trick(Haggis.Domain.Enums.TrickType.BOMB, new string[] { "3Y", "5O", "7R", "9B" }.ToCards()), Slawek));
 
             trickPlay.AddAction(HaggisAction.Pass(Robert));
             Assert.That(trickPlay.IsEndingPass(), Is.False);
@@ -114,10 +114,10 @@ namespace HaggisTests
 
             //Play Bomb
             trickPlay.AddAction(
-                HaggisAction.FromTrick(new Trick(Haggis.Enums.TrickType.BOMB, new string[] { "3Y", "5O", "7R", "9B" }.ToCards()), Slawek));
+                HaggisAction.FromTrick(new Trick(Haggis.Domain.Enums.TrickType.BOMB, new string[] { "3Y", "5O", "7R", "9B" }.ToCards()), Slawek));
 
             trickPlay.AddAction(
-                HaggisAction.FromTrick(new Trick(Haggis.Enums.TrickType.BOMB, new string[] { "3O", "5O", "7O", "9O" }.ToCards()), Robert));
+                HaggisAction.FromTrick(new Trick(Haggis.Domain.Enums.TrickType.BOMB, new string[] { "3O", "5O", "7O", "9O" }.ToCards()), Robert));
             Assert.That(trickPlay.IsEndingPass(), Is.False);
 
             trickPlay.AddAction(HaggisAction.Pass(Piotr));
@@ -133,7 +133,7 @@ namespace HaggisTests
         {
 
             var trickPlay = new TrickPlay(3);
-            trickPlay.AddAction(HaggisAction.FromTrick(new Trick(Haggis.Enums.TrickType.BOMB, new string[] { "3Y", "5O", "7R", "9B" }.ToCards()), Piotr)
+            trickPlay.AddAction(HaggisAction.FromTrick(new Trick(Haggis.Domain.Enums.TrickType.BOMB, new string[] { "3Y", "5O", "7R", "9B" }.ToCards()), Piotr)
                 );
 
             trickPlay.AddAction(HaggisAction.Pass(Slawek));
@@ -181,7 +181,7 @@ namespace HaggisTests
         {
 
             Piotr = new HaggisPlayer("Piotr");
-            Slawek = new HaggisPlayer("Sławek");
+            Slawek = new HaggisPlayer("S�awek");
             Robert = new HaggisPlayer("Robert");
 
             Piotr.Hand = new List<Card>();
@@ -208,7 +208,7 @@ namespace HaggisTests
         {
 
             Piotr = new HaggisPlayer("Piotr");
-            Slawek = new HaggisPlayer("Sławek");
+            Slawek = new HaggisPlayer("S�awek");
             Robert = new HaggisPlayer("Robert");
 
             Piotr.Hand = new List<Card>();
@@ -236,7 +236,7 @@ namespace HaggisTests
         {
 
             Piotr = new HaggisPlayer("Piotr");
-            Slawek = new HaggisPlayer("Sławek");
+            Slawek = new HaggisPlayer("S�awek");
             Robert = new HaggisPlayer("Robert");
 
             Piotr.Hand = new List<Card>();
@@ -263,7 +263,7 @@ namespace HaggisTests
         {
 
             Piotr = new HaggisPlayer("Piotr");
-            Slawek = new HaggisPlayer("Sławek");
+            Slawek = new HaggisPlayer("S�awek");
             Robert = new HaggisPlayer("Robert");
 
             Piotr.Hand = new List<Card>();

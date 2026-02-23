@@ -1,8 +1,8 @@
 using System;
 using NUnit.Framework;
-using Haggis.Model;
-using Haggis.Extentions;
-using Haggis.Enums;
+using Haggis.Domain.Model;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Enums;
 using System.Collections.Generic;
 
 namespace HaggisTests.Extentions

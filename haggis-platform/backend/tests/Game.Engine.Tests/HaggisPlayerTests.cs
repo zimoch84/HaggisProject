@@ -1,8 +1,8 @@
-﻿using NUnit.Framework;
-using Haggis.Extentions;
-using Haggis.Enums;
-using Haggis.Model;
-using Haggis.Interfaces;
+using NUnit.Framework;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Enums;
+using Haggis.Domain.Model;
+using Haggis.Domain.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +14,7 @@ namespace HaggisTests
     {
 
         IHaggisPlayer Piotr = new HaggisPlayer("Piotr");
-        IHaggisPlayer Slawek = new HaggisPlayer("Sławek");
+        IHaggisPlayer Slawek = new HaggisPlayer("S�awek");
         IHaggisPlayer Robert = new HaggisPlayer("Robert");
 
         List<IHaggisPlayer> players;
