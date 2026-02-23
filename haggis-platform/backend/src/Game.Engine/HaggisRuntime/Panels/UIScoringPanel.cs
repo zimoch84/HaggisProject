@@ -1,5 +1,5 @@
-ï»¿using Haggis.Interfaces;
-using Haggis.Model;
+using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
 
 public class UIScoringPanel : PanelRegionBase
 {
@@ -20,7 +20,7 @@ public class UIScoringPanel : PanelRegionBase
 
             IsVisible = true;
 
-            // zawartoÅ›Ä‡: lista graczy i wyniki (w TextBuffer zapisujemy zawartoÅ›Ä‡ wnÄ™trza regionu)
+            // zawartoœæ: lista graczy i wyniki (w TextBuffer zapisujemy zawartoœæ wnêtrza regionu)
             int maxLines = TextBuffer.Height;
             var players = state?.Players ?? Enumerable.Empty<IHaggisPlayer>();
             int line = 0;
@@ -43,7 +43,7 @@ public class UIScoringPanel : PanelRegionBase
                 line++;
             }
 
-            // jeÅ›li brak graczy to info
+            // jeœli brak graczy to info
             if (!players.Any())
             {
                 TextBuffer.WriteLine("Brak graczy".PadRight(Math.Max(0, TextBuffer.Width)));
@@ -52,7 +52,7 @@ public class UIScoringPanel : PanelRegionBase
         }
         catch
         {
-            // bezpieczne ignorowanie bÅ‚Ä™dÃ³w rysowania
+            // bezpieczne ignorowanie b³êdów rysowania
         }
     }
 }

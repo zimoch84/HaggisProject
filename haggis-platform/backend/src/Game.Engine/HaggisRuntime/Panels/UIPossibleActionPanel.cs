@@ -1,4 +1,5 @@
-using Haggis.Model;
+ï»¿using Haggis.Domain.Model;
+using Haggis.AI.Model;
 
 public class UIPossibleActionPanel : PanelRegionBase
 {
@@ -34,7 +35,7 @@ public class UIPossibleActionPanel : PanelRegionBase
         }
         else
         {
-            // wype³nij lew¹ kolumnê do wysokoœci, potem resztê do prawej
+            // wypeÅ‚nij lewÄ… kolumnÄ™ do wysokoÅ›ci, potem resztÄ™ do prawej
             int idx = 0;
             leftLines.Add("Possible Actions:");
             while (idx < actions.Count && leftLines.Count < TextBuffer.Height)
@@ -56,7 +57,7 @@ public class UIPossibleActionPanel : PanelRegionBase
             }
         }
 
-        // Zbuduj finalne wiersze ³¹cz¹c kolumny
+        // Zbuduj finalne wiersze Å‚Ä…czÄ…c kolumny
         int maxLines = Math.Max(leftLines.Count, rightLines.Count);
         for (int i = 0; i < maxLines && i < TextBuffer.Height; i++)
         {

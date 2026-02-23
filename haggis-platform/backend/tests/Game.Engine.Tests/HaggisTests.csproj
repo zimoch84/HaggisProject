@@ -14,7 +14,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\\..\\src\\Game.Engine\\HaggisDotNetStandard\\Haggis.csproj" />
+    <ProjectReference Include="..\\..\\src\\Haggis.Domain\\Haggis.Domain.csproj" />
+    <ProjectReference Include="..\\..\\src\\Haggis.AI\\Haggis.AI.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-﻿namespace HaggisTests.Extentions
+namespace HaggisTests.Extentions
 {
     internal class CollectionExtentionsTests
     {

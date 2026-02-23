@@ -1,5 +1,5 @@
-ï»¿using System;
-using Haggis.Model;
+using System;
+using Haggis.Domain.Model;
 
 public class UIInput : PanelRegionBase
 {
@@ -14,10 +14,10 @@ public class UIInput : PanelRegionBase
 
     public override void ApplyTextBuffer(HaggisGameState state)
     {
-        // DomyÅ›lny tekst (moÅ¼na rozbudowaÄ‡ o listÄ™ akcji itp.)
+        // Domyœlny tekst (mo¿na rozbudowaæ o listê akcji itp.)
         TextBuffer.Clear();
         int maxIndex = state.Actions.Count - 1;
-        _prompt = $"WprowadÅº numer [0..{maxIndex}]: ";
+        _prompt = $"WprowadŸ numer [0..{maxIndex}]: ";
         TextBuffer.Write(_prompt);
         
         
@@ -45,7 +45,7 @@ public class UIInput : PanelRegionBase
 
             if (string.IsNullOrWhiteSpace(input))
             {
-                TextBuffer.WriteLine("Nie podano Å¼adnego wejÅ›cia. SprÃ³buj ponownie.");
+                TextBuffer.WriteLine("Nie podano ¿adnego wejœcia. Spróbuj ponownie.");
                 this.DrawState(state);
                 continue;
             }
@@ -55,12 +55,12 @@ public class UIInput : PanelRegionBase
                 if (index >= 0 && index <= maxIndex)
                     return index;
 
-                TextBuffer.WriteLine($"Liczba spoza zakresu. Wybierz wartoÅ›Ä‡ od 0 do {maxIndex}.");
+                TextBuffer.WriteLine($"Liczba spoza zakresu. Wybierz wartoœæ od 0 do {maxIndex}.");
                 this.DrawState(state);
             }
             else
             {
-                TextBuffer.WriteLine("Niepoprawny format. WprowadÅº liczbÄ™ caÅ‚kowitÄ….");
+                TextBuffer.WriteLine("Niepoprawny format. WprowadŸ liczbê ca³kowit¹.");
                 this.DrawState(state);
             }
         }

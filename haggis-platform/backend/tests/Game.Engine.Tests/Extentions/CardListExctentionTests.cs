@@ -1,6 +1,6 @@
-锘縰sing Haggis.Enums;
-using Haggis.Extentions;
-using Haggis.Model;
+using Haggis.Domain.Enums;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Model;
 using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;
@@ -163,8 +163,8 @@ namespace HaggisTests
 
             var expectedTrick = new Trick(TrickType.PAIRSEQ2, new string[] { "3R", "3B", "4R", "4B" }.ToCards());
             Assert.That(result.Count, Is.EqualTo(1));
-            Assert.That(expectedTrick , Is.EqualTo(result[0])); //  dwie pary tr贸jek i czw贸rek
-            Assert.That(TrickType.PAIRSEQ2, Is.EqualTo(result[0].Type)); //  dwie pary tr贸jek i czw贸rek
+            Assert.That(expectedTrick , Is.EqualTo(result[0])); //  dwie pary tr骿ek i czw髍ek
+            Assert.That(TrickType.PAIRSEQ2, Is.EqualTo(result[0].Type)); //  dwie pary tr骿ek i czw髍ek
 
 
         }

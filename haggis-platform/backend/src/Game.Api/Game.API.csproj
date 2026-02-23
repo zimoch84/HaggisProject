@@ -6,4 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Haggis.Domain\Haggis.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

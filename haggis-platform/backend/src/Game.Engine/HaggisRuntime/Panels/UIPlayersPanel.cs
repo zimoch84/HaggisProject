@@ -1,4 +1,4 @@
-using Haggis.Model;
+using Haggis.Domain.Model;
 using System.Text;
 
 public class UIPlayersPanel : PanelRegionBase
