@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build HaggisRuntime",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/haggis-platform/backend/src/Game.Engine/HaggisRuntime/HaggisRuntime.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build Serwer.API",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/haggis-platform/backend/src/Serwer.API/Serwer.API.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build Game.API",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/haggis-platform/backend/src/Game.Api/Game.API.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}
