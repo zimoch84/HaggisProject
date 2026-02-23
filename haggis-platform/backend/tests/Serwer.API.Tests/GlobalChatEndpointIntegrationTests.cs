@@ -47,6 +47,45 @@ public class GlobalChatEndpointIntegrationTests
         await socketB.CloseAsync(WebSocketCloseStatus.NormalClosure, "Test finished", CancellationToken.None);
     }
 
+    [Test]
+    public async Task GlobalChatEndpoint_WhenPayloadInvalid_ReturnsProblemDetails()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+        var socketClient = factory.Server.CreateWebSocketClient();
+        using var socket = await socketClient.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+
+        await SendTextAsync(socket, "{\"playerId\":\"\",\"text\":\"hello\"}", CancellationToken.None);
+        var payload = await ReceiveTextAsync(socket, CancellationToken.None);
+
+        using var doc = JsonDocument.Parse(payload);
+        var root = doc.RootElement;
+        Assert.That(root.GetProperty("Title").GetString(), Is.EqualTo("Invalid chat payload."));
+        Assert.That(root.GetProperty("Status").GetInt32(), Is.EqualTo(400));
+    }
+
+    [Test]
+    public async Task GlobalChatEndpoint_WhenMultipleMessagesSent_PreservesOrderForReceiver()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+
+        var socketClientA = factory.Server.CreateWebSocketClient();
+        var socketClientB = factory.Server.CreateWebSocketClient();
+
+        using var socketA = await socketClientA.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        using var socketB = await socketClientB.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+
+        await SendTextAsync(socketA, "{\"playerId\":\"alice\",\"text\":\"first\"}", CancellationToken.None);
+        await SendTextAsync(socketA, "{\"playerId\":\"alice\",\"text\":\"second\"}", CancellationToken.None);
+
+        var firstPayload = await ReceiveTextAsync(socketB, CancellationToken.None);
+        var secondPayload = await ReceiveTextAsync(socketB, CancellationToken.None);
+
+        using var firstDoc = JsonDocument.Parse(firstPayload);
+        using var secondDoc = JsonDocument.Parse(secondPayload);
+        Assert.That(firstDoc.RootElement.GetProperty("Text").GetString(), Is.EqualTo("first"));
+        Assert.That(secondDoc.RootElement.GetProperty("Text").GetString(), Is.EqualTo("second"));
+    }
+
     private static async Task SendTextAsync(WebSocket socket, string text, CancellationToken cancellationToken)
     {
         var bytes = Encoding.UTF8.GetBytes(text);

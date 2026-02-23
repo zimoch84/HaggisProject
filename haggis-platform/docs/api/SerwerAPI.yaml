@@ -1,0 +1,142 @@
+﻿openapi: 3.0.3
+info:
+  title: Serwer API
+  version: 1.0.0
+  description: Uniwersalne API do zarzadzania pokojami gry (gameroom).
+servers:
+  - url: http://localhost:8080
+    description: Lokalny serwer HTTP
+
+paths:
+  /api/gamerooms:
+    post:
+      operationId: createGameRoom
+      summary: Tworzy pokoj gry i generuje gameId.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameRoomRequest'
+      responses:
+        '201':
+          description: Pokoj utworzony.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameRoomResponse'
+        '400':
+          description: Niepoprawne dane wejsciowe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    get:
+      operationId: listGameRooms
+      summary: Zwraca liste pokoi gry.
+      responses:
+        '200':
+          description: Lista pokoi.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GameRoomResponse'
+
+  /api/gamerooms/{roomId}/join:
+    post:
+      operationId: joinGameRoom
+      summary: Dolacza gracza do istniejacego pokoju.
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinGameRoomRequest'
+      responses:
+        '200':
+          description: Gracz dolaczyl do pokoju.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameRoomResponse'
+        '400':
+          description: Niepoprawne dane wejsciowe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Pokoj nie istnieje.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+components:
+  schemas:
+    CreateGameRoomRequest:
+      type: object
+      required: [gameType, hostPlayerId]
+      additionalProperties: false
+      properties:
+        gameType:
+          type: string
+          enum: [haggis]
+        hostPlayerId:
+          type: string
+          minLength: 1
+
+    JoinGameRoomRequest:
+      type: object
+      required: [playerId]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+
+    GameRoomResponse:
+      type: object
+      required: [roomId, gameId, gameType, createdAt, players, gameEndpoint]
+      additionalProperties: false
+      properties:
+        roomId:
+          type: string
+        gameId:
+          type: string
+        gameType:
+          type: string
+          enum: [haggis]
+        createdAt:
+          type: string
+          format: date-time
+        players:
+          type: array
+          items:
+            type: string
+        gameEndpoint:
+          type: string
+          description: Link do endpointu gry specyficznego dla gameType.
+          example: /games/8b8a8de7ac5e4fa88b610f44d6872f3d/actions
+
+    ProblemDetails:
+      type: object
+      required: [title, status]
+      properties:
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string

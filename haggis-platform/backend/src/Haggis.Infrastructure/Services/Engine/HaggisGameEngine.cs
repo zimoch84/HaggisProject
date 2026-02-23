@@ -46,6 +46,7 @@ public sealed class HaggisGameEngine : IGameEngine
                 id = player.Name,
                 score = player.Score,
                 handCount = player.Hand.Count,
+                hand = player.Hand.Select(card => card.ToString()),
                 finished = player.Finished
             }),
             trick = state.CurrentTrickPlay.Actions.Select(action => new

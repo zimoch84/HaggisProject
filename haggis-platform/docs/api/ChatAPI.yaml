@@ -27,6 +27,27 @@ channels:
           - $ref: '#/components/messages/ChatMessage'
           - $ref: '#/components/messages/ErrorMessage'
 
+  chat/rooms/{roomId}:
+    description: Czat pokojowy dla konkretnego roomId (przed, w trakcie i po grze).
+    parameters:
+      roomId:
+        description: Id pokoju gry.
+        schema:
+          type: string
+          minLength: 1
+    publish:
+      operationId: sendRoomChatMessage
+      summary: Klient wysyla wiadomosc czatu pokojowego.
+      message:
+        $ref: '#/components/messages/SendRoomChatMessageRequestMessage'
+    subscribe:
+      operationId: roomChatStream
+      summary: Serwer emituje wiadomosci czatu pokojowego albo blad.
+      message:
+        oneOf:
+          - $ref: '#/components/messages/RoomChatMessage'
+          - $ref: '#/components/messages/ErrorMessage'
+
 components:
   messages:
     SendChatMessageRequestMessage:
@@ -40,6 +61,18 @@ components:
       title: Chat message event
       payload:
         $ref: '#/components/schemas/ChatMessage'
+
+    SendRoomChatMessageRequestMessage:
+      name: SendRoomChatMessageRequestMessage
+      title: Send room chat message command
+      payload:
+        $ref: '#/components/schemas/SendRoomChatMessageRequest'
+
+    RoomChatMessage:
+      name: RoomChatMessage
+      title: Room chat message event
+      payload:
+        $ref: '#/components/schemas/RoomChatMessage'
 
     ErrorMessage:
       name: ErrorMessage
@@ -67,6 +100,36 @@ components:
       additionalProperties: false
       properties:
         messageId:
+          type: string
+        playerId:
+          type: string
+        text:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    SendRoomChatMessageRequest:
+      type: object
+      required: [playerId, text]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    RoomChatMessage:
+      type: object
+      required: [messageId, roomId, playerId, text, createdAt]
+      additionalProperties: false
+      properties:
+        messageId:
+          type: string
+        roomId:
           type: string
         playerId:
           type: string

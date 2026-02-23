@@ -18,7 +18,20 @@ app.UseWebSockets(new WebSocketOptions
 
 app.MapGet("/", () => "Game.API is running.");
 
-app.Map("/ws/games/{gameId}", async (HttpContext context, GameWebSocketHub hub, string gameId) =>
+app.Map("/games/create", async (HttpContext context, GameWebSocketHub hub) =>
+{
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsync("WebSocket connection expected.");
+        return;
+    }
+
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    await hub.HandleClientAsync(Guid.NewGuid().ToString("N"), socket, context.RequestAborted);
+});
+
+app.Map("/games/{gameId}/actions", async (HttpContext context, GameWebSocketHub hub, string gameId) =>
 {
     if (!context.WebSockets.IsWebSocketRequest)
     {

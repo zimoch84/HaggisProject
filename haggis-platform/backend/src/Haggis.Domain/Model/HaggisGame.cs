@@ -15,12 +15,15 @@ namespace Haggis.Domain.Model
         static Random r;
         private List<Card> _cards { get; }
         private readonly List<IHaggisPlayer> _players;
+        private readonly IHaggisScoringStrategy _scoringStrategy;
 
         private int _winScore = 250;
+        public IHaggisScoringStrategy ScoringStrategy => _scoringStrategy;
 
-        public HaggisGame(List<IHaggisPlayer> players)
+        public HaggisGame(List<IHaggisPlayer> players, IHaggisScoringStrategy scoringStrategy = null)
         {
             _players = players;
+            _scoringStrategy = scoringStrategy ?? new ClassicHaggisScoringStrategy();
             _cards = new List<Card>();
             _cards = AllCards();
             SetSeed(Environment.TickCount);

@@ -17,7 +17,7 @@ public class GameEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/ws/games/game-1");
+        using var response = await client.GetAsync("/games/game-1/actions");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -34,8 +34,8 @@ public class GameEndpointIntegrationTests
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
 
-        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/games/game-9"), cancellationToken);
-        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/games/game-9"), cancellationToken);
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/games/game-9/actions"), cancellationToken);
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/games/game-9/actions"), cancellationToken);
 
         // Initialize game first so the next Play command is valid for Haggis engine.
         await SendTextAsync(socketA,
@@ -107,7 +107,7 @@ public class GameEndpointIntegrationTests
         var cancellationToken = timeoutCts.Token;
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-42"), cancellationToken);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/games/game-42/actions"), cancellationToken);
 
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
@@ -169,7 +169,7 @@ public class GameEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-state"), CancellationToken.None);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/games/game-state/actions"), CancellationToken.None);
 
         await SendTextAsync(socket,
             "{\"type\":\"Command\",\"command\":{\"type\":\"Sync\",\"playerId\":\"p3\",\"payload\":{\"state\":{\"round\":2,\"phase\":\"trick\"}}},\"state\":{\"version\":5,\"data\":{\"round\":1},\"updatedAt\":\"2026-01-01T00:00:00Z\"}}",
@@ -195,7 +195,7 @@ public class GameEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-haggis"), CancellationToken.None);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/games/game-haggis/actions"), CancellationToken.None);
 
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
@@ -219,6 +219,16 @@ public class GameEndpointIntegrationTests
         var initializedStateData = initializedDoc.RootElement.GetProperty("State").GetProperty("Data");
 
         Assert.That(initializedStateData.GetProperty("game").GetString(), Is.EqualTo("haggis"));
+        Assert.That(initializedStateData.GetProperty("players").GetArrayLength(), Is.EqualTo(3));
+
+        foreach (var player in initializedStateData.GetProperty("players").EnumerateArray())
+        {
+            var handCount = player.GetProperty("handCount").GetInt32();
+            var hand = player.GetProperty("hand");
+            Assert.That(hand.ValueKind, Is.EqualTo(JsonValueKind.Array));
+            Assert.That(hand.GetArrayLength(), Is.EqualTo(handCount));
+            Assert.That(handCount, Is.EqualTo(17));
+        }
 
         var currentPlayerId = initializedStateData.GetProperty("currentPlayerId").GetString();
         Assert.That(currentPlayerId, Is.Not.Null.And.Not.Empty);

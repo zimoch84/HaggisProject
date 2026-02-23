@@ -10,6 +10,7 @@ Backend C# udostepnia API WebSocket jako warstwe komunikacji dla klienta Flutter
 - Gra (kopia robocza): `haggis-platform/docs/api/HaggisAPI.yaml`
 - Czat (glowne zrodlo): `haggis-platform/openapi/ChatAPI.yaml`
 - Czat (kopia robocza): `haggis-platform/docs/api/ChatAPI.yaml`
+- Serwer (REST, gameroom): `haggis-platform/docs/api/SerwerAPI.yaml`
 
 Jesli jest rozjazd miedzy dokumentem i implementacja, prawda sa pliki AsyncAPI.
 
@@ -37,6 +38,9 @@ Pola:
 - `rules.seed` (opcjonalne): seed do deterministycznego tasowania
 - `rules.maxPlayers` (opcjonalne): domyslnie `3`
 - `options.includeHandsInState` (opcjonalne): czy zwracac rece w stanie gry
+- `options.scoring.strategy` (opcjonalne): `Classic` albo `EveryCardOnePoint`
+- `options.scoring.runOutMultiplier` (opcjonalne): mnoznik punktow za wyjscie z rak
+- `options.scoring.cardPointsByRank` (opcjonalne): mapowanie punktow dla rang `2..10,J,Q,K`
 
 ### CreateGameResponse
 

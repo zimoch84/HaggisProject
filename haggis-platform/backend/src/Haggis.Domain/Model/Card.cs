@@ -6,51 +6,73 @@ namespace Haggis.Domain.Model
 {
     public class Card : IComparable, ICloneable, IEquatable<Card>
     {
-        private Rank _rank;
-        private Suit _suit;
-        private Card _replaces;
-
         public Rank Rank { get => GetRank(); }
-        public Suit Suit { get => _suit; }
-        public int Point { get => PointFromRank(); }
+        public Rank BaseRank { get; }
+        public Suit Suit { get; }
         public bool IsWild { get => Wild(); }
+        public Card Replaces { get; }
 
         public Card(Rank rank, Suit color)
         {
-            _rank = rank;
-            _suit = color;
+            EnsureDefinedRank(rank);
+            EnsureDefinedSuit(color);
+
+            BaseRank = rank;
+            Suit = color;
         }
 
         public Card(Rank rank)
         {
-            _rank = rank;
+            EnsureDefinedRank(rank);
+            if (!IsWildRank(rank))
+                throw new ArgumentException("Only wild ranks (J/Q/K) can be created without suit.", nameof(rank));
+
+            BaseRank = rank;
         }
+
         private Card(Rank rank, Card replace)
         {
-            _rank = rank;
-            _replaces = replace;
+            EnsureDefinedRank(rank);
+            if (!IsWildRank(rank))
+                throw new ArgumentException("Only wild card can replace another card.", nameof(rank));
+            if (replace == null)
+                throw new ArgumentNullException(nameof(replace));
+            if (replace.IsWild)
+                throw new ArgumentException("Wild card cannot replace another wild card.", nameof(replace));
+
+            BaseRank = rank;
+            Replaces = replace;
         }
+
         public Card WildAs(Card replaces)
         {
-            return new Card(_rank, replaces);
+            if (!IsWild)
+                throw new InvalidOperationException("Only wild cards can replace another card.");
+
+            return new Card(BaseRank, replaces);
         }
 
         public Card UpRank()
         {
-            if (_rank >= Rank.NINE)
-                return new Card(_rank + 1);
+            if (BaseRank == Rank.KING)
+                throw new InvalidOperationException("Cannot increase rank above KING.");
 
-            return new Card(_rank + 1, _suit);
+            var nextRank = BaseRank + 1;
+            if (IsWildRank(nextRank))
+                return new Card(nextRank);
+
+            return new Card(nextRank, Suit);
         }
+
         override
         public string ToString()
         {
             if (IsWild)
             {
-                if (_replaces == null)
+                if (Replaces == null)
                     return string.Format("{0}", Rank.ToLetter());
                 else
-                    return string.Format("{0}[{1}]", _rank.ToLetter(), (int)Rank);
+                    return string.Format("{0}[{1}]", BaseRank.ToLetter(), (int)Rank);
             }
 
             if (!Rank.Equals(Rank.TEN))
@@ -61,7 +83,8 @@ namespace Haggis.Domain.Model
 
         public int CompareBySuitAndRank(object obj)
         {
-            Card incomingCard = obj as Card;
+            if (!(obj is Card incomingCard))
+                throw new ArgumentException("Object is not a Card.", nameof(obj));
 
             int rankComparison = Rank.CompareTo(incomingCard.Rank);
             if (rankComparison != 0)
@@ -74,7 +97,8 @@ namespace Haggis.Domain.Model
 
         public int CompareTo(object obj)
         {
-            Card incomingCard = obj as Card;
+            if (!(obj is Card incomingCard))
+                throw new ArgumentException("Object is not a Card.", nameof(obj));
 
             return Rank.CompareTo(incomingCard.Rank);
         }
@@ -85,24 +109,9 @@ namespace Haggis.Domain.Model
             return (int)Rank - (int)card.Rank;
         }
 
-        private int PointFromRank()
-        {
-            switch (_rank)
-            {
-                case Rank.THREE:
-                case Rank.FIVE:
-                case Rank.SEVEN:
-                case Rank.NINE: return 1;
-                case Rank.JACK: return 2;
-                case Rank.QUEEN: return 3;
-                case Rank.KING: return 5;
-                default: return 0;
-            }
-        }
-
         private bool Wild()
         {
-            switch (_rank)
+            switch (BaseRank)
             {
                 case Rank.JACK:
                 case Rank.QUEEN:
@@ -113,22 +122,73 @@ namespace Haggis.Domain.Model
         private Rank GetRank()
         {
 
-            if (!(Wild() && _replaces != null))
-                return _rank;
+            if (!(Wild() && Replaces != null))
+                return BaseRank;
 
-            return _replaces.Rank;
+            return Replaces.Rank;
         }
         public object Clone()
         {
-            return new Card(_rank, _suit)
-            {
-                _replaces = _replaces?.Clone() as Card
-            };
+            if (Replaces != null)
+                return new Card(BaseRank, (Card)Replaces.Clone());
+
+            if (IsWildRank(BaseRank))
+                return new Card(BaseRank);
+
+            return new Card(BaseRank, Suit);
         }
 
         public bool Equals(Card other)
         {
-            return _rank == other._rank && _suit == other._suit;
+            if (ReferenceEquals(this, other))
+                return true;
+            if (other is null)
+                return false;
+            return BaseRank == other.BaseRank &&
+                   Suit == other.Suit;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as Card);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 23 + BaseRank.GetHashCode();
+                hash = hash * 23 + Suit.GetHashCode();
+                return hash;
+            }
+        }
+
+        public static bool operator ==(Card left, Card right)
+        {
+            return Equals(left, right);
+        }
+
+        public static bool operator !=(Card left, Card right)
+        {
+            return !Equals(left, right);
+        }
+
+        private static bool IsWildRank(Rank rank)
+        {
+            return rank == Rank.JACK || rank == Rank.QUEEN || rank == Rank.KING;
+        }
+
+        private static void EnsureDefinedRank(Rank rank)
+        {
+            if (!Enum.IsDefined(typeof(Rank), rank))
+                throw new ArgumentOutOfRangeException(nameof(rank), "Rank has invalid value.");
+        }
+
+        private static void EnsureDefinedSuit(Suit suit)
+        {
+            if (!Enum.IsDefined(typeof(Suit), suit))
+                throw new ArgumentOutOfRangeException(nameof(suit), "Suit has invalid value.");
         }
     }
 }

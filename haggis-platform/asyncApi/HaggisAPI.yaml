@@ -119,6 +119,30 @@ components:
           type: boolean
           default: false
           description: Jesli true, API moze zwracac rece w stanie gry (debug/dev).
+        scoring:
+          $ref: '#/components/schemas/ScoringOptions'
+
+    ScoringOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        strategy:
+          type: string
+          enum: [Classic, EveryCardOnePoint]
+          default: Classic
+          description: Gotowy wariant strategii punktowania.
+        runOutMultiplier:
+          type: integer
+          format: int32
+          default: 5
+          minimum: 0
+          description: Mnoznik punktow przy wyjsciu z rak.
+        cardPointsByRank:
+          type: object
+          description: Mapowanie punktow dla rang kart (klucze: 2..10,J,Q,K).
+          additionalProperties:
+            type: integer
+            format: int32
 
     CreateGameResponse:
       type: object
@@ -341,19 +365,29 @@ components:
       properties:
         code:
           type: string
-          description: Kod karty w formacie ustalonym przez silnik, np. 5H, JD.
-          example: 5H
+          description: Kod karty w formacie ustalonym przez silnik, np. 5R, JB.
+          example: 5R
         suit:
           type: string
           nullable: true
-          enum: [Clubs, Diamonds, Hearts, Spades]
+          enum: [RED, BLACK, GREEN, YELLOW, ORANGE]
         rank:
           type: string
           nullable: true
-          description: 2..10,J,Q,K,A lub inny system.
-        isWild:
-          type: boolean
+          enum: ['2', '3', '4', '5', '6', '7', '8', '9', '10', J, Q, K]
+        wildAs:
+          type: object
           nullable: true
+          additionalProperties: false
+          description: Wystepuje tylko dla kart wild (J/Q/K), gdy karta zastepuje inna karte.
+          required: [rank, suit]
+          properties:
+            rank:
+              type: string
+              enum: ['2', '3', '4', '5', '6', '7', '8', '9', '10', J, Q, K]
+            suit:
+              type: string
+              enum: [RED, BLACK, GREEN, YELLOW, ORANGE]
 
     ProblemDetails:
       type: object
