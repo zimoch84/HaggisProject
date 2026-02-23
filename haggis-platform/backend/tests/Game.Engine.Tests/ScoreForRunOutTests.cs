@@ -1,7 +1,7 @@
 using NUnit.Framework;
-using Haggis.Model;
-using Haggis.Extentions;
-using Haggis.Interfaces;
+using Haggis.Domain.Model;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Interfaces;
 using System.Collections.Generic;
 
 namespace HaggisTests
@@ -29,11 +29,11 @@ namespace HaggisTests
             var action = HaggisAction.Pass(p1);
 
             // Act
-            var applied = action.ScoreForRunOut(players, Haggis.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER);
+            var applied = action.ScoreForRunOut(players, Haggis.Domain.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER);
 
             // Assert
             Assert.That(applied, Is.True);
-            var expected = (p2.Hand.Count + p3.Hand.Count) * Haggis.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER;
+            var expected = (p2.Hand.Count + p3.Hand.Count) * Haggis.Domain.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER;
             Assert.That(p1.Score, Is.EqualTo(expected));
         }
 
@@ -51,7 +51,7 @@ namespace HaggisTests
 
 
 
-            var applied = action.ScoreForRunOut(players, Haggis.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER);
+            var applied = action.ScoreForRunOut(players, Haggis.Domain.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER);
 
             Assert.That(applied, Is.False);
             Assert.That(p1.Score, Is.EqualTo(0));
@@ -64,7 +64,7 @@ namespace HaggisTests
             var players = new List<IHaggisPlayer>();
             var action = HaggisAction.Pass(p1);
 
-            var applied = action.ScoreForRunOut(players, Haggis.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER);
+            var applied = action.ScoreForRunOut(players, Haggis.Domain.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER);
 
             Assert.That(applied, Is.False);
         }

@@ -1,11 +1,11 @@
-﻿using Haggis.Extentions;
-using Haggis.Interfaces;
-using Haggis.Model;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
 using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;
-using static Haggis.Extentions.CardsExtensions;
-using static Haggis.Model.HaggisAction;
+using static Haggis.Domain.Extentions.CardsExtensions;
+using static Haggis.Domain.Model.HaggisAction;
 
 namespace HaggisTests
 {
@@ -24,7 +24,7 @@ namespace HaggisTests
         {
 
             Piotr = new HaggisPlayer("Piotr");
-            Slawek = new HaggisPlayer("Sławek");
+            Slawek = new HaggisPlayer("S�awek");
             Robert = new HaggisPlayer("Robert");
 
             Piotr.Hand = Cards("2Y", "3Y");
@@ -138,7 +138,8 @@ namespace HaggisTests
 
             Assert.That(Robert.Finished, Is.True);
             Assert.That(Robert.Score, Is.EqualTo(5));
-            Assert.That(Slawek.Score, Is.EqualTo(15));
+            Assert.That(Slawek.Score, Is.EqualTo(16));
+            Assert.That(Slawek.Score, Is.EqualTo(16));
             Assert.That(Piotr.Score, Is.EqualTo(0));
 
             Assert.That(GameState.RoundOver(), Is.True);
@@ -225,7 +226,7 @@ namespace HaggisTests
             Assert.That(GameState.NextPlayer, Is.EqualTo(Robert));
             //Play Bomb
             GameState.ApplyAction(
-                FromTrick(new Trick(Haggis.Enums.TrickType.BOMB, CardsExtensions.Cards("3Y", "5O", "7R", "9B")), Slawek));
+                FromTrick(new Trick(Haggis.Domain.Enums.TrickType.BOMB, CardsExtensions.Cards("3Y", "5O", "7R", "9B")), Slawek));
 
             Assert.That(GameState.CurrentPlayer, Is.EqualTo(Robert));
             Assert.That(GameState.NextPlayer, Is.EqualTo(Piotr));
@@ -253,12 +254,12 @@ namespace HaggisTests
             Assert.That(GameState.NextPlayer, Is.EqualTo(Robert));
             //Play Bomb
             GameState.ApplyAction(
-                FromTrick(new Trick(Haggis.Enums.TrickType.BOMB, Cards("3Y", "5O", "7R", "9B")), Slawek));
+                FromTrick(new Trick(Haggis.Domain.Enums.TrickType.BOMB, Cards("3Y", "5O", "7R", "9B")), Slawek));
 
             Assert.That(GameState.CurrentPlayer, Is.EqualTo(Robert));
             Assert.That(GameState.NextPlayer, Is.EqualTo(Piotr));
             GameState.ApplyAction(
-                FromTrick(new Trick(Haggis.Enums.TrickType.BOMB, Cards("3O", "5O", "7O", "9O")), Robert));
+                FromTrick(new Trick(Haggis.Domain.Enums.TrickType.BOMB, Cards("3O", "5O", "7O", "9O")), Robert));
 
 
             Assert.That(GameState.CurrentPlayer, Is.EqualTo(Piotr));
@@ -279,7 +280,7 @@ namespace HaggisTests
         {
             Assert.That(GameState.CurrentPlayer, Is.EqualTo(Piotr));
             Assert.That(GameState.NextPlayer, Is.EqualTo(Slawek));
-            GameState.ApplyAction(FromTrick(new Trick(Haggis.Enums.TrickType.BOMB, Cards("3Y", "5O", "7R", "9B")), Piotr)
+            GameState.ApplyAction(FromTrick(new Trick(Haggis.Domain.Enums.TrickType.BOMB, Cards("3Y", "5O", "7R", "9B")), Piotr)
                 );
 
             Assert.That(GameState.CurrentPlayer, Is.EqualTo(Slawek));

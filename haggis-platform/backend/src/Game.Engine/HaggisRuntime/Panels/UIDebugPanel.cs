@@ -1,6 +1,7 @@
-﻿using Haggis.Model;
-using Haggis.Strategies;
+﻿using Haggis.Domain.Model;
+using Haggis.AI.Strategies;
 using System;
+using Haggis.AI.Model;
 
 public class UIDebugPanel : PanelRegionBase
 {
@@ -30,3 +31,4 @@ public class UIDebugPanel : PanelRegionBase
     {
     }
 }
+

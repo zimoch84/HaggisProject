@@ -1,6 +1,6 @@
-﻿using Haggis.Enums;
-using Haggis.Extentions;
-using Haggis.Model;
+using Haggis.Domain.Enums;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Model;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;

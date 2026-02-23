@@ -1,5 +1,5 @@
 using System;
-using Haggis.Model;
+using Haggis.Domain.Model;
 
 namespace HaggisRuntime.MonoGameUI
 {

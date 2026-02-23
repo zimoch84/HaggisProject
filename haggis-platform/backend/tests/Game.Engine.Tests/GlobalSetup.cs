@@ -1,6 +1,6 @@
-ï»¿using Haggis.Extentions;
-using Haggis.Interfaces;
-using Haggis.Model;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ namespace HaggisTests
     public class GlobalSetup
     {
         IHaggisPlayer Piotr = new HaggisPlayer("Piotr");
-        IHaggisPlayer Slawek = new HaggisPlayer("SÅ‚awek");
+        IHaggisPlayer Slawek = new HaggisPlayer("S³awek");
         IHaggisPlayer Robert = new HaggisPlayer("Robert");
 
         HaggisGameState GameState;
@@ -29,8 +29,8 @@ namespace HaggisTests
         [OneTimeTearDown]
         public void RunAfterAllTests()
         {
-            // Tutaj umieÅ›Ä‡ kod, ktÃ³ry chcesz wykonaÄ‡ po zakoÅ„czeniu wszystkich testÃ³w
-            // Na przykÅ‚ad zwolnienie zasobÃ³w wspÃ³Å‚dzielonych przez wszystkie testy
+            // Tutaj umieœæ kod, który chcesz wykonaæ po zakoñczeniu wszystkich testów
+            // Na przyk³ad zwolnienie zasobów wspó³dzielonych przez wszystkie testy
         }
     }
 }

@@ -1,14 +1,15 @@
-﻿using Haggis.Extentions;
-using Haggis.Interfaces;
-using Haggis.Model;
-using Haggis.Strategies;
+﻿using Haggis.Domain.Extentions;
+using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
+using Haggis.AI.Strategies;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using static Haggis.Extentions.CardsExtensions;
-using static Haggis.Model.HaggisAction;
+using static Haggis.Domain.Extentions.CardsExtensions;
+using static Haggis.Domain.Model.HaggisAction;
+using Haggis.AI.Model;
 
 namespace HaggisTests.Strategies
 {
@@ -94,3 +95,4 @@ namespace HaggisTests.Strategies
 
     }
 }
+

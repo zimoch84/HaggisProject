@@ -1,5 +1,5 @@
-﻿using Haggis.Interfaces;
-using Haggis.Model;
+using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
 using System.Text;
 
 public class UITrickPanel : PanelRegionBase

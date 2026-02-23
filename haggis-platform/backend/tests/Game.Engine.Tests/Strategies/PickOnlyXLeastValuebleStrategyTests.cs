@@ -1,7 +1,7 @@
-﻿using Haggis.Extentions;
-using Haggis.Model;
-using Haggis.StartingTrickFilterStrategies;
-using Haggis.Strategies;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Model;
+using Haggis.AI.StartingTrickFilterStrategies;
+using Haggis.AI.Strategies;
 using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;

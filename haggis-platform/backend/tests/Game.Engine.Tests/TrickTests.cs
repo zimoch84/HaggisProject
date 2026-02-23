@@ -1,10 +1,10 @@
-﻿using Haggis.Enums;
-using Haggis.Extentions;
-using Haggis.Model;
+using Haggis.Domain.Enums;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Model;
 using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;
-using static Haggis.Enums.TrickType;
+using static Haggis.Domain.Enums.TrickType;
 
 namespace HaggisTests
 {

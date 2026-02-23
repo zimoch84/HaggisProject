@@ -1,13 +1,14 @@
-﻿using Haggis.Extentions;
-using Haggis.Interfaces;
-using Haggis.Model;
-using Haggis.Strategies;
+﻿using Haggis.Domain.Extentions;
+using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
+using Haggis.AI.Strategies;
 using System.Diagnostics;
-using Haggis.StartingTrickFilterStrategies;
+using Haggis.AI.StartingTrickFilterStrategies;
 using NUnit.Framework;
 using System.Linq;
 using System.Collections.Generic;
 using System;
+using Haggis.AI.Model;
 
 namespace HaggisTests.Strategies
 {
@@ -36,7 +37,7 @@ namespace HaggisTests.Strategies
 
             var action = strategy.GetPlayingAction(gameState);
 
-            var trick = new Trick(Haggis.Enums.TrickType.PAIR, new string[] { "4B", "4O" }.ToCards());
+            var trick = new Trick(Haggis.Domain.Enums.TrickType.PAIR, new string[] { "4B", "4O" }.ToCards());
             Assert.That(action.Trick, Is.EqualTo(trick));
         }
 
@@ -55,7 +56,7 @@ namespace HaggisTests.Strategies
 
             var action = strategy.GetPlayingAction(gameState);
 
-            var trick = new Trick(Haggis.Enums.TrickType.SINGLE, new string[] { "2Y" }.ToCards());
+            var trick = new Trick(Haggis.Domain.Enums.TrickType.SINGLE, new string[] { "2Y" }.ToCards());
             Assert.That(action.Trick, Is.EqualTo(trick));
         }
 
@@ -74,7 +75,7 @@ namespace HaggisTests.Strategies
 
             var action = strategy.GetPlayingAction(gameState);
 
-            var trick = new Trick(Haggis.Enums.TrickType.SINGLE, new string[] { "2G" }.ToCards());
+            var trick = new Trick(Haggis.Domain.Enums.TrickType.SINGLE, new string[] { "2G" }.ToCards());
             Assert.That(action.Trick, Is.EqualTo(trick));
         }
 
@@ -86,7 +87,7 @@ namespace HaggisTests.Strategies
             AIPlayer slawek = new AIPlayer("SławekAI");
             AIPlayer robert = new AIPlayer("RobertAIs");
 
-            var game = new HaggisGame(new List<IHaggisPlayer>{piotr,slawek,robert});
+           
 
             piotr.PlayStrategy = new ContinuationStrategy(false, true);
             slawek.PlayStrategy = new ContinuationStrategy(false, true);
@@ -97,15 +98,31 @@ namespace HaggisTests.Strategies
             robert.StartingTrickFilterStrategy = new FilterContinuations(8, false);
 
 
+            piotr.Hand = new List<string> { "2Y", "3Y", "4B", "5B", "J" }.ToCards();
+            slawek.Hand = new List<string> { "2G", "4G", "6O", "Q" }.ToCards();
+            robert.Hand = new List<string> { "3O", "3B", "7R", "K" }.ToCards();
+
             var gameState = new HaggisGameState(new List<IHaggisPlayer> { piotr, slawek, robert });
+            var safeguard = 0;
 
             while (!gameState.RoundOver())
             {
-                var actions = MonteCarloStrategy.GetTopActions(gameState, maxIteration);
+                safeguard++;
+                if (safeguard > 300)
+                {
+                    Assert.Fail("Game did not finish within safeguard iterations.");
+                }
+
+                var actions = MonteCarloStrategy.GetTopActions(gameState, maxIteration, timeBudget).ToList();
+                Assert.That(actions, Is.Not.Empty);
+
                 HaggisAction action = actions.First().Action;
                 gameState.ApplyAction(action);
                 Trace.WriteLine(action.ToString());
             }
+
+            Assert.That(gameState.RoundOver(), Is.True);
         }
     }
 }
+

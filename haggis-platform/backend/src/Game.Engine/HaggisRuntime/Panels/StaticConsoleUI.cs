@@ -1,5 +1,6 @@
-using Haggis.Model;
-using Haggis.Strategies;
+﻿using Haggis.Domain.Model;
+using Haggis.AI.Strategies;
+using Haggis.AI.Model;
 
 public class StaticConsoleUI
 {
@@ -122,3 +123,4 @@ public class StaticConsoleUI
         return -1;
     }
 }
+

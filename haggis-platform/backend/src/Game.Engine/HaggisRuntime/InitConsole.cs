@@ -1,4 +1,4 @@
-﻿public static class InitConsole
+public static class InitConsole
 {
     public static void Apply()
     {
@@ -18,7 +18,7 @@
         }
         catch
         {
-            // ignorujemy na małych ekranach
+            // ignorujemy na ma�ych ekranach
         }
     }
 }

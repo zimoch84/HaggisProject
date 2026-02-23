@@ -1,6 +1,6 @@
-﻿using Haggis.Extentions;
-using Haggis.Interfaces;
-using Haggis.Model;
+using Haggis.Domain.Extentions;
+using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
