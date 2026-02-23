@@ -39,6 +39,23 @@
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    {
+      "name": "Flutter Standalone",
+      "type": "dart",
+      "request": "launch",
+      "program": "${workspaceFolder}/FlutterUI/flutter_ui/lib/main.dart",
+      "cwd": "${workspaceFolder}/FlutterUI/flutter_ui"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Flutter + Backend",
+      "configurations": [
+        "Flutter Standalone",
+        "Serwer.API Chat (.NET)",
+        "Game.API WebSocket (.NET)"
+      ]
     }
   ]
 }
