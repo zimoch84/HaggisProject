@@ -18,7 +18,7 @@ public class GlobalChatHubTests
             FakeWebSocket.Text("{\"playerId\":\"\",\"text\":\"hello\"}"),
             FakeWebSocket.Close());
 
-        var hub = new GlobalChatHub();
+        var hub = new GlobalChatHub(new PlayerSocketRegistry());
 
         await hub.HandleClientAsync(socket, CancellationToken.None);
 
@@ -41,7 +41,7 @@ public class GlobalChatHubTests
         var receiverSocket = FakeWebSocket.FromClientMessages(
             FakeWebSocket.Close(delayMs: 250));
 
-        var hub = new GlobalChatHub();
+        var hub = new GlobalChatHub(new PlayerSocketRegistry());
 
         var receiverTask = hub.HandleClientAsync(receiverSocket, CancellationToken.None);
         var senderTask = hub.HandleClientAsync(senderSocket, CancellationToken.None);

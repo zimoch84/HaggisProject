@@ -9,6 +9,7 @@ builder.Services.AddSingleton<RoomChatHub>();
 builder.Services.AddSingleton<ChatWebSocketHandler>();
 builder.Services.AddSingleton<GameRoomWebSocketHandler>();
 builder.Services.AddSingleton<SessionWebSocketHandler>();
+builder.Services.AddSingleton<IPlayerSocketRegistry, PlayerSocketRegistry>();
 
 var app = builder.Build();
 

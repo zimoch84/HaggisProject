@@ -9,14 +9,21 @@ namespace Serwer.API.Services;
 public sealed class GlobalChatHub
 {
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
+    private readonly IPlayerSocketRegistry _playerSocketRegistry;
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
+    public GlobalChatHub(IPlayerSocketRegistry playerSocketRegistry)
+    {
+        _playerSocketRegistry = playerSocketRegistry;
+    }
+
     public async Task HandleClientAsync(WebSocket socket, CancellationToken cancellationToken)
     {
         var clientId = Guid.NewGuid();
+        var connectionId = _playerSocketRegistry.Register(socket, "chat.global");
         _clients[clientId] = socket;
 
         try
@@ -36,6 +43,8 @@ public sealed class GlobalChatHub
                     await SendAsync(socket, error, cancellationToken);
                     continue;
                 }
+                
+                _playerSocketRegistry.BindPlayer(connectionId, request.PlayerId);
 
                 var message = new ChatMessage(
                     MessageId: Guid.NewGuid().ToString("N"),
@@ -49,6 +58,7 @@ public sealed class GlobalChatHub
         finally
         {
             _clients.TryRemove(clientId, out _);
+            _playerSocketRegistry.Unregister(connectionId);
             if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
                 await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed.", CancellationToken.None);

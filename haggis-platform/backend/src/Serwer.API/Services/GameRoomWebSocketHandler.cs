@@ -15,10 +15,12 @@ public sealed class GameRoomWebSocketHandler
     };
 
     private readonly IGameRoomStore _roomStore;
+    private readonly IPlayerSocketRegistry _playerSocketRegistry;
 
-    public GameRoomWebSocketHandler(IGameRoomStore roomStore)
+    public GameRoomWebSocketHandler(IGameRoomStore roomStore, IPlayerSocketRegistry playerSocketRegistry)
     {
         _roomStore = roomStore;
+        _playerSocketRegistry = playerSocketRegistry;
     }
 
     public async Task HandleCreateRoomAsync(HttpContext context)
@@ -31,33 +33,56 @@ public sealed class GameRoomWebSocketHandler
         }
 
         using var socket = await context.WebSockets.AcceptWebSocketAsync();
-        while (socket.State == WebSocketState.Open && !context.RequestAborted.IsCancellationRequested)
+        var connectionId = _playerSocketRegistry.Register(socket, "rooms.create");
+
+        try
         {
-            var raw = await ReceiveTextAsync(socket, context.RequestAborted);
-            if (raw is null)
+            while (socket.State == WebSocketState.Open && !context.RequestAborted.IsCancellationRequested)
             {
-                break;
-            }
+                var raw = await ReceiveTextAsync(socket, context.RequestAborted);
+                if (raw is null)
+                {
+                    break;
+                }
 
-            var request = JsonSerializer.Deserialize<CreateGameRoomRequest>(raw, SerializerOptions);
-            if (request is null || string.IsNullOrWhiteSpace(request.GameType) || string.IsNullOrWhiteSpace(request.HostPlayerId))
+                CreateGameRoomRequest? request;
+                try
+                {
+                    request = JsonSerializer.Deserialize<CreateGameRoomRequest>(raw, SerializerOptions);
+                }
+                catch (JsonException)
+                {
+                    request = null;
+                }
+                if (request is null || string.IsNullOrWhiteSpace(request.GameType) || string.IsNullOrWhiteSpace(request.HostPlayerId))
+                {
+                    await SendAsync(socket, new ProblemDetailsMessage("Invalid room payload.", 400), context.RequestAborted);
+                    continue;
+                }
+
+                _playerSocketRegistry.BindPlayer(connectionId, request.HostPlayerId);
+
+                if (!request.GameType.Equals("haggis", StringComparison.OrdinalIgnoreCase))
+                {
+                    await SendAsync(socket, new ProblemDetailsMessage($"Unsupported gameType '{request.GameType}'.", 400), context.RequestAborted);
+                    continue;
+                }
+
+                var room = _roomStore.CreateRoom(
+                    request.HostPlayerId.Trim(),
+                    request.GameType.Trim().ToLowerInvariant(),
+                    request.RoomName);
+
+                await SendAsync(socket, ToResponse(room), context.RequestAborted);
+            }
+        }
+        finally
+        {
+            _playerSocketRegistry.Unregister(connectionId);
+            if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
-                await SendAsync(socket, new ProblemDetailsMessage("Invalid room payload.", 400), context.RequestAborted);
-                continue;
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed.", CancellationToken.None);
             }
-
-            if (!request.GameType.Equals("haggis", StringComparison.OrdinalIgnoreCase))
-            {
-                await SendAsync(socket, new ProblemDetailsMessage($"Unsupported gameType '{request.GameType}'.", 400), context.RequestAborted);
-                continue;
-            }
-
-            var room = _roomStore.CreateRoom(
-                request.HostPlayerId.Trim(),
-                request.GameType.Trim().ToLowerInvariant(),
-                request.RoomName);
-
-            await SendAsync(socket, ToResponse(room), context.RequestAborted);
         }
     }
 
@@ -71,23 +96,53 @@ public sealed class GameRoomWebSocketHandler
         }
 
         using var socket = await context.WebSockets.AcceptWebSocketAsync();
-        while (socket.State == WebSocketState.Open && !context.RequestAborted.IsCancellationRequested)
+        var connectionId = _playerSocketRegistry.Register(socket, "rooms.list");
+
+        try
         {
-            var raw = await ReceiveTextAsync(socket, context.RequestAborted);
-            if (raw is null)
+            while (socket.State == WebSocketState.Open && !context.RequestAborted.IsCancellationRequested)
             {
-                break;
-            }
+                var raw = await ReceiveTextAsync(socket, context.RequestAborted);
+                if (raw is null)
+                {
+                    break;
+                }
 
-            var request = JsonSerializer.Deserialize<ListGameRoomsRequest>(raw, SerializerOptions);
-            if (request is null)
+                // Allow empty message as "list rooms" command (equivalent to {}).
+                ListGameRoomsRequest? request;
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    request = new ListGameRoomsRequest();
+                }
+                else
+                {
+                    try
+                    {
+                        request = JsonSerializer.Deserialize<ListGameRoomsRequest>(raw, SerializerOptions);
+                    }
+                    catch (JsonException)
+                    {
+                        request = null;
+                    }
+                }
+
+                if (request is null)
+                {
+                    await SendAsync(socket, new ProblemDetailsMessage("Invalid list rooms payload.", 400), context.RequestAborted);
+                    continue;
+                }
+
+                var rooms = _roomStore.ListRooms().Select(ToResponse).ToList();
+                await SendAsync(socket, rooms, context.RequestAborted);
+            }
+        }
+        finally
+        {
+            _playerSocketRegistry.Unregister(connectionId);
+            if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
-                await SendAsync(socket, new ProblemDetailsMessage("Invalid list rooms payload.", 400), context.RequestAborted);
-                continue;
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed.", CancellationToken.None);
             }
-
-            var rooms = _roomStore.ListRooms().Select(ToResponse).ToList();
-            await SendAsync(socket, rooms, context.RequestAborted);
         }
     }
 
@@ -101,28 +156,51 @@ public sealed class GameRoomWebSocketHandler
         }
 
         using var socket = await context.WebSockets.AcceptWebSocketAsync();
-        while (socket.State == WebSocketState.Open && !context.RequestAborted.IsCancellationRequested)
+        var connectionId = _playerSocketRegistry.Register(socket, $"rooms.join:{roomId}");
+
+        try
         {
-            var raw = await ReceiveTextAsync(socket, context.RequestAborted);
-            if (raw is null)
+            while (socket.State == WebSocketState.Open && !context.RequestAborted.IsCancellationRequested)
             {
-                break;
-            }
+                var raw = await ReceiveTextAsync(socket, context.RequestAborted);
+                if (raw is null)
+                {
+                    break;
+                }
 
-            var request = JsonSerializer.Deserialize<JoinGameRoomRequest>(raw, SerializerOptions);
-            if (request is null || string.IsNullOrWhiteSpace(request.PlayerId))
+                JoinGameRoomRequest? request;
+                try
+                {
+                    request = JsonSerializer.Deserialize<JoinGameRoomRequest>(raw, SerializerOptions);
+                }
+                catch (JsonException)
+                {
+                    request = null;
+                }
+                if (request is null || string.IsNullOrWhiteSpace(request.PlayerId))
+                {
+                    await SendAsync(socket, new ProblemDetailsMessage("Invalid join payload.", 400), context.RequestAborted);
+                    continue;
+                }
+
+                _playerSocketRegistry.BindPlayer(connectionId, request.PlayerId);
+
+                if (!_roomStore.TryJoinRoom(roomId, request.PlayerId.Trim(), out var room) || room is null)
+                {
+                    await SendAsync(socket, new ProblemDetailsMessage("Game room not found.", 404), context.RequestAborted);
+                    continue;
+                }
+
+                await SendAsync(socket, ToResponse(room), context.RequestAborted);
+            }
+        }
+        finally
+        {
+            _playerSocketRegistry.Unregister(connectionId);
+            if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
-                await SendAsync(socket, new ProblemDetailsMessage("Invalid join payload.", 400), context.RequestAborted);
-                continue;
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed.", CancellationToken.None);
             }
-
-            if (!_roomStore.TryJoinRoom(roomId, request.PlayerId.Trim(), out var room) || room is null)
-            {
-                await SendAsync(socket, new ProblemDetailsMessage("Game room not found.", 404), context.RequestAborted);
-                continue;
-            }
-
-            await SendAsync(socket, ToResponse(room), context.RequestAborted);
         }
     }
 

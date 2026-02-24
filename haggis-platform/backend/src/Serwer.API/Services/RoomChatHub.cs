@@ -11,21 +11,24 @@ public sealed class RoomChatHub
 {
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, WebSocket>> _roomClients = new();
     private readonly IGameRoomStore _roomStore;
+    private readonly IPlayerSocketRegistry _playerSocketRegistry;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public RoomChatHub(IGameRoomStore roomStore)
+    public RoomChatHub(IGameRoomStore roomStore, IPlayerSocketRegistry playerSocketRegistry)
     {
         _roomStore = roomStore;
+        _playerSocketRegistry = playerSocketRegistry;
     }
 
     public async Task HandleClientAsync(string roomId, WebSocket socket, CancellationToken cancellationToken)
     {
         var clients = _roomClients.GetOrAdd(roomId, static _ => new ConcurrentDictionary<Guid, WebSocket>());
         var clientId = Guid.NewGuid();
+        var connectionId = _playerSocketRegistry.Register(socket, $"chat.room:{roomId}");
         clients[clientId] = socket;
 
         try
@@ -44,6 +47,8 @@ public sealed class RoomChatHub
                     await SendAsync(socket, new ProblemDetailsMessage("Invalid chat payload.", 400), cancellationToken);
                     continue;
                 }
+                
+                _playerSocketRegistry.BindPlayer(connectionId, request.PlayerId);
 
                 if (!_roomStore.TryGetRoom(roomId, out var room) || room is null)
                 {
@@ -71,6 +76,7 @@ public sealed class RoomChatHub
         finally
         {
             clients.TryRemove(clientId, out _);
+            _playerSocketRegistry.Unregister(connectionId);
             if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
                 await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed.", CancellationToken.None);

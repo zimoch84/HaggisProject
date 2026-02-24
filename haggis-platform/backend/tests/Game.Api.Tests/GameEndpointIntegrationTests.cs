@@ -12,6 +12,73 @@ namespace Haggis.Infrastructure.Tests;
 public class GameEndpointIntegrationTests
 {
     [Test]
+    public async Task GameCreateEndpoint_WhenInitializeCommandSent_ResponseContainsAllContractFields()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeoutCts.Token;
+
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/games/create"), cancellationToken);
+
+        await SendTextAsync(socket,
+            JsonSerializer.Serialize(new
+            {
+                type = "Command",
+                command = new
+                {
+                    type = "Initialize",
+                    playerId = "alice",
+                    payload = new
+                    {
+                        players = new[] { "alice", "bob", "carol" },
+                        seed = 123
+                    }
+                }
+            }),
+            cancellationToken);
+
+        var payload = await ReceiveTextAsync(socket, cancellationToken);
+        Assert.That(payload, Is.Not.Empty);
+
+        using var doc = JsonDocument.Parse(payload);
+        var root = doc.RootElement;
+
+        Assert.That(root.TryGetProperty("Type", out var type), Is.True);
+        Assert.That(root.TryGetProperty("OrderPointer", out var orderPointer), Is.True);
+        Assert.That(root.TryGetProperty("GameId", out var gameId), Is.True);
+        Assert.That(root.TryGetProperty("Error", out var error), Is.True);
+        Assert.That(root.TryGetProperty("Command", out var command), Is.True);
+        Assert.That(root.TryGetProperty("State", out var state), Is.True);
+        Assert.That(root.TryGetProperty("CreatedAt", out var createdAt), Is.True);
+
+        Assert.That(type.GetString(), Is.EqualTo("CommandApplied"));
+        Assert.That(orderPointer.GetInt64(), Is.EqualTo(1));
+        Assert.That(gameId.GetString(), Is.Not.Null.And.Not.Empty);
+        Assert.That(error.ValueKind, Is.EqualTo(JsonValueKind.Null));
+        Assert.That(createdAt.GetDateTimeOffset(), Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
+
+        Assert.That(command.TryGetProperty("Type", out var commandType), Is.True);
+        Assert.That(command.TryGetProperty("PlayerId", out var playerId), Is.True);
+        Assert.That(command.TryGetProperty("Payload", out var commandPayload), Is.True);
+
+        Assert.That(commandType.GetString(), Is.EqualTo("Initialize"));
+        Assert.That(playerId.GetString(), Is.EqualTo("alice"));
+        Assert.That(commandPayload.TryGetProperty("players", out var players), Is.True);
+        Assert.That(commandPayload.TryGetProperty("seed", out var seed), Is.True);
+        Assert.That(players.GetArrayLength(), Is.EqualTo(3));
+        Assert.That(seed.GetInt32(), Is.EqualTo(123));
+
+        Assert.That(state.TryGetProperty("Version", out var version), Is.True);
+        Assert.That(state.TryGetProperty("Data", out var data), Is.True);
+        Assert.That(state.TryGetProperty("UpdatedAt", out var updatedAt), Is.True);
+
+        Assert.That(version.GetInt64(), Is.EqualTo(1));
+        Assert.That(data.ValueKind, Is.EqualTo(JsonValueKind.Object));
+        Assert.That(updatedAt.GetDateTimeOffset(), Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
+    }
+
+    [Test]
     public async Task GameEndpoint_WhenNotWebSocketRequest_ReturnsBadRequest()
     {
         await using var factory = new WebApplicationFactory<Program>();

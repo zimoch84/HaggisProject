@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -14,7 +13,12 @@ public sealed class SessionWebSocketHandler
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, WebSocket>> _onlinePlayers = new();
+    private readonly IPlayerSocketRegistry _playerSocketRegistry;
+
+    public SessionWebSocketHandler(IPlayerSocketRegistry playerSocketRegistry)
+    {
+        _playerSocketRegistry = playerSocketRegistry;
+    }
 
     public async Task HandleLoginAsync(HttpContext context)
     {
@@ -26,8 +30,7 @@ public sealed class SessionWebSocketHandler
         }
 
         using var socket = await context.WebSockets.AcceptWebSocketAsync();
-        var connectionId = Guid.NewGuid();
-        string? loggedPlayerId = null;
+        var connectionId = _playerSocketRegistry.Register(socket, "session.login");
 
         try
         {
@@ -47,9 +50,7 @@ public sealed class SessionWebSocketHandler
                 }
 
                 var playerId = request.PlayerId.Trim();
-                var playerConnections = _onlinePlayers.GetOrAdd(playerId, static _ => new ConcurrentDictionary<Guid, WebSocket>());
-                playerConnections[connectionId] = socket;
-                loggedPlayerId = playerId;
+                _playerSocketRegistry.BindPlayer(connectionId, playerId);
 
                 var response = new SessionLoginResponse(
                     SessionId: connectionId.ToString("N"),
@@ -62,14 +63,7 @@ public sealed class SessionWebSocketHandler
         }
         finally
         {
-            if (loggedPlayerId is not null && _onlinePlayers.TryGetValue(loggedPlayerId, out var playerConnections))
-            {
-                playerConnections.TryRemove(connectionId, out _);
-                if (playerConnections.IsEmpty)
-                {
-                    _onlinePlayers.TryRemove(loggedPlayerId, out _);
-                }
-            }
+            _playerSocketRegistry.Unregister(connectionId);
 
             if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
