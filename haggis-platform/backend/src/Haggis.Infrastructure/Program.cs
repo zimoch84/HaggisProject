@@ -36,8 +36,20 @@ app.Map("/games/create", async (HttpContext context, GameWebSocketHub hub) =>
         return;
     }
 
-    using var socket = await context.WebSockets.AcceptWebSocketAsync();
-    await hub.HandleClientAsync(Guid.NewGuid().ToString("N"), socket, context.RequestAborted);
+    try
+    {
+        using var socket = await context.WebSockets.AcceptWebSocketAsync();
+        await hub.HandleClientAsync(Guid.NewGuid().ToString("N"), socket, context.RequestAborted);
+    }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+    {
+    }
+    catch (ObjectDisposedException)
+    {
+    }
+    catch (IOException)
+    {
+    }
 });
 
 app.Map("/games/{gameId}/actions", async (HttpContext context, GameWebSocketHub hub, string gameId) =>
@@ -49,8 +61,20 @@ app.Map("/games/{gameId}/actions", async (HttpContext context, GameWebSocketHub 
         return;
     }
 
-    using var socket = await context.WebSockets.AcceptWebSocketAsync();
-    await hub.HandleClientAsync(gameId, socket, context.RequestAborted);
+    try
+    {
+        using var socket = await context.WebSockets.AcceptWebSocketAsync();
+        await hub.HandleClientAsync(gameId, socket, context.RequestAborted);
+    }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+    {
+    }
+    catch (ObjectDisposedException)
+    {
+    }
+    catch (IOException)
+    {
+    }
 });
 
 app.Run();

@@ -1,11 +1,13 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using NUnit.Framework;
+using Serwer.API.Dtos.Chat;
+using Serwer.API.Dtos.GameRooms;
+using Serwer.API.Services;
 
 namespace Serwer.API.Tests;
 
@@ -15,10 +17,8 @@ public class RoomChatEndpointIntegrationTests
     [Test]
     public async Task RoomChatEndpoint_BeforeGame_HostCanChatInRoom()
     {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
-
-        var roomId = await CreateRoomAsync(client, "alice");
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        var roomId = await CreateRoomAsync(factory, "alice");
 
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
@@ -38,11 +38,9 @@ public class RoomChatEndpointIntegrationTests
     [Test]
     public async Task RoomChatEndpoint_DuringGame_JoinedPlayersCanChat()
     {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
-
-        var roomId = await CreateRoomAsync(client, "alice");
-        await JoinRoomAsync(client, roomId, "bob");
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        var roomId = await CreateRoomAsync(factory, "alice");
+        await JoinRoomAsync(factory, roomId, "bob");
 
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
@@ -62,11 +60,9 @@ public class RoomChatEndpointIntegrationTests
     [Test]
     public async Task RoomChatEndpoint_AfterGame_ReconnectedPlayersCanStillChat()
     {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
-
-        var roomId = await CreateRoomAsync(client, "alice");
-        await JoinRoomAsync(client, roomId, "bob");
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        var roomId = await CreateRoomAsync(factory, "alice");
+        await JoinRoomAsync(factory, roomId, "bob");
 
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
@@ -94,7 +90,7 @@ public class RoomChatEndpointIntegrationTests
     [Test]
     public async Task RoomChatEndpoint_WhenNotWebSocketRequest_ReturnsBadRequest()
     {
-        await using var factory = new WebApplicationFactory<Program>();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
         using var client = factory.CreateClient();
 
         using var response = await client.GetAsync("/ws/chat/rooms/room-1");
@@ -107,7 +103,7 @@ public class RoomChatEndpointIntegrationTests
     [Test]
     public async Task RoomChatEndpoint_WhenNotWebSocketRequestAndRoomMissing_ReturnsBadRequest()
     {
-        await using var factory = new WebApplicationFactory<Program>();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
         using var client = factory.CreateClient();
 
         using var response = await client.GetAsync("/ws/chat/rooms/missing");
@@ -120,11 +116,9 @@ public class RoomChatEndpointIntegrationTests
     [Test]
     public async Task RoomChatEndpoint_WhenJoinedPlayerSendsMessage_BroadcastsToRoomClients()
     {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
-
-        var roomId = await CreateRoomAsync(client, "alice");
-        await JoinRoomAsync(client, roomId, "bob");
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        var roomId = await CreateRoomAsync(factory, "alice");
+        await JoinRoomAsync(factory, roomId, "bob");
 
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
@@ -144,10 +138,8 @@ public class RoomChatEndpointIntegrationTests
     [Test]
     public async Task RoomChatEndpoint_WhenPlayerIsNotInRoom_ReturnsForbiddenProblem()
     {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
-
-        var roomId = await CreateRoomAsync(client, "alice");
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        var roomId = await CreateRoomAsync(factory, "alice");
 
         var wsClient = factory.Server.CreateWebSocketClient();
         using var socket = await wsClient.ConnectAsync(new Uri($"ws://localhost/ws/chat/rooms/{roomId}"), CancellationToken.None);
@@ -155,33 +147,31 @@ public class RoomChatEndpointIntegrationTests
         await SendTextAsync(socket, "{\"playerId\":\"mallory\",\"text\":\"hej\"}", CancellationToken.None);
         var payload = await ReceiveTextAsync(socket, CancellationToken.None);
 
-        using var doc = JsonDocument.Parse(payload);
-        var root = doc.RootElement;
-        Assert.That(root.GetProperty("Title").GetString(), Is.EqualTo("Player is not joined to this room."));
-        Assert.That(root.GetProperty("Status").GetInt32(), Is.EqualTo(403));
+        var problem = JsonSerializer.Deserialize<ProblemDetailsMessage>(payload);
+        Assert.That(problem, Is.Not.Null);
+        Assert.That(problem!.Title, Is.EqualTo("Player is not joined to this room."));
+        Assert.That(problem.Status, Is.EqualTo(403));
     }
 
-    private static async Task<string> CreateRoomAsync(HttpClient client, string hostPlayerId)
+    private static async Task<string> CreateRoomAsync(WebApplicationFactory<GlobalChatHub> factory, string hostPlayerId)
     {
-        using var response = await client.PostAsJsonAsync("/api/gamerooms", new
-        {
-            gameType = "haggis",
-            hostPlayerId
-        });
-
-        var payload = await response.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(payload);
-        return doc.RootElement.GetProperty("roomId").GetString()!;
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/create"), CancellationToken.None);
+        await SendTextAsync(socket, $"{{\"gameType\":\"haggis\",\"hostPlayerId\":\"{hostPlayerId}\"}}", CancellationToken.None);
+        var payload = await ReceiveTextAsync(socket, CancellationToken.None);
+        var room = JsonSerializer.Deserialize<GameRoomResponse>(payload);
+        Assert.That(room, Is.Not.Null);
+        return room!.RoomId;
     }
 
-    private static async Task JoinRoomAsync(HttpClient client, string roomId, string playerId)
+    private static async Task JoinRoomAsync(WebApplicationFactory<GlobalChatHub> factory, string roomId, string playerId)
     {
-        using var response = await client.PostAsJsonAsync($"/api/gamerooms/{roomId}/join", new
-        {
-            playerId
-        });
-
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri($"ws://localhost/ws/rooms/{roomId}/join"), CancellationToken.None);
+        await SendTextAsync(socket, $"{{\"playerId\":\"{playerId}\"}}", CancellationToken.None);
+        var payload = await ReceiveTextAsync(socket, CancellationToken.None);
+        var room = JsonSerializer.Deserialize<GameRoomResponse>(payload);
+        Assert.That(room, Is.Not.Null);
     }
 
     private static async Task SendTextAsync(WebSocket socket, string text, CancellationToken cancellationToken)
@@ -218,13 +208,12 @@ public class RoomChatEndpointIntegrationTests
 
     private static void AssertRoomChatPayload(string payload, string expectedRoomId, string expectedPlayerId, string expectedText)
     {
-        using var doc = JsonDocument.Parse(payload);
-        var root = doc.RootElement;
-
-        Assert.That(root.GetProperty("RoomId").GetString(), Is.EqualTo(expectedRoomId));
-        Assert.That(root.GetProperty("PlayerId").GetString(), Is.EqualTo(expectedPlayerId));
-        Assert.That(root.GetProperty("Text").GetString(), Is.EqualTo(expectedText));
-        Assert.That(root.GetProperty("MessageId").GetString(), Is.Not.Null.And.Not.Empty);
-        Assert.That(root.GetProperty("CreatedAt").GetDateTimeOffset(), Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
+        var message = JsonSerializer.Deserialize<RoomChatMessage>(payload);
+        Assert.That(message, Is.Not.Null);
+        Assert.That(message!.RoomId, Is.EqualTo(expectedRoomId));
+        Assert.That(message.PlayerId, Is.EqualTo(expectedPlayerId));
+        Assert.That(message.Text, Is.EqualTo(expectedText));
+        Assert.That(message.MessageId, Is.Not.Null.And.Not.Empty);
+        Assert.That(message.CreatedAt, Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
     }
 }

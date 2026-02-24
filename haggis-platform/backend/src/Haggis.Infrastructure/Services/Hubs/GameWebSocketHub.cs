@@ -67,7 +67,22 @@ public sealed class GameWebSocketHub
             clients.TryRemove(clientId, out _);
             if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
-                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed.", CancellationToken.None);
+                try
+                {
+                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed.", CancellationToken.None);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (WebSocketException)
+                {
+                }
+                catch (IOException)
+                {
+                }
             }
         }
     }

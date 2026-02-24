@@ -1,0 +1,76 @@
+{
+  "info": {
+    "name": "Haggis SerwerAPI WebSocket Flow",
+    "description": "WebSocket flow for session login, rooms, and chat in Serwer.API.\n\nHow to use:\n1. Import this collection into Postman.\n2. Set collection variables if your ports differ.\n3. Connect requests in order: login -> create room -> join room -> chat -> game initialize.\n\nMessage payload examples are in each request description.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseWs", "value": "ws://localhost:5167" },
+    { "key": "baseGameWs", "value": "ws://localhost:5135" },
+    { "key": "playerHost", "value": "alice" },
+    { "key": "playerGuest", "value": "bob" },
+    { "key": "roomId", "value": "" },
+    { "key": "gameId", "value": "" },
+    { "key": "gameEndpoint", "value": "/games/{{gameId}}/actions" }
+  ],
+  "item": [
+    {
+      "name": "1. Session Login (Host)",
+      "request": {        "url": "{{baseWs}}/ws/session/login",
+        "description": "Connect, then send message:\n{\n  \"playerId\": \"{{playerHost}}\"\n}\n\nExpected message response:\n{\n  \"sessionId\": \"...\",\n  \"playerId\": \"alice\",\n  \"connectedAt\": \"...\",\n  \"status\": \"authenticated\"\n}"
+      },
+      "response": []
+    },
+    {
+      "name": "2. Session Login (Guest)",
+      "request": {        "url": "{{baseWs}}/ws/session/login",
+        "description": "Connect in second tab/window, then send message:\n{\n  \"playerId\": \"{{playerGuest}}\"\n}"
+      },
+      "response": []
+    },
+    {
+      "name": "3. Rooms Create",
+      "request": {        "url": "{{baseWs}}/ws/rooms/create",
+        "description": "Connect, then send message:\n{\n  \"gameType\": \"haggis\",\n  \"hostPlayerId\": \"{{playerHost}}\",\n  \"roomName\": \"Alice Haggis game\"\n}\n\nExpected response: GameRoomResponse.\nCopy roomId/gameId and set collection vars:\n- roomId\n- gameId\n- gameEndpoint (e.g. /games/<gameId>/actions)"
+      },
+      "response": []
+    },
+    {
+      "name": "4. Rooms Join",
+      "request": {        "url": "{{baseWs}}/ws/rooms/{{roomId}}/join",
+        "description": "Connect, then send message:\n{\n  \"playerId\": \"{{playerGuest}}\"\n}\n\nExpected response: updated GameRoomResponse with both players."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Rooms List",
+      "request": {        "url": "{{baseWs}}/ws/rooms/list",
+        "description": "Connect, then send message:\n{}\n\nExpected response: array of GameRoomResponse."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Global Chat",
+      "request": {        "url": "{{baseWs}}/ws/chat/global",
+        "description": "Connect one or more clients, then send message:\n{\n  \"playerId\": \"{{playerHost}}\",\n  \"text\": \"hej wszystkim\"\n}\n\nExpected response: ChatMessage broadcast to connected global-chat clients."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Room Chat",
+      "request": {        "url": "{{baseWs}}/ws/chat/rooms/{{roomId}}",
+        "description": "Connect one or more room clients, then send message:\n{\n  \"playerId\": \"{{playerHost}}\",\n  \"text\": \"hej pokoj\"\n}\n\nExpected response: RoomChatMessage broadcast to room clients."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Game Actions Initialize",
+      "request": {        "url": "{{baseGameWs}}{{gameEndpoint}}",
+        "description": "Connect to game service (Haggis.Infrastructure), then send message:\n{\n  \"type\": \"Command\",\n  \"command\": {\n    \"type\": \"Initialize\",\n    \"playerId\": \"{{playerHost}}\",\n    \"payload\": {\n      \"players\": [\"alice\", \"bob\", \"carol\"],\n      \"seed\": 123\n    }\n  }\n}\n\nExpected response: CommandApplied event."
+      },
+      "response": []
+    }
+  ]
+}
+
+

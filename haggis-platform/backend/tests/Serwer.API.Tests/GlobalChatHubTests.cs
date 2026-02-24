@@ -3,6 +3,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using NUnit.Framework;
+using Serwer.API.Dtos.Chat;
 using Serwer.API.Services;
 
 namespace Serwer.API.Tests;
@@ -24,9 +25,10 @@ public class GlobalChatHubTests
         var sentMessages = socket.GetSentTextMessages();
         Assert.That(sentMessages.Count, Is.EqualTo(1));
 
-        using var payload = JsonDocument.Parse(sentMessages[0]);
-        Assert.That(payload.RootElement.GetProperty("Title").GetString(), Is.EqualTo("Invalid chat payload."));
-        Assert.That(payload.RootElement.GetProperty("Status").GetInt32(), Is.EqualTo(400));
+        var payload = JsonSerializer.Deserialize<ProblemDetailsMessage>(sentMessages[0]);
+        Assert.That(payload, Is.Not.Null);
+        Assert.That(payload!.Title, Is.EqualTo("Invalid chat payload."));
+        Assert.That(payload.Status, Is.EqualTo(400));
     }
 
     [Test]
@@ -49,15 +51,12 @@ public class GlobalChatHubTests
         Assert.That(senderSocket.GetSentTextMessages().Count, Is.EqualTo(1));
         Assert.That(receiverSocket.GetSentTextMessages().Count, Is.EqualTo(1));
 
-        using var payload = JsonDocument.Parse(receiverSocket.GetSentTextMessages()[0]);
-        Assert.That(payload.RootElement.GetProperty("PlayerId").GetString(), Is.EqualTo("player-1"));
-        Assert.That(payload.RootElement.GetProperty("Text").GetString(), Is.EqualTo("hello world"));
-
-        var messageId = payload.RootElement.GetProperty("MessageId").GetString();
-        Assert.That(messageId, Is.Not.Null.And.Not.Empty);
-
-        var createdAt = payload.RootElement.GetProperty("CreatedAt").GetDateTimeOffset();
-        Assert.That(createdAt, Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
+        var payload = JsonSerializer.Deserialize<ChatMessage>(receiverSocket.GetSentTextMessages()[0]);
+        Assert.That(payload, Is.Not.Null);
+        Assert.That(payload!.PlayerId, Is.EqualTo("player-1"));
+        Assert.That(payload.Text, Is.EqualTo("hello world"));
+        Assert.That(payload.MessageId, Is.Not.Null.And.Not.Empty);
+        Assert.That(payload.CreatedAt, Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
     }
 
     private sealed class FakeWebSocket : WebSocket

@@ -6,13 +6,10 @@ Backend C# udostepnia API WebSocket jako warstwe komunikacji dla klienta Flutter
 
 ## Zrodlo prawdy kontraktu API
 
-- Gra (glowne zrodlo): `haggis-platform/openapi/HaggisAPI.yaml`
-- Gra (kopia robocza): `haggis-platform/docs/api/HaggisAPI.yaml`
-- Czat (glowne zrodlo): `haggis-platform/openapi/ChatAPI.yaml`
-- Czat (kopia robocza): `haggis-platform/docs/api/ChatAPI.yaml`
-- Serwer (REST, gameroom): `haggis-platform/docs/api/SerwerAPI.yaml`
+- Gra: `haggis-platform/asyncApi/HaggisAPI.yaml`
+- Serwer (session, room, chat): `haggis-platform/asyncApi/SerwerAPI.yaml`
 
-Jesli jest rozjazd miedzy dokumentem i implementacja, prawda sa pliki AsyncAPI.
+Jesli jest rozjazd miedzy dokumentem i implementacja, prawda sa pliki AsyncAPI z katalogu `asyncApi/`.
 
 ## Szybki przeglad kanalow (MVP)
 

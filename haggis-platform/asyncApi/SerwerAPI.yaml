@@ -1,89 +1,219 @@
-﻿openapi: 3.0.3
+asyncapi: 2.6.0
 info:
-  title: Serwer API
+  title: Serwer Async API
   version: 1.0.0
-  description: Uniwersalne API do zarzadzania pokojami gry (gameroom).
+  description: Kontrakt asynchroniczny dla pokoi gry (gameroom) i czatu przez WebSocket.
+defaultContentType: application/json
+
 servers:
-  - url: http://localhost:8080
-    description: Lokalny serwer HTTP
+  local:
+    url: localhost:5167
+    protocol: ws
+    description: Lokalny serwer WebSocket
 
-paths:
-  /api/gamerooms:
-    post:
+channels:
+  session/login:
+    description: Logowanie gracza i utworzenie sesji online.
+    publish:
+      operationId: sessionLogin
+      summary: Klient wysyla dane logowania sesji.
+      message:
+        $ref: '#/components/messages/SessionLoginRequestMessage'
+    subscribe:
+      operationId: sessionAuthenticated
+      summary: Serwer potwierdza sesje albo zwraca blad.
+      message:
+        oneOf:
+          - $ref: '#/components/messages/SessionLoginResponseMessage'
+          - $ref: '#/components/messages/ErrorMessage'
+
+  rooms/create:
+    description: Tworzenie pokoju gry.
+    publish:
       operationId: createGameRoom
-      summary: Tworzy pokoj gry i generuje gameId.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateGameRoomRequest'
-      responses:
-        '201':
-          description: Pokoj utworzony.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GameRoomResponse'
-        '400':
-          description: Niepoprawne dane wejsciowe.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+      summary: Klient wysyla polecenie utworzenia pokoju.
+      message:
+        $ref: '#/components/messages/CreateGameRoomRequestMessage'
+    subscribe:
+      operationId: roomCreated
+      summary: Serwer zwraca utworzony pokoj albo blad.
+      message:
+        oneOf:
+          - $ref: '#/components/messages/GameRoomResponseMessage'
+          - $ref: '#/components/messages/ErrorMessage'
 
-    get:
+  rooms/list:
+    description: Pobranie listy pokoi gry.
+    publish:
       operationId: listGameRooms
-      summary: Zwraca liste pokoi gry.
-      responses:
-        '200':
-          description: Lista pokoi.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/GameRoomResponse'
+      summary: Klient prosi o liste pokoi.
+      message:
+        $ref: '#/components/messages/ListGameRoomsRequestMessage'
+    subscribe:
+      operationId: gameRoomsList
+      summary: Serwer zwraca liste pokoi albo blad.
+      message:
+        oneOf:
+          - $ref: '#/components/messages/GameRoomListMessage'
+          - $ref: '#/components/messages/ErrorMessage'
 
-  /api/gamerooms/{roomId}/join:
-    post:
+  rooms/{roomId}/join:
+    description: Dolaczanie gracza do istniejacego pokoju.
+    parameters:
+      roomId:
+        description: Id pokoju gry.
+        schema:
+          type: string
+          minLength: 1
+    publish:
       operationId: joinGameRoom
-      summary: Dolacza gracza do istniejacego pokoju.
-      parameters:
-        - name: roomId
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 1
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JoinGameRoomRequest'
-      responses:
-        '200':
-          description: Gracz dolaczyl do pokoju.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GameRoomResponse'
-        '400':
-          description: Niepoprawne dane wejsciowe.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Pokoj nie istnieje.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+      summary: Klient wysyla polecenie dolaczenia do pokoju.
+      message:
+        $ref: '#/components/messages/JoinGameRoomRequestMessage'
+    subscribe:
+      operationId: roomJoined
+      summary: Serwer zwraca zaktualizowany pokoj albo blad.
+      message:
+        oneOf:
+          - $ref: '#/components/messages/GameRoomResponseMessage'
+          - $ref: '#/components/messages/ErrorMessage'
+
+  chat/global:
+    description: Globalny czat niezalezny od konkretnej gry.
+    publish:
+      operationId: sendChatMessage
+      summary: Klient wysyla wiadomosc czatu.
+      message:
+        $ref: '#/components/messages/SendChatMessageRequestMessage'
+    subscribe:
+      operationId: chatStream
+      summary: Serwer emituje wiadomosci czatu albo blad.
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ChatMessage'
+          - $ref: '#/components/messages/ErrorMessage'
+
+  chat/rooms/{roomId}:
+    description: Czat pokojowy dla konkretnego roomId (przed, w trakcie i po grze).
+    parameters:
+      roomId:
+        description: Id pokoju gry.
+        schema:
+          type: string
+          minLength: 1
+    publish:
+      operationId: sendRoomChatMessage
+      summary: Klient wysyla wiadomosc czatu pokojowego.
+      message:
+        $ref: '#/components/messages/SendRoomChatMessageRequestMessage'
+    subscribe:
+      operationId: roomChatStream
+      summary: Serwer emituje wiadomosci czatu pokojowego albo blad.
+      message:
+        oneOf:
+          - $ref: '#/components/messages/RoomChatMessage'
+          - $ref: '#/components/messages/ErrorMessage'
 
 components:
+  messages:
+    SessionLoginRequestMessage:
+      name: SessionLoginRequestMessage
+      title: Session login command
+      payload:
+        $ref: '#/components/schemas/SessionLoginRequest'
+
+    SessionLoginResponseMessage:
+      name: SessionLoginResponseMessage
+      title: Session authenticated event
+      payload:
+        $ref: '#/components/schemas/SessionLoginResponse'
+
+    CreateGameRoomRequestMessage:
+      name: CreateGameRoomRequestMessage
+      title: Create game room command
+      payload:
+        $ref: '#/components/schemas/CreateGameRoomRequest'
+
+    ListGameRoomsRequestMessage:
+      name: ListGameRoomsRequestMessage
+      title: List game rooms command
+      payload:
+        $ref: '#/components/schemas/ListGameRoomsRequest'
+
+    JoinGameRoomRequestMessage:
+      name: JoinGameRoomRequestMessage
+      title: Join game room command
+      payload:
+        $ref: '#/components/schemas/JoinGameRoomRequest'
+
+    GameRoomResponseMessage:
+      name: GameRoomResponseMessage
+      title: Game room event
+      payload:
+        $ref: '#/components/schemas/GameRoomResponse'
+
+    GameRoomListMessage:
+      name: GameRoomListMessage
+      title: Game room list event
+      payload:
+        $ref: '#/components/schemas/GameRoomList'
+
+    SendChatMessageRequestMessage:
+      name: SendChatMessageRequestMessage
+      title: Send chat message command
+      payload:
+        $ref: '#/components/schemas/SendChatMessageRequest'
+
+    ChatMessage:
+      name: ChatMessage
+      title: Chat message event
+      payload:
+        $ref: '#/components/schemas/ChatMessage'
+
+    SendRoomChatMessageRequestMessage:
+      name: SendRoomChatMessageRequestMessage
+      title: Send room chat message command
+      payload:
+        $ref: '#/components/schemas/SendRoomChatMessageRequest'
+
+    RoomChatMessage:
+      name: RoomChatMessage
+      title: Room chat message event
+      payload:
+        $ref: '#/components/schemas/RoomChatMessage'
+
+    ErrorMessage:
+      name: ErrorMessage
+      title: Error event
+      payload:
+        $ref: '#/components/schemas/ProblemDetails'
+
   schemas:
+    SessionLoginRequest:
+      type: object
+      required: [playerId]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+
+    SessionLoginResponse:
+      type: object
+      required: [sessionId, playerId, connectedAt, status]
+      additionalProperties: false
+      properties:
+        sessionId:
+          type: string
+        playerId:
+          type: string
+        connectedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [authenticated]
+
     CreateGameRoomRequest:
       type: object
       required: [gameType, hostPlayerId]
@@ -95,6 +225,14 @@ components:
         hostPlayerId:
           type: string
           minLength: 1
+        roomName:
+          type: string
+          minLength: 1
+
+    ListGameRoomsRequest:
+      type: object
+      additionalProperties: false
+      properties: {}
 
     JoinGameRoomRequest:
       type: object
@@ -107,7 +245,7 @@ components:
 
     GameRoomResponse:
       type: object
-      required: [roomId, gameId, gameType, createdAt, players, gameEndpoint]
+      required: [roomId, gameId, gameType, roomName, createdAt, players, gameEndpoint]
       additionalProperties: false
       properties:
         roomId:
@@ -117,6 +255,8 @@ components:
         gameType:
           type: string
           enum: [haggis]
+        roomName:
+          type: string
         createdAt:
           type: string
           format: date-time
@@ -129,10 +269,75 @@ components:
           description: Link do endpointu gry specyficznego dla gameType.
           example: /games/8b8a8de7ac5e4fa88b610f44d6872f3d/actions
 
+    GameRoomList:
+      type: array
+      items:
+        $ref: '#/components/schemas/GameRoomResponse'
+
+    SendChatMessageRequest:
+      type: object
+      required: [playerId, text]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    ChatMessage:
+      type: object
+      required: [messageId, playerId, text, createdAt]
+      additionalProperties: false
+      properties:
+        messageId:
+          type: string
+        playerId:
+          type: string
+        text:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    SendRoomChatMessageRequest:
+      type: object
+      required: [playerId, text]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    RoomChatMessage:
+      type: object
+      required: [messageId, roomId, playerId, text, createdAt]
+      additionalProperties: false
+      properties:
+        messageId:
+          type: string
+        roomId:
+          type: string
+        playerId:
+          type: string
+        text:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
     ProblemDetails:
       type: object
       required: [title, status]
       properties:
+        type:
+          type: string
         title:
           type: string
         status:
@@ -140,3 +345,11 @@ components:
           format: int32
         detail:
           type: string
+        instance:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string

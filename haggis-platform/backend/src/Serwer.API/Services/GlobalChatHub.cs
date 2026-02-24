@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using Serwer.API.Dtos.Chat;
 
 namespace Serwer.API.Services;
 
@@ -102,7 +103,5 @@ public sealed class GlobalChatHub
         }
     }
 
-    private sealed record SendChatMessageRequest(string PlayerId, string Text);
-    private sealed record ChatMessage(string MessageId, string PlayerId, string Text, DateTimeOffset CreatedAt);
-    private sealed record ProblemDetailsMessage(string Title, int Status);
 }
+

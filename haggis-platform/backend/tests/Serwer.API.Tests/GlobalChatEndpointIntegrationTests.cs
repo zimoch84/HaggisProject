@@ -5,6 +5,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using NUnit.Framework;
+using Serwer.API.Services;
+using Serwer.API.Dtos.Chat;
 
 namespace Serwer.API.Tests;
 
@@ -14,7 +16,7 @@ public class GlobalChatEndpointIntegrationTests
     [Test]
     public async Task GlobalChatEndpoint_WhenNotWebSocketRequest_ReturnsBadRequest()
     {
-        await using var factory = new WebApplicationFactory<Program>();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
         using var client = factory.CreateClient();
 
         using var response = await client.GetAsync("/ws/chat/global");
@@ -27,7 +29,7 @@ public class GlobalChatEndpointIntegrationTests
     [Test]
     public async Task GlobalChatEndpoint_WhenMessageSent_BroadcastsToAllConnectedClients()
     {
-        await using var factory = new WebApplicationFactory<Program>();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
 
         var socketClientA = factory.Server.CreateWebSocketClient();
         var socketClientB = factory.Server.CreateWebSocketClient();
@@ -50,23 +52,23 @@ public class GlobalChatEndpointIntegrationTests
     [Test]
     public async Task GlobalChatEndpoint_WhenPayloadInvalid_ReturnsProblemDetails()
     {
-        await using var factory = new WebApplicationFactory<Program>();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
         var socketClient = factory.Server.CreateWebSocketClient();
         using var socket = await socketClient.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
 
         await SendTextAsync(socket, "{\"playerId\":\"\",\"text\":\"hello\"}", CancellationToken.None);
         var payload = await ReceiveTextAsync(socket, CancellationToken.None);
 
-        using var doc = JsonDocument.Parse(payload);
-        var root = doc.RootElement;
-        Assert.That(root.GetProperty("Title").GetString(), Is.EqualTo("Invalid chat payload."));
-        Assert.That(root.GetProperty("Status").GetInt32(), Is.EqualTo(400));
+        var problem = JsonSerializer.Deserialize<ProblemDetailsMessage>(payload);
+        Assert.That(problem, Is.Not.Null);
+        Assert.That(problem!.Title, Is.EqualTo("Invalid chat payload."));
+        Assert.That(problem.Status, Is.EqualTo(400));
     }
 
     [Test]
     public async Task GlobalChatEndpoint_WhenMultipleMessagesSent_PreservesOrderForReceiver()
     {
-        await using var factory = new WebApplicationFactory<Program>();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
 
         var socketClientA = factory.Server.CreateWebSocketClient();
         var socketClientB = factory.Server.CreateWebSocketClient();
@@ -80,10 +82,13 @@ public class GlobalChatEndpointIntegrationTests
         var firstPayload = await ReceiveTextAsync(socketB, CancellationToken.None);
         var secondPayload = await ReceiveTextAsync(socketB, CancellationToken.None);
 
-        using var firstDoc = JsonDocument.Parse(firstPayload);
-        using var secondDoc = JsonDocument.Parse(secondPayload);
-        Assert.That(firstDoc.RootElement.GetProperty("Text").GetString(), Is.EqualTo("first"));
-        Assert.That(secondDoc.RootElement.GetProperty("Text").GetString(), Is.EqualTo("second"));
+        var firstMessage = JsonSerializer.Deserialize<ChatMessage>(firstPayload);
+        var secondMessage = JsonSerializer.Deserialize<ChatMessage>(secondPayload);
+
+        Assert.That(firstMessage, Is.Not.Null);
+        Assert.That(secondMessage, Is.Not.Null);
+        Assert.That(firstMessage!.Text, Is.EqualTo("first"));
+        Assert.That(secondMessage!.Text, Is.EqualTo("second"));
     }
 
     private static async Task SendTextAsync(WebSocket socket, string text, CancellationToken cancellationToken)
@@ -122,14 +127,14 @@ public class GlobalChatEndpointIntegrationTests
     {
         Assert.That(payload, Is.Not.Empty);
 
-        using var doc = JsonDocument.Parse(payload);
-        var root = doc.RootElement;
-
-        Assert.That(root.GetProperty("PlayerId").GetString(), Is.EqualTo("alice"));
-        Assert.That(root.GetProperty("Text").GetString(), Is.EqualTo("hi all"));
-        Assert.That(root.GetProperty("MessageId").GetString(), Is.Not.Null.And.Not.Empty);
-        Assert.That(root.GetProperty("CreatedAt").GetDateTimeOffset(), Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
+        var message = JsonSerializer.Deserialize<ChatMessage>(payload);
+        Assert.That(message, Is.Not.Null);
+        Assert.That(message!.PlayerId, Is.EqualTo("alice"));
+        Assert.That(message.Text, Is.EqualTo("hi all"));
+        Assert.That(message.MessageId, Is.Not.Null.And.Not.Empty);
+        Assert.That(message.CreatedAt, Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
     }
 }
+
 
 

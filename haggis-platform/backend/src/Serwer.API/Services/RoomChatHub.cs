@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using Serwer.API.Dtos.Chat;
 using Serwer.API.Services.GameRooms;
 
 namespace Serwer.API.Services;
@@ -37,7 +38,7 @@ public sealed class RoomChatHub
                     break;
                 }
 
-                var request = JsonSerializer.Deserialize<SendChatMessageRequest>(raw, SerializerOptions);
+                var request = JsonSerializer.Deserialize<SendRoomChatMessageRequest>(raw, SerializerOptions);
                 if (request is null || string.IsNullOrWhiteSpace(request.PlayerId) || string.IsNullOrWhiteSpace(request.Text))
                 {
                     await SendAsync(socket, new ProblemDetailsMessage("Invalid chat payload.", 400), cancellationToken);
@@ -132,8 +133,5 @@ public sealed class RoomChatHub
         }
     }
 
-    private sealed record SendChatMessageRequest(string PlayerId, string Text);
-    private sealed record ProblemDetailsMessage(string Title, int Status);
-    private sealed record RoomChatMessage(string MessageId, string RoomId, string PlayerId, string Text, DateTimeOffset CreatedAt);
 }
 

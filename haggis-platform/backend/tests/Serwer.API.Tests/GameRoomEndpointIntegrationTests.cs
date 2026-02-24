@@ -1,8 +1,13 @@
 using System.Net;
-using System.Net.Http.Json;
+using System.Net.WebSockets;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using NUnit.Framework;
+using Serwer.API.Dtos.Chat;
+using Serwer.API.Dtos.GameRooms;
+using Serwer.API.Services;
 
 namespace Serwer.API.Tests;
 
@@ -10,105 +15,159 @@ namespace Serwer.API.Tests;
 public class GameRoomEndpointIntegrationTests
 {
     [Test]
-    public async Task CreateGameRoom_WhenRequestValid_ReturnsCreatedWithGameEndpoint()
+    public async Task CreateGameRoom_WhenRequestValid_ReturnsCreatedRoom()
     {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
 
-        using var response = await client.PostAsJsonAsync("/api/gamerooms", new
-        {
-            gameType = "haggis",
-            hostPlayerId = "alice"
-        });
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/create"), CancellationToken.None);
 
-        var payload = await response.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(payload);
-        var root = doc.RootElement;
+        await SendTextAsync(socket, "{\"gameType\":\"haggis\",\"hostPlayerId\":\"alice\"}", CancellationToken.None);
+        var payload = await ReceiveTextAsync(socket, CancellationToken.None);
 
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
-        Assert.That(root.GetProperty("roomId").GetString(), Is.Not.Null.And.Not.Empty);
-        Assert.That(root.GetProperty("gameId").GetString(), Is.Not.Null.And.Not.Empty);
-        Assert.That(root.GetProperty("gameType").GetString(), Is.EqualTo("haggis"));
-        Assert.That(root.GetProperty("players")[0].GetString(), Is.EqualTo("alice"));
-
-        var gameId = root.GetProperty("gameId").GetString()!;
-        Assert.That(root.GetProperty("gameEndpoint").GetString(), Is.EqualTo($"/games/{gameId}/actions"));
+        var room = JsonSerializer.Deserialize<GameRoomResponse>(payload);
+        Assert.That(room, Is.Not.Null);
+        Assert.That(room!.RoomId, Is.Not.Null.And.Not.Empty);
+        Assert.That(room.GameId, Is.Not.Null.And.Not.Empty);
+        Assert.That(room.GameType, Is.EqualTo("haggis"));
+        Assert.That(room.RoomName, Is.EqualTo("alice Haggis game"));
+        Assert.That(room.Players[0], Is.EqualTo("alice"));
+        Assert.That(room.GameEndpoint, Is.EqualTo($"/games/{room.GameId}/actions"));
     }
 
     [Test]
     public async Task GameRoomsList_ReturnsCreatedRooms()
     {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
 
-        await client.PostAsJsonAsync("/api/gamerooms", new { gameType = "haggis", hostPlayerId = "alice" });
-        await client.PostAsJsonAsync("/api/gamerooms", new { gameType = "haggis", hostPlayerId = "bob" });
+        await CreateRoomViaWebSocketAsync(factory, "{\"gameType\":\"haggis\",\"hostPlayerId\":\"alice\"}");
+        await CreateRoomViaWebSocketAsync(factory, "{\"gameType\":\"haggis\",\"hostPlayerId\":\"bob\"}");
 
-        using var response = await client.GetAsync("/api/gamerooms");
-        var payload = await response.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(payload);
-        var rooms = doc.RootElement;
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/list"), CancellationToken.None);
+        await SendTextAsync(socket, "{}", CancellationToken.None);
+        var payload = await ReceiveTextAsync(socket, CancellationToken.None);
 
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-        Assert.That(rooms.ValueKind, Is.EqualTo(JsonValueKind.Array));
-        Assert.That(rooms.GetArrayLength(), Is.GreaterThanOrEqualTo(2));
+        var rooms = JsonSerializer.Deserialize<List<GameRoomResponse>>(payload);
+        Assert.That(rooms, Is.Not.Null);
+        Assert.That(rooms!.Count, Is.GreaterThanOrEqualTo(2));
     }
 
     [Test]
     public async Task JoinGameRoom_WhenRoomExists_AddsPlayer()
     {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
 
-        using var createResponse = await client.PostAsJsonAsync("/api/gamerooms", new
-        {
-            gameType = "haggis",
-            hostPlayerId = "alice"
-        });
-        var createdPayload = await createResponse.Content.ReadAsStringAsync();
-        using var createdDoc = JsonDocument.Parse(createdPayload);
-        var roomId = createdDoc.RootElement.GetProperty("roomId").GetString();
+        var createdRoom = await CreateRoomViaWebSocketAsync(factory, "{\"gameType\":\"haggis\",\"hostPlayerId\":\"alice\"}");
+        Assert.That(createdRoom, Is.Not.Null);
 
-        using var joinResponse = await client.PostAsJsonAsync($"/api/gamerooms/{roomId}/join", new
-        {
-            playerId = "bob"
-        });
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(
+            new Uri($"ws://localhost/ws/rooms/{createdRoom!.RoomId}/join"),
+            CancellationToken.None);
 
-        var joinPayload = await joinResponse.Content.ReadAsStringAsync();
-        using var joinDoc = JsonDocument.Parse(joinPayload);
-        var players = joinDoc.RootElement.GetProperty("players").EnumerateArray().Select(x => x.GetString()).ToArray();
+        await SendTextAsync(socket, "{\"playerId\":\"bob\"}", CancellationToken.None);
+        var payload = await ReceiveTextAsync(socket, CancellationToken.None);
 
-        Assert.That(joinResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-        Assert.That(players, Contains.Item("alice"));
-        Assert.That(players, Contains.Item("bob"));
+        var joinedRoom = JsonSerializer.Deserialize<GameRoomResponse>(payload);
+        Assert.That(joinedRoom, Is.Not.Null);
+        Assert.That(joinedRoom!.Players, Contains.Item("alice"));
+        Assert.That(joinedRoom.Players, Contains.Item("bob"));
     }
 
     [Test]
-    public async Task JoinGameRoom_WhenRoomNotFound_ReturnsNotFound()
+    public async Task JoinGameRoom_WhenRoomNotFound_ReturnsProblemDetails()
     {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
 
-        using var response = await client.PostAsJsonAsync("/api/gamerooms/missing-room/join", new
-        {
-            playerId = "bob"
-        });
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/missing-room/join"), CancellationToken.None);
 
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        await SendTextAsync(socket, "{\"playerId\":\"bob\"}", CancellationToken.None);
+        var payload = await ReceiveTextAsync(socket, CancellationToken.None);
+
+        var problem = JsonSerializer.Deserialize<ProblemDetailsMessage>(payload);
+        Assert.That(problem, Is.Not.Null);
+        Assert.That(problem!.Status, Is.EqualTo(404));
     }
 
     [Test]
-    public async Task CreateGameRoom_WhenGameTypeUnsupported_ReturnsBadRequest()
+    public async Task CreateGameRoom_WhenGameTypeUnsupported_ReturnsProblemDetails()
     {
-        await using var factory = new WebApplicationFactory<Program>();
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/create"), CancellationToken.None);
+
+        await SendTextAsync(socket, "{\"gameType\":\"chess\",\"hostPlayerId\":\"alice\"}", CancellationToken.None);
+        var payload = await ReceiveTextAsync(socket, CancellationToken.None);
+
+        var problem = JsonSerializer.Deserialize<ProblemDetailsMessage>(payload);
+        Assert.That(problem, Is.Not.Null);
+        Assert.That(problem!.Status, Is.EqualTo(400));
+    }
+
+    [Test]
+    public async Task CreateGameRoom_WhenRoomNameProvided_UsesProvidedName()
+    {
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+
+        var room = await CreateRoomViaWebSocketAsync(factory, "{\"gameType\":\"haggis\",\"hostPlayerId\":\"alice\",\"roomName\":\"Turniejowy pokoj\"}");
+        Assert.That(room, Is.Not.Null);
+        Assert.That(room!.RoomName, Is.EqualTo("Turniejowy pokoj"));
+    }
+
+    [Test]
+    public async Task CreateRoomsEndpoint_WhenNotWebSocketRequest_ReturnsBadRequest()
+    {
+        await using var factory = new WebApplicationFactory<GlobalChatHub>();
         using var client = factory.CreateClient();
 
-        using var response = await client.PostAsJsonAsync("/api/gamerooms", new
-        {
-            gameType = "chess",
-            hostPlayerId = "alice"
-        });
+        using var response = await client.GetAsync("/ws/rooms/create");
+        var body = await response.Content.ReadAsStringAsync();
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(body, Is.EqualTo("WebSocket connection expected."));
+    }
+
+    private static async Task<GameRoomResponse?> CreateRoomViaWebSocketAsync(WebApplicationFactory<GlobalChatHub> factory, string requestJson)
+    {
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/create"), CancellationToken.None);
+        await SendTextAsync(socket, requestJson, CancellationToken.None);
+        var payload = await ReceiveTextAsync(socket, CancellationToken.None);
+        return JsonSerializer.Deserialize<GameRoomResponse>(payload);
+    }
+
+    private static async Task SendTextAsync(WebSocket socket, string text, CancellationToken cancellationToken)
+    {
+        var bytes = Encoding.UTF8.GetBytes(text);
+        await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken);
+    }
+
+    private static async Task<string> ReceiveTextAsync(WebSocket socket, CancellationToken cancellationToken)
+    {
+        var buffer = new byte[4096];
+        using var ms = new MemoryStream();
+
+        while (true)
+        {
+            var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+            if (result.MessageType == WebSocketMessageType.Close)
+            {
+                return string.Empty;
+            }
+
+            if (result.MessageType != WebSocketMessageType.Text)
+            {
+                continue;
+            }
+
+            ms.Write(buffer, 0, result.Count);
+            if (result.EndOfMessage)
+            {
+                return Encoding.UTF8.GetString(ms.ToArray());
+            }
+        }
     }
 }

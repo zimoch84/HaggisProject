@@ -6,13 +6,18 @@ public sealed class GameRoomStore : IGameRoomStore
 {
     private readonly ConcurrentDictionary<string, GameRoom> _rooms = new();
 
-    public GameRoom CreateRoom(string hostPlayerId, string gameType)
+    public GameRoom CreateRoom(string hostPlayerId, string gameType, string? roomName = null)
     {
+        var normalizedRoomName = string.IsNullOrWhiteSpace(roomName)
+            ? BuildDefaultRoomName(hostPlayerId, gameType)
+            : roomName.Trim();
+
         var room = new GameRoom
         {
             RoomId = Guid.NewGuid().ToString("N"),
             GameId = Guid.NewGuid().ToString("N"),
             GameType = gameType,
+            RoomName = normalizedRoomName,
             CreatedAt = DateTimeOffset.UtcNow,
             Players = new List<string> { hostPlayerId }
         };
@@ -68,8 +73,26 @@ public sealed class GameRoomStore : IGameRoomStore
             RoomId = room.RoomId,
             GameId = room.GameId,
             GameType = room.GameType,
+            RoomName = room.RoomName,
             CreatedAt = room.CreatedAt,
             Players = room.Players.ToList()
         };
     }
+
+    private static string BuildDefaultRoomName(string hostPlayerId, string gameType)
+    {
+        return $"{hostPlayerId} {ToDisplayGameName(gameType)} game";
+    }
+
+    private static string ToDisplayGameName(string gameType)
+    {
+        if (string.IsNullOrWhiteSpace(gameType))
+        {
+            return "Game";
+        }
+
+        var normalized = gameType.Trim().ToLowerInvariant();
+        return char.ToUpperInvariant(normalized[0]) + normalized[1..];
+    }
 }
+

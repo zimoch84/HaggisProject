@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Serwer.API\Serwer.API.csproj" />
+    <ProjectReference Include="..\..\src\Haggis.Infrastructure\Haggis.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
