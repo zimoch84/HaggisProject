@@ -1,417 +1,336 @@
 asyncapi: 2.6.0
 info:
-  title: Haggis Game Async API
-  version: 1.0.0
-  description: Komunikacja klienta z serwerem gry Haggis przez WebSocket.
+  title: Haggis Infrastructure Async API
+  version: 3.0.0
+  description: Realtime API based on operation envelopes.
 defaultContentType: application/json
 
 servers:
-  local:
+  ws:
     url: localhost:8080
     protocol: ws
-    description: Lokalny serwer WebSocket
+    description: WebSocket endpoints
 
 channels:
-  games/create:
-    description: Tworzenie nowej gry i odbior odpowiedzi o stanie poczatkowym.
+  ws/global/chat:
+    description: Global chat channel. On connect server returns room list and recent global chat history.
     publish:
-      operationId: createGame
-      summary: Klient wysyla prosbe o utworzenie gry.
-      message:
-        $ref: '#/components/messages/CreateGameRequestMessage'
-    subscribe:
-      operationId: createGameResult
-      summary: Serwer zwraca wynik tworzenia gry.
+      operationId: sendGlobalOperation
       message:
         oneOf:
-          - $ref: '#/components/messages/GameCreatedMessage'
-          - $ref: '#/components/messages/ErrorMessage'
+          - $ref: "#/components/messages/GlobalChatOperationMessage"
+          - $ref: "#/components/messages/GlobalListRoomOperationMessage"
+          - $ref: "#/components/messages/GlobalCreateRoomOperationMessage"
+          - $ref: "#/components/messages/GlobalPrivateChatOperationMessage"
+    subscribe:
+      operationId: receiveGlobalOperation
+      message:
+        $ref: "#/components/messages/GlobalOperationEnvelopeMessage"
 
-  games/{gameId}/actions:
-    description: Klient wysyla akcje gracza (play/pass), serwer emituje akcje i stan gry.
+  ws/games/{gameId}:
+    description: Game channel with operation-based commands.
     parameters:
       gameId:
-        description: Id gry.
         schema:
           type: string
           minLength: 1
     publish:
-      operationId: sendPlayerAction
-      summary: Klient wysyla akcje gracza.
-      message:
-        $ref: '#/components/messages/PlayerActionMessage'
-    subscribe:
-      operationId: actionResult
-      summary: Serwer emituje PlayerAction, nowy stan gry albo blad walidacji ruchu.
+      operationId: sendGameOperation
       message:
         oneOf:
-          - $ref: '#/components/messages/PlayerActionMessage'
-          - $ref: '#/components/messages/GameStateMessage'
-          - $ref: '#/components/messages/ErrorMessage'
-
-  games/{gameId}/state:
-    description: Strumien aktualizacji stanu gry.
-    parameters:
-      gameId:
-        description: Id gry.
-        schema:
-          type: string
-          minLength: 1
+          - $ref: "#/components/messages/GameJoinOperationMessage"
+          - $ref: "#/components/messages/GameCreateOperationMessage"
+          - $ref: "#/components/messages/GameChatOperationMessage"
+          - $ref: "#/components/messages/GameCommandOperationMessage"
     subscribe:
-      operationId: gameStateStream
-      summary: Serwer publikuje zmiany stanu gry.
+      operationId: receiveGameOperation
       message:
-        $ref: '#/components/messages/GameStateMessage'
+        $ref: "#/components/messages/GameOperationEnvelopeMessage"
 
 components:
   messages:
-    CreateGameRequestMessage:
-      name: CreateGameRequestMessage
-      title: Create game request
+    GlobalChatOperationMessage:
       payload:
-        $ref: '#/components/schemas/CreateGameRequest'
+        $ref: "#/components/schemas/GlobalChatOperation"
+    GlobalListRoomOperationMessage:
+      payload:
+        $ref: "#/components/schemas/GlobalListRoomOperation"
+    GlobalCreateRoomOperationMessage:
+      payload:
+        $ref: "#/components/schemas/GlobalCreateRoomOperation"
+    GlobalPrivateChatOperationMessage:
+      payload:
+        $ref: "#/components/schemas/GlobalPrivateChatOperation"
+    GlobalOperationEnvelopeMessage:
+      payload:
+        $ref: "#/components/schemas/GlobalOperationEnvelope"
 
-    GameCreatedMessage:
-      name: GameCreatedMessage
-      title: Game created event
+    GameJoinOperationMessage:
       payload:
-        $ref: '#/components/schemas/CreateGameResponse'
-
-    PlayerActionMessage:
-      name: PlayerActionMessage
-      title: Player action command
+        $ref: "#/components/schemas/GameJoinOperation"
+    GameCreateOperationMessage:
       payload:
-        $ref: '#/components/schemas/PlayerAction'
-
-    GameStateMessage:
-      name: GameStateMessage
-      title: Game state event
+        $ref: "#/components/schemas/GameCreateOperation"
+    GameChatOperationMessage:
       payload:
-        $ref: '#/components/schemas/GameState'
-
-    ErrorMessage:
-      name: ErrorMessage
-      title: Error event
+        $ref: "#/components/schemas/GameChatOperation"
+    GameCommandOperationMessage:
       payload:
-        $ref: '#/components/schemas/ProblemDetails'
+        $ref: "#/components/schemas/GameCommandOperation"
+    GameOperationEnvelopeMessage:
+      payload:
+        $ref: "#/components/schemas/GameOperationEnvelope"
 
   schemas:
-    CreateGameRequest:
+    GlobalOperationEnvelope:
       type: object
-      required: [players]
+      required: [operation, data]
+      additionalProperties: true
       properties:
-        players:
-          type: array
-          minItems: 2
-          maxItems: 3
-          items:
-            $ref: '#/components/schemas/PlayerSpec'
-        rules:
-          $ref: '#/components/schemas/GameRules'
-        options:
-          $ref: '#/components/schemas/CreateGameOptions'
-
-    CreateGameOptions:
-      type: object
-      additionalProperties: false
-      properties:
-        includeHandsInState:
-          type: boolean
-          default: false
-          description: Jesli true, API moze zwracac rece w stanie gry (debug/dev).
-        scoring:
-          $ref: '#/components/schemas/ScoringOptions'
-
-    ScoringOptions:
-      type: object
-      additionalProperties: false
-      properties:
-        strategy:
+        operation:
           type: string
-          enum: [Classic, EveryCardOnePoint]
-          default: Classic
-          description: Gotowy wariant strategii punktowania.
-        runOutMultiplier:
-          type: integer
-          format: int32
-          default: 5
-          minimum: 0
-          description: Mnoznik punktow przy wyjsciu z rak.
-        cardPointsByRank:
+          enum: [bootstrap, chat, listroom, createroom, privatechat, unknown]
+        data:
           type: object
-          description: Mapowanie punktow dla rang kart (klucze: 2..10,J,Q,K).
-          additionalProperties:
-            type: integer
-            format: int32
+          additionalProperties: true
 
-    CreateGameResponse:
+    GlobalChatOperation:
       type: object
-      required: [gameId, createdAt, state]
+      required: [operation, payload]
+      additionalProperties: false
       properties:
+        operation:
+          type: string
+          enum: [chat]
+        payload:
+          $ref: "#/components/schemas/SendChatMessageRequest"
+
+    GlobalListRoomOperation:
+      type: object
+      required: [operation]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum: [listroom]
+        payload:
+          type: object
+          nullable: true
+          additionalProperties: true
+
+    GlobalCreateRoomOperation:
+      type: object
+      required: [operation, payload]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum: [createroom]
+        payload:
+          $ref: "#/components/schemas/CreateRoomRequest"
+
+    GlobalPrivateChatOperation:
+      type: object
+      required: [operation, payload]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum: [privatechat]
+        payload:
+          $ref: "#/components/schemas/PrivateChatRequest"
+
+    GameOperationEnvelope:
+      type: object
+      required: [operation, data]
+      additionalProperties: true
+      properties:
+        operation:
+          type: string
+          enum: [join, create, chat, command, unknown]
+        data:
+          type: object
+          additionalProperties: true
+
+    GameJoinOperation:
+      type: object
+      required: [operation, payload]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum: [join]
+        payload:
+          $ref: "#/components/schemas/JoinPayload"
+
+    GameCreateOperation:
+      type: object
+      required: [operation, payload]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum: [create]
+        payload:
+          $ref: "#/components/schemas/CreatePayload"
+
+    GameChatOperation:
+      type: object
+      required: [operation, payload]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum: [chat]
+        payload:
+          $ref: "#/components/schemas/GameChatMessage"
+
+    GameCommandOperation:
+      type: object
+      required: [operation, payload]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum: [command]
+        payload:
+          $ref: "#/components/schemas/CommandPayload"
+
+    SendChatMessageRequest:
+      type: object
+      required: [playerId, text]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+        text:
+          type: string
+          minLength: 1
+
+    CreateRoomRequest:
+      type: object
+      required: [playerId]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+        gameType:
+          type: string
+        roomName:
+          type: string
+        roomId:
+          type: string
+
+    PrivateChatRequest:
+      type: object
+      required: [playerId, targetPlayerId]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+        targetPlayerId:
+          type: string
+          minLength: 1
+        roomName:
+          type: string
+        roomId:
+          type: string
+
+    JoinPayload:
+      type: object
+      required: [playerId]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+
+    CreatePayload:
+      type: object
+      required: [playerId]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+        payload:
+          type: object
+          additionalProperties: true
+
+    CommandPayload:
+      type: object
+      required: [command]
+      additionalProperties: false
+      properties:
+        command:
+          $ref: "#/components/schemas/GameCommand"
+        state:
+          $ref: "#/components/schemas/GameStateSnapshot"
+
+    GameRoomResponse:
+      type: object
+      required: [roomId, gameId, gameType, roomName, createdAt, players, gameEndpoint]
+      additionalProperties: false
+      properties:
+        roomId:
+          type: string
         gameId:
+          type: string
+        gameType:
+          type: string
+        roomName:
           type: string
         createdAt:
           type: string
           format: date-time
-        state:
-          $ref: '#/components/schemas/GameState'
-
-    PlayerAction:
-      type: object
-      required: [type, playerId]
-      additionalProperties: false
-      properties:
-        type:
-          type: string
-          enum: [Play, Pass]
-        playerId:
-          type: string
-        cards:
-          type: array
-          description: Wymagane dla type=Play.
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/Card'
-
-    PlayerSpec:
-      type: object
-      required: [id, displayName, type]
-      additionalProperties: false
-      properties:
-        id:
-          type: string
-          description: Stabilny identyfikator gracza (np. piotr, ai-1)
-          minLength: 1
-        displayName:
-          type: string
-          minLength: 1
-        type:
-          $ref: '#/components/schemas/PlayerType'
-        aiProfile:
-          type: string
-          description: Opcjonalne dla AI (np. MonteCarlo, Random, Heuristic)
-          example: MonteCarlo
-
-    PlayerType:
-      type: string
-      enum: [Human, AI]
-
-    GameRules:
-      type: object
-      additionalProperties: false
-      properties:
-        seed:
-          type: integer
-          format: int64
-          description: Seed do deterministycznego tasowania (ulatwia testy).
-        maxPlayers:
-          type: integer
-          format: int32
-          minimum: 2
-          maximum: 3
-          default: 3
-
-    GameState:
-      type: object
-      required: [gameId, status, players, turn, table, scores, orderPointer, updatedAt]
-      properties:
-        gameId:
-          type: string
-        status:
-          $ref: '#/components/schemas/GameStatus'
         players:
           type: array
-          minItems: 2
-          maxItems: 3
           items:
-            $ref: '#/components/schemas/PlayerState'
-        turn:
-          $ref: '#/components/schemas/TurnState'
-        table:
-          $ref: '#/components/schemas/TableState'
-        scores:
-          $ref: '#/components/schemas/ScoreState'
-        orderPointer:
+            type: string
+        gameEndpoint:
+          type: string
+          description: Realtime game endpoint path (`/ws/games/{gameId}`).
+
+    GameCommand:
+      type: object
+      required: [type, playerId, payload]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+        playerId:
+          type: string
+          minLength: 1
+        payload:
+          type: object
+          additionalProperties: true
+
+    GameChatMessage:
+      type: object
+      required: [playerId, text]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+        text:
+          type: string
+          minLength: 1
+
+    GameStateSnapshot:
+      type: object
+      required: [version, data, updatedAt]
+      additionalProperties: false
+      properties:
+        version:
           type: integer
           format: int64
-          minimum: 0
-          description: Rosnacy wskaznik kolejnosci aktualizacji stanu gry.
+        data:
+          type: object
+          additionalProperties: true
         updatedAt:
           type: string
           format: date-time
-
-    GameStatus:
-      type: string
-      enum: [WaitingForStart, InProgress, Finished]
-
-    PlayerState:
-      type: object
-      required: [id, displayName, type, handCount, isEliminated]
-      additionalProperties: false
-      properties:
-        id:
-          type: string
-        displayName:
-          type: string
-        type:
-          $ref: '#/components/schemas/PlayerType'
-        handCount:
-          type: integer
-          format: int32
-          minimum: 0
-          description: Ile kart ma na rece (publiczna informacja).
-        hand:
-          type: array
-          description: Opcjonalne, obecne tylko jesli backend zwraca reke gracza.
-          items:
-            $ref: '#/components/schemas/Card'
-        isEliminated:
-          type: boolean
-
-    TurnState:
-      type: object
-      required: [currentPlayerId, phase, trickNumber]
-      additionalProperties: false
-      properties:
-        currentPlayerId:
-          type: string
-        phase:
-          type: string
-          enum: [Play, Pass, Resolve]
-        trickNumber:
-          type: integer
-          format: int32
-          minimum: 1
-        lastAction:
-          $ref: '#/components/schemas/LastAction'
-
-    LastAction:
-      type: object
-      additionalProperties: false
-      properties:
-        type:
-          type: string
-          enum: [Play, Pass, StartGame]
-        byPlayerId:
-          type: string
-        playedCards:
-          type: array
-          items:
-            $ref: '#/components/schemas/Card'
-        at:
-          type: string
-          format: date-time
-
-    TableState:
-      type: object
-      required: [currentTrick, pile]
-      additionalProperties: false
-      properties:
-        currentTrick:
-          $ref: '#/components/schemas/Trick'
-        pile:
-          type: array
-          description: Zebrane tricki lub stos odrzuconych.
-          items:
-            $ref: '#/components/schemas/Trick'
-
-    Trick:
-      type: object
-      required: [plays]
-      additionalProperties: false
-      properties:
-        plays:
-          type: array
-          items:
-            $ref: '#/components/schemas/TrickPlay'
-        leadingPlayerId:
-          type: string
-          nullable: true
-        trickType:
-          type: string
-          nullable: true
-          description: Np. Single, Pair, Sequence, Bomb.
-
-    TrickPlay:
-      type: object
-      required: [playerId, cards]
-      additionalProperties: false
-      properties:
-        playerId:
-          type: string
-        cards:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/Card'
-
-    ScoreState:
-      type: object
-      additionalProperties: false
-      properties:
-        pointsByPlayerId:
-          type: object
-          additionalProperties:
-            type: integer
-            format: int32
-        winnerPlayerId:
-          type: string
-          nullable: true
-
-    Card:
-      type: object
-      required: [code]
-      additionalProperties: false
-      properties:
-        code:
-          type: string
-          description: Kod karty w formacie ustalonym przez silnik, np. 5R, JB.
-          example: 5R
-        suit:
-          type: string
-          nullable: true
-          enum: [RED, BLACK, GREEN, YELLOW, ORANGE]
-        rank:
-          type: string
-          nullable: true
-          enum: ['2', '3', '4', '5', '6', '7', '8', '9', '10', J, Q, K]
-        wildAs:
-          type: object
-          nullable: true
-          additionalProperties: false
-          description: Wystepuje tylko dla kart wild (J/Q/K), gdy karta zastepuje inna karte.
-          required: [rank, suit]
-          properties:
-            rank:
-              type: string
-              enum: ['2', '3', '4', '5', '6', '7', '8', '9', '10', J, Q, K]
-            suit:
-              type: string
-              enum: [RED, BLACK, GREEN, YELLOW, ORANGE]
-
-    ProblemDetails:
-      type: object
-      required: [title, status]
-      properties:
-        type:
-          type: string
-        title:
-          type: string
-        status:
-          type: integer
-          format: int32
-        detail:
-          type: string
-        instance:
-          type: string
-        errors:
-          type: object
-          additionalProperties:
-            type: array
-            items:
-              type: string
-
-
-
-
-
