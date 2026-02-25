@@ -21,7 +21,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Haggis.Domain", "Haggis.Dom
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Haggis.Domain", "src\Haggis.Domain\Haggis.Domain.csproj", "{D19E7323-CF72-E455-A6AA-2B81AC216C9D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HaggisRuntime", "src\Game.Engine\HaggisRuntime\HaggisRuntime.csproj", "{97450676-DA28-D1C6-456E-397F0969002E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HaggisRuntime", "..\client\Haggis.ConsoleUI\HaggisRuntime.csproj", "{97450676-DA28-D1C6-456E-397F0969002E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Haggis.Infrastructure", "src\Haggis.Infrastructure\Haggis.Infrastructure.csproj", "{2CFFA77F-CEED-4C48-92BD-AB4A3486F6D4}"
 EndProject
