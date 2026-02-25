@@ -31,7 +31,8 @@ public sealed class GameCommandApplicationService : IGameCommandApplicationServi
                 Error: null,
                 Command: effectiveMessage.Command,
                 State: applyResult.State,
-                CreatedAt: DateTimeOffset.UtcNow);
+                CreatedAt: DateTimeOffset.UtcNow,
+                CurrentPlayerId: TryExtractCurrentPlayerId(applyResult.State));
         }
         catch (InvalidOperationException ex)
         {
@@ -79,5 +80,18 @@ public sealed class GameCommandApplicationService : IGameCommandApplicationServi
         var enrichedPayload = JsonSerializer.SerializeToElement(payload);
         var enrichedCommand = message.Command with { Payload = enrichedPayload };
         return message with { Command = enrichedCommand };
+    }
+
+    private static string? TryExtractCurrentPlayerId(GameStateSnapshot state)
+    {
+        if (state.Data.ValueKind != JsonValueKind.Object ||
+            !state.Data.TryGetProperty("currentPlayerId", out var currentPlayerElement) ||
+            currentPlayerElement.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var currentPlayerId = currentPlayerElement.GetString();
+        return string.IsNullOrWhiteSpace(currentPlayerId) ? null : currentPlayerId.Trim();
     }
 }

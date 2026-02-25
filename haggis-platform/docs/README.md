@@ -6,6 +6,7 @@ Ten katalog zawiera dokumentacj? techniczn? projektu Haggis (backend C#, AsyncAP
 
 - `api/rest-api.md` - opis API WebSocket, konwencje i przeplyw komunikacji UI <-> backend.
 - `api/post-login-flow.md` - flow sesji gracza po zalogowaniu: global chat, pokoj, start gry.
+- `postman/websocket-messages.md` - gotowe komunikaty WebSocket do testow w Postmanie (request/response).
 - `setup/prerequisites.md` - wymagania lokalnego srodowiska.
 - `setup/containers.md` - uruchamianie kontenerow Docker.
 - `setup/run.md` - uruchamianie projektu lokalnie (bez kontenerow i z kontenerami).

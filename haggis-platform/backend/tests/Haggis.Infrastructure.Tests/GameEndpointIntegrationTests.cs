@@ -55,12 +55,14 @@ public class GameEndpointIntegrationTests
         Assert.That(root.TryGetProperty("Command", out var command), Is.True);
         Assert.That(root.TryGetProperty("State", out var state), Is.True);
         Assert.That(root.TryGetProperty("CreatedAt", out var createdAt), Is.True);
+        Assert.That(root.TryGetProperty("CurrentPlayerId", out var currentPlayerId), Is.True);
 
         Assert.That(type.GetString(), Is.EqualTo("CommandApplied"));
         Assert.That(orderPointer.GetInt64(), Is.EqualTo(1));
         Assert.That(gameId.GetString(), Is.Not.Null.And.Not.Empty);
         Assert.That(error.ValueKind, Is.EqualTo(JsonValueKind.Null));
         Assert.That(createdAt.GetDateTimeOffset(), Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
+        Assert.That(currentPlayerId.GetString(), Is.EqualTo("alice"));
 
         Assert.That(command.TryGetProperty("Type", out var commandType), Is.True);
         Assert.That(command.TryGetProperty("PlayerId", out var playerId), Is.True);
