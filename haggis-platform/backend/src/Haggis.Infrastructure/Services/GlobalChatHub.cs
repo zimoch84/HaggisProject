@@ -281,11 +281,6 @@ public sealed class GlobalChatHub
                 }
             }
 
-            if (root.TryGetProperty("playerId", out _) && root.TryGetProperty("text", out _))
-            {
-                return "chat";
-            }
-
             return null;
         }
         catch (JsonException)
@@ -309,15 +304,7 @@ public sealed class GlobalChatHub
                 request = operationPayload;
                 return true;
             }
-
-            var legacy = JsonSerializer.Deserialize<SendChatMessageRequest>(text, SerializerOptions);
-            if (legacy is null || string.IsNullOrWhiteSpace(legacy.PlayerId) || string.IsNullOrWhiteSpace(legacy.Text))
-            {
-                return false;
-            }
-
-            request = legacy;
-            return true;
+            return false;
         }
         catch (JsonException)
         {

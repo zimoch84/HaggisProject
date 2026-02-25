@@ -62,35 +62,6 @@ app.Map("/ws/games/{gameId}", async (HttpContext context, GameWebSocketHub hub, 
     }
 });
 
-// Backward-compatible aliases for existing clients/tests.
-app.Map("/ws/chat/global", (HttpContext context, ChatWebSocketHandler handler) =>
-    handler.HandleGlobalChatAsync(context));
-
-app.Map("/ws/rooms/{roomId}", async (HttpContext context, GameWebSocketHub hub, string roomId) =>
-{
-    if (!context.WebSockets.IsWebSocketRequest)
-    {
-        context.Response.StatusCode = StatusCodes.Status400BadRequest;
-        await context.Response.WriteAsync("WebSocket connection expected.");
-        return;
-    }
-
-    try
-    {
-        using var socket = await context.WebSockets.AcceptWebSocketAsync();
-        await hub.HandleClientAsync(roomId, socket, context.RequestAborted);
-    }
-    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
-    {
-    }
-    catch (ObjectDisposedException)
-    {
-    }
-    catch (IOException)
-    {
-    }
-});
-
 app.Run();
 
 public partial class Program;

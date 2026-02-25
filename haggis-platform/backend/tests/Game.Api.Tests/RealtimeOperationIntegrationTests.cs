@@ -309,50 +309,6 @@ public class RealtimeOperationIntegrationTests
         Assert.That(GetRequiredPropertyIgnoreCase(doc.RootElement, "error").GetString(), Does.Contain("Unsupported operation"));
     }
 
-    [Test]
-    public async Task ContractParity_NewAndLegacyEndpoints_BehaveTheSameForCoreFlow()
-    {
-        await using var factory = new WebApplicationFactory<Program>();
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        var cancellationToken = timeoutCts.Token;
-        const string gameId = "parity-1";
-
-        var wsLegacyClient = factory.Server.CreateWebSocketClient();
-        var wsNewClient = factory.Server.CreateWebSocketClient();
-        using var legacySocket = await wsLegacyClient.ConnectAsync(new Uri($"ws://localhost/ws/rooms/{gameId}"), cancellationToken);
-        using var newSocket = await wsNewClient.ConnectAsync(new Uri($"ws://localhost/ws/games/{gameId}"), cancellationToken);
-
-        await SendJsonAsync(legacySocket, new { type = "JoinRoom", playerId = "alice" }, cancellationToken);
-        _ = await ReceiveByTypeAsync(legacySocket, "RoomJoined", cancellationToken);
-
-        await SendJsonAsync(newSocket, new { operation = "join", payload = new { playerId = "bob" } }, cancellationToken);
-        _ = await ReceiveByTypeAsync(legacySocket, "RoomJoined", cancellationToken);
-        _ = await ReceiveByTypeAsync(newSocket, "RoomJoined", cancellationToken);
-
-        await SendJsonAsync(legacySocket, new
-        {
-            type = "Command",
-            command = new
-            {
-                type = "Initialize",
-                playerId = "alice",
-                payload = new
-                {
-                    players = new[] { "alice", "bob", "carol" },
-                    seed = 123
-                }
-            }
-        }, cancellationToken);
-
-        var legacyApplied = await ReceiveByTypeAsync(legacySocket, "CommandApplied", cancellationToken);
-        var newApplied = await ReceiveByTypeAsync(newSocket, "CommandApplied", cancellationToken);
-
-        Assert.That(GetRequiredPropertyIgnoreCase(legacyApplied, "GameId").GetString(), Is.EqualTo(gameId));
-        Assert.That(GetRequiredPropertyIgnoreCase(newApplied, "GameId").GetString(), Is.EqualTo(gameId));
-        Assert.That(GetRequiredPropertyIgnoreCase(legacyApplied, "OrderPointer").GetInt64(), Is.EqualTo(1));
-        Assert.That(GetRequiredPropertyIgnoreCase(newApplied, "OrderPointer").GetInt64(), Is.EqualTo(1));
-    }
-
     private static async Task SendJsonAsync(WebSocket socket, object payload, CancellationToken cancellationToken)
     {
         var text = JsonSerializer.Serialize(payload);
@@ -437,3 +393,4 @@ public class RealtimeOperationIntegrationTests
         return false;
     }
 }
+

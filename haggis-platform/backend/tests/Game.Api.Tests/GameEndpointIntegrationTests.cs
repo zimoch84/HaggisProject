@@ -19,21 +19,24 @@ public class GameEndpointIntegrationTests
         var cancellationToken = timeoutCts.Token;
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-create-1"), cancellationToken);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-create-1"), cancellationToken);
         await JoinRoomAsync(socket, "alice", cancellationToken);
 
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
             {
-                type = "Command",
-                command = new
+                operation = "command",
+                payload = new
                 {
-                    type = "Initialize",
-                    playerId = "alice",
-                    payload = new
+                    command = new
                     {
-                        players = new[] { "alice", "bob", "carol" },
-                        seed = 123
+                        type = "Initialize",
+                        playerId = "alice",
+                        payload = new
+                        {
+                            players = new[] { "alice", "bob", "carol" },
+                            seed = 123
+                        }
                     }
                 }
             }),
@@ -85,7 +88,7 @@ public class GameEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/ws/rooms/game-1");
+        using var response = await client.GetAsync("/ws/games/game-1");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -102,10 +105,10 @@ public class GameEndpointIntegrationTests
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
 
-        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-9"), cancellationToken);
-        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-9"), cancellationToken);
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/games/game-9"), cancellationToken);
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/games/game-9"), cancellationToken);
         await JoinRoomAsync(socketA, "alice", cancellationToken);
-        await SendTextAsync(socketB, "{\"type\":\"JoinRoom\",\"playerId\":\"bob\"}", cancellationToken);
+        await SendTextAsync(socketB, "{\"operation\":\"join\",\"payload\":{\"playerId\":\"bob\"}}", cancellationToken);
         _ = await ReceiveTextAsync(socketA, cancellationToken);
         _ = await ReceiveTextAsync(socketB, cancellationToken);
 
@@ -113,15 +116,18 @@ public class GameEndpointIntegrationTests
         await SendTextAsync(socketA,
             JsonSerializer.Serialize(new
             {
-                type = "Command",
-                command = new
+                operation = "command",
+                payload = new
                 {
-                    type = "Initialize",
-                    playerId = "alice",
-                    payload = new
+                    command = new
                     {
-                        players = new[] { "alice", "bob", "carol" },
-                        seed = 123
+                        type = "Initialize",
+                        playerId = "alice",
+                        payload = new
+                        {
+                            players = new[] { "alice", "bob", "carol" },
+                            seed = 123
+                        }
                     }
                 }
             }),
@@ -148,14 +154,17 @@ public class GameEndpointIntegrationTests
         await SendTextAsync(socketA,
             JsonSerializer.Serialize(new
             {
-                type = "Command",
-                command = new
+                operation = "command",
+                payload = new
                 {
-                    type = "Play",
-                    playerId = currentPlayerId,
-                    payload = new
+                    command = new
                     {
-                        action = chosenPlay
+                        type = "Play",
+                        playerId = currentPlayerId,
+                        payload = new
+                        {
+                            action = chosenPlay
+                        }
                     }
                 }
             }),
@@ -179,21 +188,24 @@ public class GameEndpointIntegrationTests
         var cancellationToken = timeoutCts.Token;
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-42"), cancellationToken);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-42"), cancellationToken);
         await JoinRoomAsync(socket, "alice", cancellationToken);
 
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
             {
-                type = "Command",
-                command = new
+                operation = "command",
+                payload = new
                 {
-                    type = "Initialize",
-                    playerId = "alice",
-                    payload = new
+                    command = new
                     {
-                        players = new[] { "alice", "bob", "carol" },
-                        seed = 321
+                        type = "Initialize",
+                        playerId = "alice",
+                        payload = new
+                        {
+                            players = new[] { "alice", "bob", "carol" },
+                            seed = 321
+                        }
                     }
                 }
             }),
@@ -218,12 +230,15 @@ public class GameEndpointIntegrationTests
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
             {
-                type = "Command",
-                command = new
+                operation = "command",
+                payload = new
                 {
-                    type = secondCommandType,
-                    playerId = currentPlayerId,
-                    payload = secondPayload
+                    command = new
+                    {
+                        type = secondCommandType,
+                        playerId = currentPlayerId,
+                        payload = secondPayload
+                    }
                 }
             }),
             cancellationToken);
@@ -242,11 +257,11 @@ public class GameEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-state"), CancellationToken.None);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-state"), CancellationToken.None);
         await JoinRoomAsync(socket, "p3", CancellationToken.None);
 
         await SendTextAsync(socket,
-            "{\"type\":\"Command\",\"command\":{\"type\":\"Sync\",\"playerId\":\"p3\",\"payload\":{\"state\":{\"round\":2,\"phase\":\"trick\"}}},\"state\":{\"version\":5,\"data\":{\"round\":1},\"updatedAt\":\"2026-01-01T00:00:00Z\"}}",
+            "{\"operation\":\"command\",\"payload\":{\"command\":{\"type\":\"Sync\",\"playerId\":\"p3\",\"payload\":{\"state\":{\"round\":2,\"phase\":\"trick\"}}},\"state\":{\"version\":5,\"data\":{\"round\":1},\"updatedAt\":\"2026-01-01T00:00:00Z\"}}}",
             CancellationToken.None);
 
         var message = await ReceiveTextAsync(socket, CancellationToken.None);
@@ -269,21 +284,24 @@ public class GameEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-haggis"), CancellationToken.None);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-haggis"), CancellationToken.None);
         await JoinRoomAsync(socket, "alice", CancellationToken.None);
 
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
             {
-                type = "Command",
-                command = new
+                operation = "command",
+                payload = new
                 {
-                    type = "Initialize",
-                    playerId = "alice",
-                    payload = new
+                    command = new
                     {
-                        players = new[] { "alice", "bob", "carol" },
-                        seed = 123
+                        type = "Initialize",
+                        playerId = "alice",
+                        payload = new
+                        {
+                            players = new[] { "alice", "bob", "carol" },
+                            seed = 123
+                        }
                     }
                 }
             }),
@@ -318,14 +336,17 @@ public class GameEndpointIntegrationTests
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
             {
-                type = "Command",
-                command = new
+                operation = "command",
+                payload = new
                 {
-                    type = "Play",
-                    playerId = currentPlayerId,
-                    payload = new
+                    command = new
                     {
-                        action = chosenPlay
+                        type = "Play",
+                        playerId = currentPlayerId,
+                        payload = new
+                        {
+                            action = chosenPlay
+                        }
                     }
                 }
             }),
@@ -353,14 +374,14 @@ public class GameEndpointIntegrationTests
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
 
-        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-chat"), cancellationToken);
-        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-chat"), cancellationToken);
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/games/game-chat"), cancellationToken);
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/games/game-chat"), cancellationToken);
         await JoinRoomAsync(socketA, "alice", cancellationToken);
-        await SendTextAsync(socketB, "{\"type\":\"JoinRoom\",\"playerId\":\"bob\"}", cancellationToken);
+        await SendTextAsync(socketB, "{\"operation\":\"join\",\"payload\":{\"playerId\":\"bob\"}}", cancellationToken);
         _ = await ReceiveTextAsync(socketA, cancellationToken);
         _ = await ReceiveTextAsync(socketB, cancellationToken);
 
-        await SendTextAsync(socketA, "{\"type\":\"Chat\",\"chat\":{\"playerId\":\"alice\",\"text\":\"hej wszystkim\"}}", cancellationToken);
+        await SendTextAsync(socketA, "{\"operation\":\"chat\",\"payload\":{\"playerId\":\"alice\",\"text\":\"hej wszystkim\"}}", cancellationToken);
 
         var selfPayload = await ReceiveGameEventAsync(socketA, "ChatPosted", cancellationToken);
         var peerPayload = await ReceiveGameEventAsync(socketB, "ChatPosted", cancellationToken);
@@ -405,8 +426,11 @@ public class GameEndpointIntegrationTests
     {
         await SendTextAsync(socket, JsonSerializer.Serialize(new
         {
-            type = "JoinRoom",
-            playerId
+            operation = "join",
+            payload = new
+            {
+                playerId
+            }
         }), cancellationToken);
 
         _ = await ReceiveTextAsync(socket, cancellationToken);
@@ -502,3 +526,4 @@ public class GameEndpointIntegrationTests
         return false;
     }
 }
+

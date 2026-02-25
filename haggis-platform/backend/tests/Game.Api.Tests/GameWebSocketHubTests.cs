@@ -20,8 +20,8 @@ public class GameWebSocketHubTests
     public async Task HandleClientAsync_BroadcastsAppliedCommandToClientsInSameGame()
     {
         var senderSocket = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"type\":\"JoinRoom\",\"playerId\":\"p1\"}"),
-            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}", delayMs: 50),
+            FakeWebSocket.Text("{\"operation\":\"join\",\"payload\":{\"playerId\":\"p1\"}}"),
+            FakeWebSocket.Text("{\"operation\":\"command\",\"payload\":{\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}}", delayMs: 50),
             FakeWebSocket.Close());
 
         var receiverSocket = FakeWebSocket.FromClientMessages(FakeWebSocket.Close(delayMs: 250));
@@ -48,9 +48,9 @@ public class GameWebSocketHubTests
     public async Task HandleClientAsync_IncrementsOrderPointerPerGame()
     {
         var senderSocket = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"type\":\"JoinRoom\",\"playerId\":\"p1\"}"),
-            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}", delayMs: 50),
-            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":456}}}"),
+            FakeWebSocket.Text("{\"operation\":\"join\",\"payload\":{\"playerId\":\"p1\"}}"),
+            FakeWebSocket.Text("{\"operation\":\"command\",\"payload\":{\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}}", delayMs: 50),
+            FakeWebSocket.Text("{\"operation\":\"command\",\"payload\":{\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":456}}}}"),
             FakeWebSocket.Close());
 
         var hub = CreateHub();
@@ -71,8 +71,8 @@ public class GameWebSocketHubTests
     public async Task HandleClientAsync_DoesNotBroadcastAcrossDifferentGames()
     {
         var senderGameA = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"type\":\"JoinRoom\",\"playerId\":\"p1\"}"),
-            FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}", delayMs: 50),
+            FakeWebSocket.Text("{\"operation\":\"join\",\"payload\":{\"playerId\":\"p1\"}}"),
+            FakeWebSocket.Text("{\"operation\":\"command\",\"payload\":{\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}}", delayMs: 50),
             FakeWebSocket.Close());
 
         var receiverGameA = FakeWebSocket.FromClientMessages(FakeWebSocket.Close(delayMs: 250));

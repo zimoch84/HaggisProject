@@ -15,7 +15,7 @@ public class GlobalChatHubTests
     public async Task HandleClientAsync_WhenPayloadInvalid_SendsProblemDetailsMessage()
     {
         var socket = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"playerId\":\"\",\"text\":\"hello\"}"),
+            FakeWebSocket.Text("{\"operation\":\"chat\",\"payload\":{\"playerId\":\"\",\"text\":\"hello\"}}"),
             FakeWebSocket.Close());
 
         var hub = new GlobalChatHub(new PlayerSocketRegistry());
@@ -35,7 +35,7 @@ public class GlobalChatHubTests
     public async Task HandleClientAsync_WhenValidPayload_BroadcastsToAllConnectedClients()
     {
         var senderSocket = FakeWebSocket.FromClientMessages(
-            FakeWebSocket.Text("{\"playerId\":\"player-1\",\"text\":\"  hello world  \"}"),
+            FakeWebSocket.Text("{\"operation\":\"chat\",\"payload\":{\"playerId\":\"player-1\",\"text\":\"  hello world  \"}}"),
             FakeWebSocket.Close());
 
         var receiverSocket = FakeWebSocket.FromClientMessages(

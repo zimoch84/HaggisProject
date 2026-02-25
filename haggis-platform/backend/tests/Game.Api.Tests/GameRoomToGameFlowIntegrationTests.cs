@@ -12,7 +12,7 @@ namespace Haggis.Infrastructure.Tests;
 public class GameRoomToGameFlowIntegrationTests
 {
     [Test]
-    public async Task PlayerOneCanCreateRoom_PlayerTwoCanJoin_AndPlayerOneCanStartGameUsingRoomRealtimeSocket()
+    public async Task PlayerOneCanCreateRoom_PlayerTwoCanJoin_AndPlayerOneCanCreateGameUsingRealtimeSocket()
     {
         await using var roomFactory = new WebApplicationFactory<Program>();
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -22,13 +22,13 @@ public class GameRoomToGameFlowIntegrationTests
 
         var wsClientA = roomFactory.Server.CreateWebSocketClient();
         var wsClientB = roomFactory.Server.CreateWebSocketClient();
-        using var roomSocketA = await wsClientA.ConnectAsync(new Uri($"ws://localhost/ws/rooms/{roomId}"), cancellationToken);
-        using var roomSocketB = await wsClientB.ConnectAsync(new Uri($"ws://localhost/ws/rooms/{roomId}"), cancellationToken);
+        using var roomSocketA = await wsClientA.ConnectAsync(new Uri($"ws://localhost/ws/games/{roomId}"), cancellationToken);
+        using var roomSocketB = await wsClientB.ConnectAsync(new Uri($"ws://localhost/ws/games/{roomId}"), cancellationToken);
 
-        await SendTextAsync(roomSocketA, "{\"type\":\"JoinRoom\",\"playerId\":\"alice\"}", cancellationToken);
+        await SendTextAsync(roomSocketA, "{\"operation\":\"join\",\"payload\":{\"playerId\":\"alice\"}}", cancellationToken);
         _ = await ReceiveTextAsync(roomSocketA, cancellationToken);
 
-        await SendTextAsync(roomSocketB, "{\"type\":\"JoinRoom\",\"playerId\":\"bob\"}", cancellationToken);
+        await SendTextAsync(roomSocketB, "{\"operation\":\"join\",\"payload\":{\"playerId\":\"bob\"}}", cancellationToken);
         var roomJoinedPayloadA = await ReceiveTextAsync(roomSocketA, cancellationToken);
         var roomJoinedPayloadB = await ReceiveTextAsync(roomSocketB, cancellationToken);
 
@@ -42,11 +42,14 @@ public class GameRoomToGameFlowIntegrationTests
             roomSocketA,
             JsonSerializer.Serialize(new
             {
-                type = "StartGame",
-                playerId = "alice",
+                operation = "create",
                 payload = new
                 {
-                    seed = 123
+                    playerId = "alice",
+                    payload = new
+                    {
+                        seed = 123
+                    }
                 }
             }),
             cancellationToken);
@@ -94,3 +97,4 @@ public class GameRoomToGameFlowIntegrationTests
         }
     }
 }
+

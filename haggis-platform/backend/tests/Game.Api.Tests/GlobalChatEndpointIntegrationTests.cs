@@ -19,7 +19,7 @@ public class GlobalChatEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/ws/chat/global");
+        using var response = await client.GetAsync("/ws/global/chat");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -34,12 +34,12 @@ public class GlobalChatEndpointIntegrationTests
         var socketClientA = factory.Server.CreateWebSocketClient();
         var socketClientB = factory.Server.CreateWebSocketClient();
 
-        using var socketA = await socketClientA.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
-        using var socketB = await socketClientB.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        using var socketA = await socketClientA.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), CancellationToken.None);
+        using var socketB = await socketClientB.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), CancellationToken.None);
         _ = await ReceiveBootstrapAsync(socketA);
         _ = await ReceiveBootstrapAsync(socketB);
 
-        await SendTextAsync(socketA, "{\"playerId\":\"alice\",\"text\":\"  hi all  \"}", CancellationToken.None);
+        await SendTextAsync(socketA, "{\"operation\":\"chat\",\"payload\":{\"playerId\":\"alice\",\"text\":\"  hi all  \"}}", CancellationToken.None);
 
         var payloadA = await ReceiveTextAsync(socketA, CancellationToken.None);
         var payloadB = await ReceiveTextAsync(socketB, CancellationToken.None);
@@ -56,10 +56,10 @@ public class GlobalChatEndpointIntegrationTests
     {
         await using var factory = new WebApplicationFactory<Program>();
         var socketClient = factory.Server.CreateWebSocketClient();
-        using var socket = await socketClient.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        using var socket = await socketClient.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), CancellationToken.None);
         _ = await ReceiveBootstrapAsync(socket);
 
-        await SendTextAsync(socket, "{\"playerId\":\"\",\"text\":\"hello\"}", CancellationToken.None);
+        await SendTextAsync(socket, "{\"operation\":\"chat\",\"payload\":{\"playerId\":\"\",\"text\":\"hello\"}}", CancellationToken.None);
         var payload = await ReceiveTextAsync(socket, CancellationToken.None);
 
         var problem = JsonSerializer.Deserialize<ProblemDetailsMessage>(payload);
@@ -76,13 +76,13 @@ public class GlobalChatEndpointIntegrationTests
         var socketClientA = factory.Server.CreateWebSocketClient();
         var socketClientB = factory.Server.CreateWebSocketClient();
 
-        using var socketA = await socketClientA.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
-        using var socketB = await socketClientB.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        using var socketA = await socketClientA.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), CancellationToken.None);
+        using var socketB = await socketClientB.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), CancellationToken.None);
         _ = await ReceiveBootstrapAsync(socketA);
         _ = await ReceiveBootstrapAsync(socketB);
 
-        await SendTextAsync(socketA, "{\"playerId\":\"alice\",\"text\":\"first\"}", CancellationToken.None);
-        await SendTextAsync(socketA, "{\"playerId\":\"alice\",\"text\":\"second\"}", CancellationToken.None);
+        await SendTextAsync(socketA, "{\"operation\":\"chat\",\"payload\":{\"playerId\":\"alice\",\"text\":\"first\"}}", CancellationToken.None);
+        await SendTextAsync(socketA, "{\"operation\":\"chat\",\"payload\":{\"playerId\":\"alice\",\"text\":\"second\"}}", CancellationToken.None);
 
         var firstPayload = await ReceiveTextAsync(socketB, CancellationToken.None);
         var secondPayload = await ReceiveTextAsync(socketB, CancellationToken.None);
@@ -104,15 +104,15 @@ public class GlobalChatEndpointIntegrationTests
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
 
-        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), CancellationToken.None);
         var bootstrapA = await ReceiveBootstrapAsync(socketA);
         Assert.That(bootstrapA.Channels.Any(x => x.ChannelId == "global"), Is.True);
         Assert.That(bootstrapA.History, Is.Empty);
 
-        await SendTextAsync(socketA, "{\"playerId\":\"alice\",\"text\":\"history test\"}", CancellationToken.None);
+        await SendTextAsync(socketA, "{\"operation\":\"chat\",\"payload\":{\"playerId\":\"alice\",\"text\":\"history test\"}}", CancellationToken.None);
         _ = await ReceiveTextAsync(socketA, CancellationToken.None); // self broadcast
 
-        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), CancellationToken.None);
         var bootstrapB = await ReceiveBootstrapAsync(socketB);
 
         Assert.That(bootstrapB.History.Any(x => x.Text == "history test" && x.PlayerId == "alice"), Is.True);
@@ -171,6 +171,7 @@ public class GlobalChatEndpointIntegrationTests
         return bootstrap;
     }
 }
+
 
 
 

@@ -364,25 +364,7 @@ public sealed class GameWebSocketHub
                 }
             }
 
-            if (!root.TryGetProperty("type", out var typeElement))
-            {
-                return null;
-            }
-
-            var legacyType = typeElement.GetString();
-            if (string.IsNullOrWhiteSpace(legacyType))
-            {
-                return null;
-            }
-
-            return legacyType.Trim().ToLowerInvariant() switch
-            {
-                "joinroom" => "join",
-                "startgame" => "create",
-                "command" => "command",
-                "chat" => "chat",
-                _ => null
-            };
+            return null;
         }
         catch (JsonException)
         {
@@ -407,24 +389,7 @@ public sealed class GameWebSocketHub
                 return true;
             }
 
-            var legacy = JsonSerializer.Deserialize<GameClientMessage>(text, SerializerOptions);
-            if (legacy is null || legacy.Command is null)
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(legacy.Type) || !legacy.Type.Equals("Command", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(legacy.Command.Type) || string.IsNullOrWhiteSpace(legacy.Command.PlayerId))
-            {
-                return false;
-            }
-
-            message = legacy;
-            return true;
+            return false;
         }
         catch (JsonException)
         {
@@ -450,24 +415,7 @@ public sealed class GameWebSocketHub
                 return true;
             }
 
-            var legacy = JsonSerializer.Deserialize<GameChatClientMessage>(text, SerializerOptions);
-            if (legacy is null || legacy.Chat is null)
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(legacy.Type) || !legacy.Type.Equals("Chat", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(legacy.Chat.PlayerId) || string.IsNullOrWhiteSpace(legacy.Chat.Text))
-            {
-                return false;
-            }
-
-            message = legacy;
-            return true;
+            return false;
         }
         catch (JsonException)
         {
@@ -491,16 +439,7 @@ public sealed class GameWebSocketHub
                 return true;
             }
 
-            var legacy = JsonSerializer.Deserialize<RoomJoinClientMessage>(text, SerializerOptions);
-            if (legacy is null ||
-                !legacy.Type.Equals("JoinRoom", StringComparison.OrdinalIgnoreCase) ||
-                string.IsNullOrWhiteSpace(legacy.PlayerId))
-            {
-                return false;
-            }
-
-            playerId = legacy.PlayerId.Trim();
-            return true;
+            return false;
         }
         catch (JsonException)
         {
@@ -528,17 +467,7 @@ public sealed class GameWebSocketHub
                 return true;
             }
 
-            var legacy = JsonSerializer.Deserialize<StartGameClientMessage>(text, SerializerOptions);
-            if (legacy is null ||
-                !legacy.Type.Equals("StartGame", StringComparison.OrdinalIgnoreCase) ||
-                string.IsNullOrWhiteSpace(legacy.PlayerId))
-            {
-                return false;
-            }
-
-            playerId = legacy.PlayerId.Trim();
-            payload = legacy.Payload.ValueKind is JsonValueKind.Undefined ? EmptyObjectPayload : legacy.Payload.Clone();
-            return true;
+            return false;
         }
         catch (JsonException)
         {

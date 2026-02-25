@@ -16,9 +16,9 @@ public class GameRoomEndpointIntegrationTests
     {
         await using var factory = new WebApplicationFactory<Program>();
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/room-alpha"), CancellationToken.None);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/room-alpha"), CancellationToken.None);
 
-        await SendTextAsync(socket, "{\"type\":\"JoinRoom\",\"playerId\":\"alice\"}", CancellationToken.None);
+        await SendTextAsync(socket, "{\"operation\":\"join\",\"payload\":{\"playerId\":\"alice\"}}", CancellationToken.None);
         var payload = await ReceiveTextAsync(socket, CancellationToken.None);
 
         using var doc = JsonDocument.Parse(payload);
@@ -38,13 +38,13 @@ public class GameRoomEndpointIntegrationTests
 
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
-        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/rooms/room-bravo"), cancellationToken);
-        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/rooms/room-bravo"), cancellationToken);
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/games/room-bravo"), cancellationToken);
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/games/room-bravo"), cancellationToken);
 
-        await SendTextAsync(socketA, "{\"type\":\"JoinRoom\",\"playerId\":\"alice\"}", cancellationToken);
+        await SendTextAsync(socketA, "{\"operation\":\"join\",\"payload\":{\"playerId\":\"alice\"}}", cancellationToken);
         _ = await ReceiveTextAsync(socketA, cancellationToken);
 
-        await SendTextAsync(socketB, "{\"type\":\"JoinRoom\",\"playerId\":\"bob\"}", cancellationToken);
+        await SendTextAsync(socketB, "{\"operation\":\"join\",\"payload\":{\"playerId\":\"bob\"}}", cancellationToken);
         var payloadA = await ReceiveRoomJoinedForPlayerAsync(socketA, "bob", cancellationToken);
         var payloadB = await ReceiveRoomJoinedForPlayerAsync(socketB, "bob", cancellationToken);
 
@@ -64,7 +64,7 @@ public class GameRoomEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/ws/rooms/room-gamma");
+        using var response = await client.GetAsync("/ws/games/room-gamma");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -128,3 +128,4 @@ public class GameRoomEndpointIntegrationTests
         }
     }
 }
+
