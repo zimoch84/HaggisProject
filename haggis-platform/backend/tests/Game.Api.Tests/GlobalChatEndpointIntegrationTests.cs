@@ -36,6 +36,8 @@ public class GlobalChatEndpointIntegrationTests
 
         using var socketA = await socketClientA.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
         using var socketB = await socketClientB.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        _ = await ReceiveBootstrapAsync(socketA);
+        _ = await ReceiveBootstrapAsync(socketB);
 
         await SendTextAsync(socketA, "{\"playerId\":\"alice\",\"text\":\"  hi all  \"}", CancellationToken.None);
 
@@ -55,6 +57,7 @@ public class GlobalChatEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
         var socketClient = factory.Server.CreateWebSocketClient();
         using var socket = await socketClient.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        _ = await ReceiveBootstrapAsync(socket);
 
         await SendTextAsync(socket, "{\"playerId\":\"\",\"text\":\"hello\"}", CancellationToken.None);
         var payload = await ReceiveTextAsync(socket, CancellationToken.None);
@@ -75,6 +78,8 @@ public class GlobalChatEndpointIntegrationTests
 
         using var socketA = await socketClientA.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
         using var socketB = await socketClientB.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        _ = await ReceiveBootstrapAsync(socketA);
+        _ = await ReceiveBootstrapAsync(socketB);
 
         await SendTextAsync(socketA, "{\"playerId\":\"alice\",\"text\":\"first\"}", CancellationToken.None);
         await SendTextAsync(socketA, "{\"playerId\":\"alice\",\"text\":\"second\"}", CancellationToken.None);
@@ -89,6 +94,28 @@ public class GlobalChatEndpointIntegrationTests
         Assert.That(secondMessage, Is.Not.Null);
         Assert.That(firstMessage!.Text, Is.EqualTo("first"));
         Assert.That(secondMessage!.Text, Is.EqualTo("second"));
+    }
+
+    [Test]
+    public async Task GlobalChatEndpoint_OnFirstConnect_ReturnsChannelsAndChatHistoryBootstrap()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+
+        var wsClientA = factory.Server.CreateWebSocketClient();
+        var wsClientB = factory.Server.CreateWebSocketClient();
+
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        var bootstrapA = await ReceiveBootstrapAsync(socketA);
+        Assert.That(bootstrapA.Channels.Any(x => x.ChannelId == "global"), Is.True);
+        Assert.That(bootstrapA.History, Is.Empty);
+
+        await SendTextAsync(socketA, "{\"playerId\":\"alice\",\"text\":\"history test\"}", CancellationToken.None);
+        _ = await ReceiveTextAsync(socketA, CancellationToken.None); // self broadcast
+
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
+        var bootstrapB = await ReceiveBootstrapAsync(socketB);
+
+        Assert.That(bootstrapB.History.Any(x => x.Text == "history test" && x.PlayerId == "alice"), Is.True);
     }
 
     private static async Task SendTextAsync(WebSocket socket, string text, CancellationToken cancellationToken)
@@ -133,6 +160,15 @@ public class GlobalChatEndpointIntegrationTests
         Assert.That(message.Text, Is.EqualTo("hi all"));
         Assert.That(message.MessageId, Is.Not.Null.And.Not.Empty);
         Assert.That(message.CreatedAt, Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
+    }
+
+    private static async Task<GlobalChatBootstrapMessage> ReceiveBootstrapAsync(WebSocket socket)
+    {
+        var payload = await ReceiveTextAsync(socket, CancellationToken.None);
+        var bootstrap = JsonSerializer.Deserialize<GlobalChatBootstrapMessage>(payload);
+        Assert.That(bootstrap, Is.Not.Null);
+        Assert.That(bootstrap!.Type, Is.EqualTo("GlobalChatBootstrap"));
+        return bootstrap;
     }
 }
 

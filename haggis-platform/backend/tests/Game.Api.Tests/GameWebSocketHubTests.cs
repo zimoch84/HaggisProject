@@ -5,6 +5,7 @@ using System.Text.Json;
 using Haggis.Infrastructure.Services.Application;
 using Haggis.Infrastructure.Services.Engine;
 using Haggis.Infrastructure.Services.Engine.Haggis;
+using Haggis.Infrastructure.Services.GameRooms;
 using Haggis.Infrastructure.Services.Hubs;
 using Haggis.Infrastructure.Services.Infrastructure.Sessions;
 using Haggis.Infrastructure.Services;
@@ -19,6 +20,7 @@ public class GameWebSocketHubTests
     public async Task HandleClientAsync_BroadcastsAppliedCommandToClientsInSameGame()
     {
         var senderSocket = FakeWebSocket.FromClientMessages(
+            FakeWebSocket.Text("{\"type\":\"JoinRoom\",\"playerId\":\"p1\"}"),
             FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}", delayMs: 50),
             FakeWebSocket.Close());
 
@@ -30,10 +32,12 @@ public class GameWebSocketHubTests
 
         await Task.WhenAll(senderTask, receiverTask);
 
-        Assert.That(senderSocket.GetSentTextMessages().Count, Is.EqualTo(1));
-        Assert.That(receiverSocket.GetSentTextMessages().Count, Is.EqualTo(1));
+        var senderApplied = senderSocket.GetSentTextMessages().Where(IsCommandApplied).ToList();
+        var receiverApplied = receiverSocket.GetSentTextMessages().Where(IsCommandApplied).ToList();
+        Assert.That(senderApplied.Count, Is.EqualTo(1));
+        Assert.That(receiverApplied.Count, Is.EqualTo(1));
 
-        using var payload = JsonDocument.Parse(receiverSocket.GetSentTextMessages()[0]);
+        using var payload = JsonDocument.Parse(receiverApplied[0]);
         Assert.That(payload.RootElement.GetProperty("Type").GetString(), Is.EqualTo("CommandApplied"));
         Assert.That(payload.RootElement.GetProperty("GameId").GetString(), Is.EqualTo("game-1"));
         Assert.That(payload.RootElement.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(1));
@@ -44,6 +48,7 @@ public class GameWebSocketHubTests
     public async Task HandleClientAsync_IncrementsOrderPointerPerGame()
     {
         var senderSocket = FakeWebSocket.FromClientMessages(
+            FakeWebSocket.Text("{\"type\":\"JoinRoom\",\"playerId\":\"p1\"}"),
             FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}", delayMs: 50),
             FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":456}}}"),
             FakeWebSocket.Close());
@@ -52,7 +57,7 @@ public class GameWebSocketHubTests
 
         await hub.HandleClientAsync("game-2", senderSocket, CancellationToken.None);
 
-        var sent = senderSocket.GetSentTextMessages();
+        var sent = senderSocket.GetSentTextMessages().Where(IsCommandApplied).ToList();
         Assert.That(sent.Count, Is.EqualTo(2));
 
         using var msg1 = JsonDocument.Parse(sent[0]);
@@ -66,6 +71,7 @@ public class GameWebSocketHubTests
     public async Task HandleClientAsync_DoesNotBroadcastAcrossDifferentGames()
     {
         var senderGameA = FakeWebSocket.FromClientMessages(
+            FakeWebSocket.Text("{\"type\":\"JoinRoom\",\"playerId\":\"p1\"}"),
             FakeWebSocket.Text("{\"type\":\"Command\",\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}", delayMs: 50),
             FakeWebSocket.Close());
 
@@ -80,8 +86,15 @@ public class GameWebSocketHubTests
 
         await Task.WhenAll(taskA1, taskA2, taskB1);
 
-        Assert.That(receiverGameA.GetSentTextMessages().Count, Is.EqualTo(1));
-        Assert.That(receiverGameB.GetSentTextMessages().Count, Is.EqualTo(0));
+        Assert.That(receiverGameA.GetSentTextMessages().Where(IsCommandApplied).Count(), Is.EqualTo(1));
+        Assert.That(receiverGameB.GetSentTextMessages().Where(IsCommandApplied).Count(), Is.EqualTo(0));
+    }
+
+    private static bool IsCommandApplied(string payload)
+    {
+        using var doc = JsonDocument.Parse(payload);
+        return doc.RootElement.TryGetProperty("Type", out var type) &&
+               string.Equals(type.GetString(), "CommandApplied", StringComparison.Ordinal);
     }
 
     private static GameWebSocketHub CreateHub()
@@ -91,9 +104,10 @@ public class GameWebSocketHubTests
             new HaggisMoveRuleValidator());
         var engine = new HaggisGameEngine(gameLoop);
         var store = new GameSessionStore(engine);
-        var appService = new GameCommandApplicationService(store);
+        var roomStore = new GameRoomStore();
+        var appService = new GameCommandApplicationService(store, roomStore);
         var registry = new PlayerSocketRegistry();
-        return new GameWebSocketHub(appService, registry);
+        return new GameWebSocketHub(appService, registry, roomStore);
     }
 
     private sealed class FakeWebSocket : WebSocket

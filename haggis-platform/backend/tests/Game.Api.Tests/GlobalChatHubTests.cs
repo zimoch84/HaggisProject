@@ -23,9 +23,9 @@ public class GlobalChatHubTests
         await hub.HandleClientAsync(socket, CancellationToken.None);
 
         var sentMessages = socket.GetSentTextMessages();
-        Assert.That(sentMessages.Count, Is.EqualTo(1));
+        Assert.That(sentMessages.Count, Is.EqualTo(2));
 
-        var payload = JsonSerializer.Deserialize<ProblemDetailsMessage>(sentMessages[0]);
+        var payload = JsonSerializer.Deserialize<ProblemDetailsMessage>(sentMessages[^1]);
         Assert.That(payload, Is.Not.Null);
         Assert.That(payload!.Title, Is.EqualTo("Invalid chat payload."));
         Assert.That(payload.Status, Is.EqualTo(400));
@@ -48,10 +48,10 @@ public class GlobalChatHubTests
 
         await Task.WhenAll(senderTask, receiverTask);
 
-        Assert.That(senderSocket.GetSentTextMessages().Count, Is.EqualTo(1));
-        Assert.That(receiverSocket.GetSentTextMessages().Count, Is.EqualTo(1));
+        Assert.That(senderSocket.GetSentTextMessages().Count, Is.EqualTo(2));
+        Assert.That(receiverSocket.GetSentTextMessages().Count, Is.EqualTo(2));
 
-        var payload = JsonSerializer.Deserialize<ChatMessage>(receiverSocket.GetSentTextMessages()[0]);
+        var payload = JsonSerializer.Deserialize<ChatMessage>(receiverSocket.GetSentTextMessages()[1]);
         Assert.That(payload, Is.Not.Null);
         Assert.That(payload!.PlayerId, Is.EqualTo("player-1"));
         Assert.That(payload.Text, Is.EqualTo("hello world"));

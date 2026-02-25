@@ -44,6 +44,33 @@ app.Map("/games/{gameId}/actions", async (HttpContext context, GameWebSocketHub 
     await hub.HandleClientAsync(gameId, socket, context.RequestAborted);
 });
 
+// Backward-compatible alias for older clients.
+app.Map("/ws/chat/{gameId}", async (HttpContext context, GameWebSocketHub hub, string gameId) =>
+{
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsync("WebSocket connection expected.");
+        return;
+    }
+
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    await hub.HandleClientAsync(gameId, socket, context.RequestAborted);
+});
+
+app.Map("/ws/chat/global", async (HttpContext context, GameWebSocketHub hub) =>
+{
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsync("WebSocket connection expected.");
+        return;
+    }
+
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    await hub.HandleClientAsync("global", socket, context.RequestAborted);
+});
+
 app.Run();
 
 public partial class Program;

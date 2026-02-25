@@ -6,23 +6,23 @@ public sealed class GameRoomStore : IGameRoomStore
 {
     private readonly ConcurrentDictionary<string, GameRoom> _rooms = new();
 
-    public GameRoom CreateRoom(string hostPlayerId, string gameType, string? roomName = null)
+    public GameRoom GetOrCreateRoom(string roomId, string hostPlayerId, string gameType, string? roomName = null)
     {
         var normalizedRoomName = string.IsNullOrWhiteSpace(roomName)
             ? BuildDefaultRoomName(hostPlayerId, gameType)
             : roomName.Trim();
-
-        var room = new GameRoom
+        var normalizedRoomId = roomId.Trim();
+        var createdRoom = new GameRoom
         {
-            RoomId = Guid.NewGuid().ToString("N"),
-            GameId = Guid.NewGuid().ToString("N"),
-            GameType = gameType,
+            RoomId = normalizedRoomId,
+            GameId = normalizedRoomId,
+            GameType = gameType.Trim().ToLowerInvariant(),
             RoomName = normalizedRoomName,
             CreatedAt = DateTimeOffset.UtcNow,
             Players = new List<string> { hostPlayerId }
         };
 
-        _rooms[room.RoomId] = room;
+        var room = _rooms.GetOrAdd(normalizedRoomId, createdRoom);
         return Clone(room);
     }
 

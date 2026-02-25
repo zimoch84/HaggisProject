@@ -5,7 +5,6 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using NUnit.Framework;
-using Haggis.Infrastructure.Dtos.GameRooms;
 
 namespace Haggis.Infrastructure.Tests;
 
@@ -13,57 +12,52 @@ namespace Haggis.Infrastructure.Tests;
 public class GameRoomToGameFlowIntegrationTests
 {
     [Test]
-    public async Task PlayerOneCanCreateRoom_PlayerTwoCanJoin_AndPlayerOneCanInitializeGameUsingRoomGameEndpoint()
+    public async Task PlayerOneCanCreateRoom_PlayerTwoCanJoin_AndPlayerOneCanStartGameUsingRoomRealtimeSocket()
     {
         await using var roomFactory = new WebApplicationFactory<Program>();
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var cancellationToken = timeoutCts.Token;
 
-        var roomSocketClient = roomFactory.Server.CreateWebSocketClient();
-        using var createRoomSocket = await roomSocketClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/create"), cancellationToken);
-        await SendTextAsync(createRoomSocket, "{\"gameType\":\"haggis\",\"hostPlayerId\":\"alice\"}", cancellationToken);
-        var createdRoomPayload = await ReceiveTextAsync(createRoomSocket, cancellationToken);
-        var createdRoom = JsonSerializer.Deserialize<GameRoomResponse>(createdRoomPayload);
-        Assert.That(createdRoom, Is.Not.Null);
+        const string roomId = "flow-room-1";
 
-        using var joinRoomSocket = await roomSocketClient.ConnectAsync(
-            new Uri($"ws://localhost/ws/rooms/{createdRoom!.RoomId}/join"),
-            cancellationToken);
-        await SendTextAsync(joinRoomSocket, "{\"playerId\":\"bob\"}", cancellationToken);
-        var joinedRoomPayload = await ReceiveTextAsync(joinRoomSocket, cancellationToken);
-        var joinedRoom = JsonSerializer.Deserialize<GameRoomResponse>(joinedRoomPayload);
-        Assert.That(joinedRoom, Is.Not.Null);
-        Assert.That(joinedRoom!.Players, Contains.Item("alice"));
-        Assert.That(joinedRoom.Players, Contains.Item("bob"));
+        var wsClientA = roomFactory.Server.CreateWebSocketClient();
+        var wsClientB = roomFactory.Server.CreateWebSocketClient();
+        using var roomSocketA = await wsClientA.ConnectAsync(new Uri($"ws://localhost/ws/rooms/{roomId}"), cancellationToken);
+        using var roomSocketB = await wsClientB.ConnectAsync(new Uri($"ws://localhost/ws/rooms/{roomId}"), cancellationToken);
 
-        var wsClient = roomFactory.Server.CreateWebSocketClient();
-        using var gameSocket = await wsClient.ConnectAsync(new Uri($"ws://localhost{createdRoom.GameEndpoint}"), cancellationToken);
+        await SendTextAsync(roomSocketA, "{\"type\":\"JoinRoom\",\"playerId\":\"alice\"}", cancellationToken);
+        _ = await ReceiveTextAsync(roomSocketA, cancellationToken);
+
+        await SendTextAsync(roomSocketB, "{\"type\":\"JoinRoom\",\"playerId\":\"bob\"}", cancellationToken);
+        var roomJoinedPayloadA = await ReceiveTextAsync(roomSocketA, cancellationToken);
+        var roomJoinedPayloadB = await ReceiveTextAsync(roomSocketB, cancellationToken);
+
+        using var joinedDocA = JsonDocument.Parse(roomJoinedPayloadA);
+        using var joinedDocB = JsonDocument.Parse(roomJoinedPayloadB);
+        Assert.That(joinedDocA.RootElement.GetProperty("type").GetString(), Is.EqualTo("RoomJoined"));
+        Assert.That(joinedDocB.RootElement.GetProperty("type").GetString(), Is.EqualTo("RoomJoined"));
+        Assert.That(joinedDocA.RootElement.GetProperty("room").GetProperty("players").EnumerateArray().Select(x => x.GetString()).ToArray(), Contains.Item("bob"));
 
         await SendTextAsync(
-            gameSocket,
+            roomSocketA,
             JsonSerializer.Serialize(new
             {
-                type = "Command",
-                command = new
+                type = "StartGame",
+                playerId = "alice",
+                payload = new
                 {
-                    type = "Initialize",
-                    playerId = "alice",
-                    payload = new
-                    {
-                        players = new[] { "alice", "bob", "carol" },
-                        seed = 123
-                    }
+                    seed = 123
                 }
             }),
             cancellationToken);
 
-        var eventPayload = await ReceiveTextAsync(gameSocket, cancellationToken);
+        var eventPayload = await ReceiveTextAsync(roomSocketA, cancellationToken);
         Assert.That(eventPayload, Is.Not.Empty);
 
         using var eventDoc = JsonDocument.Parse(eventPayload);
         var root = eventDoc.RootElement;
         Assert.That(root.GetProperty("Type").GetString(), Is.EqualTo("CommandApplied"));
-        Assert.That(root.GetProperty("GameId").GetString(), Is.EqualTo(createdRoom.GameId));
+        Assert.That(root.GetProperty("GameId").GetString(), Is.EqualTo(roomId));
         Assert.That(root.GetProperty("Command").GetProperty("Type").GetString(), Is.EqualTo("Initialize"));
         Assert.That(root.GetProperty("Command").GetProperty("PlayerId").GetString(), Is.EqualTo("alice"));
     }

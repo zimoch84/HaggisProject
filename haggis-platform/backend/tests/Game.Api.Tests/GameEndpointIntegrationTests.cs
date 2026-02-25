@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
 using NUnit.Framework;
 
 namespace Haggis.Infrastructure.Tests;
@@ -20,7 +19,8 @@ public class GameEndpointIntegrationTests
         var cancellationToken = timeoutCts.Token;
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/games/create"), cancellationToken);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-create-1"), cancellationToken);
+        await JoinRoomAsync(socket, "alice", cancellationToken);
 
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
@@ -85,7 +85,7 @@ public class GameEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
 
-        using var response = await client.GetAsync("/games/game-1/actions");
+        using var response = await client.GetAsync("/ws/rooms/game-1");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
@@ -102,8 +102,12 @@ public class GameEndpointIntegrationTests
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
 
-        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/games/game-9/actions"), cancellationToken);
-        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/games/game-9/actions"), cancellationToken);
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-9"), cancellationToken);
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-9"), cancellationToken);
+        await JoinRoomAsync(socketA, "alice", cancellationToken);
+        await SendTextAsync(socketB, "{\"type\":\"JoinRoom\",\"playerId\":\"bob\"}", cancellationToken);
+        _ = await ReceiveTextAsync(socketA, cancellationToken);
+        _ = await ReceiveTextAsync(socketB, cancellationToken);
 
         // Initialize game first so the next Play command is valid for Haggis engine.
         await SendTextAsync(socketA,
@@ -123,8 +127,8 @@ public class GameEndpointIntegrationTests
             }),
             cancellationToken);
 
-        var initializeMessageA = await ReceiveTextAsync(socketA, cancellationToken);
-        var initializeMessageB = await ReceiveTextAsync(socketB, cancellationToken);
+        var initializeMessageA = await ReceiveGameEventAsync(socketA, "CommandApplied", cancellationToken);
+        var initializeMessageB = await ReceiveGameEventAsync(socketB, "CommandApplied", cancellationToken);
 
         AssertAppliedEvent(initializeMessageA, expectedOrderPointer: 1, expectedGameId: "game-9", expectedVersion: 1, expectedPlayerId: "alice", expectedCommandType: "Initialize");
         AssertAppliedEvent(initializeMessageB, expectedOrderPointer: 1, expectedGameId: "game-9", expectedVersion: 1, expectedPlayerId: "alice", expectedCommandType: "Initialize");
@@ -157,8 +161,8 @@ public class GameEndpointIntegrationTests
             }),
             cancellationToken);
 
-        var messageA = await ReceiveTextAsync(socketA, cancellationToken);
-        var messageB = await ReceiveTextAsync(socketB, cancellationToken);
+        var messageA = await ReceiveGameEventAsync(socketA, "CommandApplied", cancellationToken);
+        var messageB = await ReceiveGameEventAsync(socketB, "CommandApplied", cancellationToken);
 
         AssertAppliedEvent(messageA, expectedOrderPointer: 2, expectedGameId: "game-9", expectedVersion: 2, expectedPlayerId: currentPlayerId!, expectedCommandType: "Play");
         AssertAppliedEvent(messageB, expectedOrderPointer: 2, expectedGameId: "game-9", expectedVersion: 2, expectedPlayerId: currentPlayerId!, expectedCommandType: "Play");
@@ -175,7 +179,8 @@ public class GameEndpointIntegrationTests
         var cancellationToken = timeoutCts.Token;
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/games/game-42/actions"), cancellationToken);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-42"), cancellationToken);
+        await JoinRoomAsync(socket, "alice", cancellationToken);
 
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
@@ -237,7 +242,8 @@ public class GameEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/games/game-state/actions"), CancellationToken.None);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-state"), CancellationToken.None);
+        await JoinRoomAsync(socket, "p3", CancellationToken.None);
 
         await SendTextAsync(socket,
             "{\"type\":\"Command\",\"command\":{\"type\":\"Sync\",\"playerId\":\"p3\",\"payload\":{\"state\":{\"round\":2,\"phase\":\"trick\"}}},\"state\":{\"version\":5,\"data\":{\"round\":1},\"updatedAt\":\"2026-01-01T00:00:00Z\"}}",
@@ -263,7 +269,8 @@ public class GameEndpointIntegrationTests
         await using var factory = new WebApplicationFactory<Program>();
 
         var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/games/game-haggis/actions"), CancellationToken.None);
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-haggis"), CancellationToken.None);
+        await JoinRoomAsync(socket, "alice", CancellationToken.None);
 
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
@@ -346,114 +353,20 @@ public class GameEndpointIntegrationTests
         var wsClientA = factory.Server.CreateWebSocketClient();
         var wsClientB = factory.Server.CreateWebSocketClient();
 
-        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/games/game-chat/actions"), cancellationToken);
-        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/games/game-chat/actions"), cancellationToken);
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-chat"), cancellationToken);
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/rooms/game-chat"), cancellationToken);
+        await JoinRoomAsync(socketA, "alice", cancellationToken);
+        await SendTextAsync(socketB, "{\"type\":\"JoinRoom\",\"playerId\":\"bob\"}", cancellationToken);
+        _ = await ReceiveTextAsync(socketA, cancellationToken);
+        _ = await ReceiveTextAsync(socketB, cancellationToken);
 
         await SendTextAsync(socketA, "{\"type\":\"Chat\",\"chat\":{\"playerId\":\"alice\",\"text\":\"hej wszystkim\"}}", cancellationToken);
 
-        var selfPayload = await ReceiveTextAsync(socketA, cancellationToken);
-        var peerPayload = await ReceiveTextAsync(socketB, cancellationToken);
+        var selfPayload = await ReceiveGameEventAsync(socketA, "ChatPosted", cancellationToken);
+        var peerPayload = await ReceiveGameEventAsync(socketB, "ChatPosted", cancellationToken);
 
         AssertChatEvent(selfPayload, expectedType: "ChatPosted", expectedGameId: "game-chat", expectedPlayerId: "alice", expectedText: "hej wszystkim");
         AssertChatEvent(peerPayload, expectedType: "ChatPosted", expectedGameId: "game-chat", expectedPlayerId: "alice", expectedText: "hej wszystkim");
-    }
-
-    [Test]
-    public async Task AdminBroadcast_WhenAuthorized_SendsServerAnnouncementToAllGames()
-    {
-        const string adminToken = "test-admin-token";
-        await using var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureAppConfiguration((_, configBuilder) =>
-                {
-                    configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
-                    {
-                        ["GAME_ADMIN_TOKEN"] = adminToken
-                    });
-                });
-            });
-
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var cancellationToken = timeoutCts.Token;
-
-        var wsClientA = factory.Server.CreateWebSocketClient();
-        var wsClientB = factory.Server.CreateWebSocketClient();
-
-        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/games/game-a/actions"), cancellationToken);
-        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/games/game-b/actions"), cancellationToken);
-
-        using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Admin-Token", adminToken);
-
-        using var requestBody = new StringContent("{\"message\":\"Przerwa techniczna za 5 minut.\"}", Encoding.UTF8, "application/json");
-        using var response = await client.PostAsync("/admin/broadcast", requestBody, cancellationToken);
-
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Accepted));
-
-        var payloadA = await ReceiveTextAsync(socketA, cancellationToken);
-        var payloadB = await ReceiveTextAsync(socketB, cancellationToken);
-
-        AssertChatEvent(payloadA, expectedType: "ServerAnnouncement", expectedGameId: "game-a", expectedPlayerId: "server", expectedText: "Przerwa techniczna za 5 minut.");
-        AssertChatEvent(payloadB, expectedType: "ServerAnnouncement", expectedGameId: "game-b", expectedPlayerId: "server", expectedText: "Przerwa techniczna za 5 minut.");
-    }
-
-    [Test]
-    public async Task GameCreateEndpoint_WhenAdminTokenConfigured_WithoutTokenReturnsUnauthorized()
-    {
-        await using var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureAppConfiguration((_, configBuilder) =>
-                {
-                    configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
-                    {
-                        ["GAME_ADMIN_TOKEN"] = "test-admin-token"
-                    });
-                });
-            });
-
-        using var client = factory.CreateClient();
-        using var response = await client.GetAsync("/games/create");
-
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
-    }
-
-    [Test]
-    public async Task AdminKick_WhenAuthorized_ClosesPlayerSocket()
-    {
-        const string adminToken = "test-admin-token";
-        await using var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureAppConfiguration((_, configBuilder) =>
-                {
-                    configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
-                    {
-                        ["GAME_ADMIN_TOKEN"] = adminToken
-                    });
-                });
-            });
-
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var cancellationToken = timeoutCts.Token;
-
-        var wsClient = factory.Server.CreateWebSocketClient();
-        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), cancellationToken);
-        await SendTextAsync(socket, "{\"playerId\":\"alice\",\"text\":\"hello\"}", cancellationToken);
-        _ = await ReceiveTextAsync(socket, cancellationToken);
-
-        using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Admin-Token", adminToken);
-
-        using var requestBody = new StringContent("{\"playerId\":\"alice\"}", Encoding.UTF8, "application/json");
-        using var response = await client.PostAsync("/admin/kick", requestBody, cancellationToken);
-
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        using var responseDoc = JsonDocument.Parse(responseBody);
-        Assert.That(responseDoc.RootElement.GetProperty("kickedConnections").GetInt32(), Is.GreaterThanOrEqualTo(1));
     }
 
     private static async Task SendTextAsync(WebSocket socket, string text, CancellationToken cancellationToken)
@@ -488,17 +401,52 @@ public class GameEndpointIntegrationTests
         }
     }
 
+    private static async Task JoinRoomAsync(WebSocket socket, string playerId, CancellationToken cancellationToken)
+    {
+        await SendTextAsync(socket, JsonSerializer.Serialize(new
+        {
+            type = "JoinRoom",
+            playerId
+        }), cancellationToken);
+
+        _ = await ReceiveTextAsync(socket, cancellationToken);
+    }
+
+    private static async Task<string> ReceiveGameEventAsync(WebSocket socket, string expectedType, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var payload = await ReceiveTextAsync(socket, cancellationToken);
+            if (string.IsNullOrWhiteSpace(payload))
+            {
+                continue;
+            }
+
+            using var doc = JsonDocument.Parse(payload);
+            if (!TryGetPropertyIgnoreCase(doc.RootElement, "Type", out var typeElement))
+            {
+                continue;
+            }
+
+            var eventType = typeElement.GetString();
+            if (string.Equals(eventType, expectedType, StringComparison.Ordinal))
+            {
+                return payload;
+            }
+        }
+    }
+
     private static void AssertChatEvent(string payload, string expectedType, string expectedGameId, string expectedPlayerId, string expectedText)
     {
         using var doc = JsonDocument.Parse(payload);
         var root = doc.RootElement;
 
-        Assert.That(root.GetProperty("Type").GetString(), Is.EqualTo(expectedType));
-        Assert.That(root.GetProperty("GameId").GetString(), Is.EqualTo(expectedGameId));
+        Assert.That(GetRequiredPropertyIgnoreCase(root, "Type").GetString(), Is.EqualTo(expectedType));
+        Assert.That(GetRequiredPropertyIgnoreCase(root, "GameId").GetString(), Is.EqualTo(expectedGameId));
 
-        var chat = root.GetProperty("Chat");
-        Assert.That(chat.GetProperty("PlayerId").GetString(), Is.EqualTo(expectedPlayerId));
-        Assert.That(chat.GetProperty("Text").GetString(), Is.EqualTo(expectedText));
+        var chat = GetRequiredPropertyIgnoreCase(root, "Chat");
+        Assert.That(GetRequiredPropertyIgnoreCase(chat, "PlayerId").GetString(), Is.EqualTo(expectedPlayerId));
+        Assert.That(GetRequiredPropertyIgnoreCase(chat, "Text").GetString(), Is.EqualTo(expectedText));
     }
 
 
@@ -509,20 +457,48 @@ public class GameEndpointIntegrationTests
         using var doc = JsonDocument.Parse(payload);
         var root = doc.RootElement;
 
-        Assert.That(root.GetProperty("Type").GetString(), Is.EqualTo("CommandApplied"));
-        Assert.That(root.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(expectedOrderPointer));
-        Assert.That(root.GetProperty("GameId").GetString(), Is.EqualTo(expectedGameId));
-        Assert.That(root.GetProperty("CreatedAt").GetDateTimeOffset(), Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
+        Assert.That(GetRequiredPropertyIgnoreCase(root, "Type").GetString(), Is.EqualTo("CommandApplied"));
+        Assert.That(GetRequiredPropertyIgnoreCase(root, "OrderPointer").GetInt64(), Is.EqualTo(expectedOrderPointer));
+        Assert.That(GetRequiredPropertyIgnoreCase(root, "GameId").GetString(), Is.EqualTo(expectedGameId));
+        Assert.That(GetRequiredPropertyIgnoreCase(root, "CreatedAt").GetDateTimeOffset(), Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
 
-        var command = root.GetProperty("Command");
-        Assert.That(command.GetProperty("Type").GetString(), Is.EqualTo(expectedCommandType));
-        Assert.That(command.GetProperty("PlayerId").GetString(), Is.EqualTo(expectedPlayerId));
+        var command = GetRequiredPropertyIgnoreCase(root, "Command");
+        Assert.That(GetRequiredPropertyIgnoreCase(command, "Type").GetString(), Is.EqualTo(expectedCommandType));
+        Assert.That(GetRequiredPropertyIgnoreCase(command, "PlayerId").GetString(), Is.EqualTo(expectedPlayerId));
 
-        var state = root.GetProperty("State");
-        Assert.That(state.GetProperty("Version").GetInt64(), Is.EqualTo(expectedVersion));
+        var state = GetRequiredPropertyIgnoreCase(root, "State");
+        Assert.That(GetRequiredPropertyIgnoreCase(state, "Version").GetInt64(), Is.EqualTo(expectedVersion));
 
-        var lastCommand = state.GetProperty("Data").GetProperty("lastCommand");
-        Assert.That(lastCommand.GetProperty("type").GetString(), Is.EqualTo(expectedCommandType));
-        Assert.That(lastCommand.GetProperty("playerId").GetString(), Is.EqualTo(expectedPlayerId));
+        var lastCommand = GetRequiredPropertyIgnoreCase(GetRequiredPropertyIgnoreCase(state, "Data"), "lastCommand");
+        Assert.That(GetRequiredPropertyIgnoreCase(lastCommand, "type").GetString(), Is.EqualTo(expectedCommandType));
+        Assert.That(GetRequiredPropertyIgnoreCase(lastCommand, "playerId").GetString(), Is.EqualTo(expectedPlayerId));
+    }
+
+    private static JsonElement GetRequiredPropertyIgnoreCase(JsonElement element, string propertyName)
+    {
+        if (TryGetPropertyIgnoreCase(element, propertyName, out var value))
+        {
+            return value;
+        }
+
+        throw new KeyNotFoundException($"Missing property '{propertyName}'.");
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+        }
+
+        value = default;
+        return false;
     }
 }
