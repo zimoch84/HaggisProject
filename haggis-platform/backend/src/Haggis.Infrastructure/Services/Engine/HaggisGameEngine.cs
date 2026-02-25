@@ -8,11 +8,11 @@ namespace Haggis.Infrastructure.Services.Engine;
 
 public sealed class HaggisGameEngine : IGameEngine
 {
-    private readonly HaggisServerGameLoop _gameLoop;
+    private HaggisServerGameLoop GameLoop { get; }
 
     public HaggisGameEngine(HaggisServerGameLoop gameLoop)
     {
-        _gameLoop = gameLoop;
+        GameLoop = gameLoop;
     }
 
     public GameStateSnapshot CreateInitialState(string gameId)
@@ -22,7 +22,7 @@ public sealed class HaggisGameEngine : IGameEngine
 
     public GameStateSnapshot SimulateNext(string gameId, GameStateSnapshot state, GameCommand command)
     {
-        var nextData = _gameLoop.TryExecute(gameId, command, out var haggisState, out var appliedMove)
+        var nextData = GameLoop.TryExecute(gameId, command, out var haggisState, out var appliedMove)
             ? BuildHaggisStateData(haggisState!, command, appliedMove)
             : ResolveNextData(state, command);
 
@@ -36,11 +36,19 @@ public sealed class HaggisGameEngine : IGameEngine
 
     private static JsonElement BuildHaggisStateData(HaggisGameState state, GameCommand command, HaggisAction? appliedMove)
     {
+        var gameOverScore = state.ScoringStrategy.GameOverScore;
+        var roundOver = state.RoundOver();
+        var gameOver = roundOver && state.Players.Any(player => player.Score >= gameOverScore);
+
         var data = new
         {
             game = "haggis",
+            winScore = gameOverScore,
+            roundNumber = state.RoundNumber,
+            moveIteration = state.MoveIteration,
             currentPlayerId = state.CurrentPlayer.Name,
-            roundOver = state.RoundOver(),
+            roundOver,
+            gameOver,
             players = state.Players.Select(player => new
             {
                 id = player.Name,

@@ -9,15 +9,15 @@ namespace Haggis.Infrastructure.Services.Engine.Haggis;
 
 public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, HaggisAction, GameCommand>
 {
-    private readonly IAiMoveStrategy<HaggisGameState, HaggisAction> _aiMoveStrategy;
-    private readonly IMoveRuleValidator<HaggisGameState, HaggisAction, GameCommand> _moveRuleValidator;
+    private IAiMoveStrategy<HaggisGameState, HaggisAction> AiMoveStrategy { get; }
+    private IMoveRuleValidator<HaggisGameState, HaggisAction, GameCommand> MoveRuleValidator { get; }
 
     public HaggisServerGameLoop(
         IAiMoveStrategy<HaggisGameState, HaggisAction> aiMoveStrategy,
         IMoveRuleValidator<HaggisGameState, HaggisAction, GameCommand> moveRuleValidator)
     {
-        _aiMoveStrategy = aiMoveStrategy;
-        _moveRuleValidator = moveRuleValidator;
+        AiMoveStrategy = aiMoveStrategy;
+        MoveRuleValidator = moveRuleValidator;
     }
 
     public bool TryExecute(string gameId, GameCommand command, out HaggisGameState? state, out HaggisAction appliedMove)
@@ -65,8 +65,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
             game.SetSeed(seed);
         }
 
-        game.NewRound();
-        return new HaggisGameState(players, game.ScoringStrategy);
+        return game.NewRound();
     }
 
     protected override IReadOnlyList<HaggisAction> GetLegalMoves(HaggisGameState state) =>
@@ -119,14 +118,14 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
     protected override bool ShouldUseAiMove(HaggisGameState state, GameCommand command) => state.CurrentPlayer.IsAI;
 
     protected override HaggisAction ResolveAiMove(HaggisGameState state, IReadOnlyList<HaggisAction> legalMoves) =>
-        _aiMoveStrategy.ChooseMove(state, legalMoves);
+        AiMoveStrategy.ChooseMove(state, legalMoves);
 
     protected override MoveValidationResult ValidateMove(
         HaggisGameState state,
         GameCommand command,
         HaggisAction move,
         IReadOnlyList<HaggisAction> legalMoves) =>
-        _moveRuleValidator.Validate(state, command, move, legalMoves);
+        MoveRuleValidator.Validate(state, command, move, legalMoves);
 
     protected override void ApplyMove(HaggisGameState state, HaggisAction move) => state.ApplyAction(move);
 
@@ -217,11 +216,26 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         }
 
         var runOutMultiplier = defaultStrategy.RunOutMultiplier;
+        var gameOverScore = defaultStrategy.GameOverScore;
+        if (optionsElement.TryGetProperty("winScore", out var optionsWinScoreElement) &&
+            optionsWinScoreElement.ValueKind == JsonValueKind.Number &&
+            optionsWinScoreElement.TryGetInt32(out var parsedOptionsWinScore) &&
+            parsedOptionsWinScore > 0)
+        {
+            gameOverScore = parsedOptionsWinScore;
+        }
         if (scoringElement.TryGetProperty("runOutMultiplier", out var multiplierElement) &&
             multiplierElement.ValueKind == JsonValueKind.Number &&
             multiplierElement.TryGetInt32(out var parsedMultiplier))
         {
             runOutMultiplier = parsedMultiplier;
+        }
+        if (scoringElement.TryGetProperty("gameOverScore", out var gameOverScoreElement) &&
+            gameOverScoreElement.ValueKind == JsonValueKind.Number &&
+            gameOverScoreElement.TryGetInt32(out var parsedGameOverScore) &&
+            parsedGameOverScore > 0)
+        {
+            gameOverScore = parsedGameOverScore;
         }
 
         if (scoringElement.TryGetProperty("strategy", out var strategyElement) &&
@@ -230,14 +244,14 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
             var strategy = strategyElement.GetString();
             if (string.Equals(strategy, "EveryCardOnePoint", StringComparison.OrdinalIgnoreCase))
             {
-                return new EveryCardOnePointScoringStrategy(runOutMultiplier);
+                return new EveryCardOnePointScoringStrategy(runOutMultiplier, gameOverScore);
             }
         }
 
         if (!scoringElement.TryGetProperty("cardPointsByRank", out var pointsElement) ||
             pointsElement.ValueKind != JsonValueKind.Object)
         {
-            return new ClassicHaggisScoringStrategy(runOutMultiplier);
+            return new ClassicHaggisScoringStrategy(runOutMultiplier, gameOverScore);
         }
 
         var pointsByRank = new Dictionary<Rank, int>();
@@ -253,7 +267,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
             pointsByRank[rank] = points;
         }
 
-        return new ConfigurableHaggisScoringStrategy(pointsByRank, runOutMultiplier);
+        return new ConfigurableHaggisScoringStrategy(pointsByRank, runOutMultiplier, gameOverScore);
     }
 
     private static bool TryParseRank(string value, out Rank rank)

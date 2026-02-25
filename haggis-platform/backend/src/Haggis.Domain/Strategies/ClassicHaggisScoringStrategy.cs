@@ -18,10 +18,12 @@ namespace Haggis.Domain.Model
         };
 
         public int RunOutMultiplier { get; }
+        public int GameOverScore { get; }
 
-        public ClassicHaggisScoringStrategy(int runOutMultiplier = 5)
+        public ClassicHaggisScoringStrategy(int runOutMultiplier = 5, int gameOverScore = 250)
         {
             RunOutMultiplier = runOutMultiplier;
+            GameOverScore = gameOverScore;
         }
 
         public int GetCardPoints(Card card)

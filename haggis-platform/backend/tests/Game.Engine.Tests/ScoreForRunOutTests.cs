@@ -9,6 +9,8 @@ namespace HaggisTests
     [TestFixture]
     public class ScoreForRunOutTests
     {
+        private static readonly int DefaultRunOutMultiplier = new ClassicHaggisScoringStrategy().RunOutMultiplier;
+
         [Test]
         public void ScoreForRunOut_AppliesScore_WhenPlayerFinished()
         {
@@ -29,11 +31,11 @@ namespace HaggisTests
             var action = HaggisAction.Pass(p1);
 
             // Act
-            var applied = action.ScoreForRunOut(players, Haggis.Domain.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER);
+            var applied = action.ScoreForRunOut(players, DefaultRunOutMultiplier);
 
             // Assert
             Assert.That(applied, Is.True);
-            var expected = (p2.Hand.Count + p3.Hand.Count) * Haggis.Domain.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER;
+            var expected = (p2.Hand.Count + p3.Hand.Count) * DefaultRunOutMultiplier;
             Assert.That(p1.Score, Is.EqualTo(expected));
         }
 
@@ -51,7 +53,7 @@ namespace HaggisTests
 
 
 
-            var applied = action.ScoreForRunOut(players, Haggis.Domain.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER);
+            var applied = action.ScoreForRunOut(players, DefaultRunOutMultiplier);
 
             Assert.That(applied, Is.False);
             Assert.That(p1.Score, Is.EqualTo(0));
@@ -64,7 +66,7 @@ namespace HaggisTests
             var players = new List<IHaggisPlayer>();
             var action = HaggisAction.Pass(p1);
 
-            var applied = action.ScoreForRunOut(players, Haggis.Domain.Model.HaggisGame.HAND_RUNS_OUT_MULTIPLAYER);
+            var applied = action.ScoreForRunOut(players, DefaultRunOutMultiplier);
 
             Assert.That(applied, Is.False);
         }

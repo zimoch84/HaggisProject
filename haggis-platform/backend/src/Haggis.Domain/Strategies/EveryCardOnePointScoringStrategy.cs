@@ -6,10 +6,12 @@ namespace Haggis.Domain.Model
     public sealed class EveryCardOnePointScoringStrategy : IHaggisScoringStrategy
     {
         public int RunOutMultiplier { get; }
+        public int GameOverScore { get; }
 
-        public EveryCardOnePointScoringStrategy(int runOutMultiplier = 5)
+        public EveryCardOnePointScoringStrategy(int runOutMultiplier = 5, int gameOverScore = 250)
         {
             RunOutMultiplier = runOutMultiplier;
+            GameOverScore = gameOverScore;
         }
 
         public int GetCardPoints(Card card)

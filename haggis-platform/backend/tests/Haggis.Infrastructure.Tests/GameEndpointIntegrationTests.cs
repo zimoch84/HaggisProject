@@ -62,7 +62,9 @@ public class GameEndpointIntegrationTests
         Assert.That(gameId.GetString(), Is.Not.Null.And.Not.Empty);
         Assert.That(error.ValueKind, Is.EqualTo(JsonValueKind.Null));
         Assert.That(createdAt.GetDateTimeOffset(), Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
-        Assert.That(currentPlayerId.GetString(), Is.EqualTo("alice"));
+        var currentPlayer = currentPlayerId.GetString();
+        Assert.That(currentPlayer, Is.Not.Null.And.Not.Empty);
+        Assert.That(new[] { "alice", "bob", "carol" }, Contains.Item(currentPlayer));
 
         Assert.That(command.TryGetProperty("Type", out var commandType), Is.True);
         Assert.That(command.TryGetProperty("PlayerId", out var playerId), Is.True);
@@ -81,6 +83,16 @@ public class GameEndpointIntegrationTests
 
         Assert.That(version.GetInt64(), Is.EqualTo(1));
         Assert.That(data.ValueKind, Is.EqualTo(JsonValueKind.Object));
+        Assert.That(data.TryGetProperty("winScore", out var winScore), Is.True);
+        Assert.That(data.TryGetProperty("roundNumber", out var roundNumber), Is.True);
+        Assert.That(data.TryGetProperty("moveIteration", out var moveIteration), Is.True);
+        Assert.That(data.TryGetProperty("roundOver", out var roundOver), Is.True);
+        Assert.That(data.TryGetProperty("gameOver", out var gameOver), Is.True);
+        Assert.That(winScore.GetInt32(), Is.EqualTo(250));
+        Assert.That(roundNumber.GetInt32(), Is.EqualTo(1));
+        Assert.That(moveIteration.GetInt64(), Is.EqualTo(0));
+        Assert.That(roundOver.GetBoolean(), Is.False);
+        Assert.That(gameOver.GetBoolean(), Is.False);
         Assert.That(updatedAt.GetDateTimeOffset(), Is.LessThanOrEqualTo(DateTimeOffset.UtcNow));
     }
 
@@ -95,6 +107,53 @@ public class GameEndpointIntegrationTests
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         Assert.That(body, Is.EqualTo("WebSocket connection expected."));
+    }
+
+    [Test]
+    public async Task GameEndpoint_WhenInitializeContainsScoringGameOverScore_ExposesWinScoreFromStrategy()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeoutCts.Token;
+
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/games/game-custom-win-score"), cancellationToken);
+        await JoinRoomAsync(socket, "alice", cancellationToken);
+
+        await SendTextAsync(socket,
+            JsonSerializer.Serialize(new
+            {
+                operation = "command",
+                payload = new
+                {
+                    command = new
+                    {
+                        type = "Initialize",
+                        playerId = "alice",
+                        payload = new
+                        {
+                            players = new[] { "alice", "bob", "carol" },
+                            seed = 123,
+                            options = new
+                            {
+                                scoring = new
+                                {
+                                    gameOverScore = 180
+                                }
+                            }
+                        }
+                    }
+                }
+            }),
+            cancellationToken);
+
+        var payload = await ReceiveTextAsync(socket, cancellationToken);
+        using var doc = JsonDocument.Parse(payload);
+        var data = doc.RootElement.GetProperty("State").GetProperty("Data");
+
+        Assert.That(data.GetProperty("winScore").GetInt32(), Is.EqualTo(180));
+        Assert.That(data.GetProperty("roundOver").GetBoolean(), Is.False);
+        Assert.That(data.GetProperty("gameOver").GetBoolean(), Is.False);
     }
 
     [Test]
@@ -314,6 +373,11 @@ public class GameEndpointIntegrationTests
         var initializedStateData = initializedDoc.RootElement.GetProperty("State").GetProperty("Data");
 
         Assert.That(initializedStateData.GetProperty("game").GetString(), Is.EqualTo("haggis"));
+        Assert.That(initializedStateData.GetProperty("winScore").GetInt32(), Is.EqualTo(250));
+        Assert.That(initializedStateData.GetProperty("roundNumber").GetInt32(), Is.EqualTo(1));
+        Assert.That(initializedStateData.GetProperty("moveIteration").GetInt64(), Is.EqualTo(0));
+        Assert.That(initializedStateData.GetProperty("roundOver").GetBoolean(), Is.False);
+        Assert.That(initializedStateData.GetProperty("gameOver").GetBoolean(), Is.False);
         Assert.That(initializedStateData.GetProperty("players").GetArrayLength(), Is.EqualTo(3));
 
         foreach (var player in initializedStateData.GetProperty("players").EnumerateArray())
@@ -361,7 +425,10 @@ public class GameEndpointIntegrationTests
         Assert.That(playedRoot.GetProperty("Type").GetString(), Is.EqualTo("CommandApplied"));
         Assert.That(playedRoot.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(2));
         Assert.That(playedRoot.GetProperty("State").GetProperty("Version").GetInt64(), Is.EqualTo(2));
-        Assert.That(playedRoot.GetProperty("State").GetProperty("Data").GetProperty("game").GetString(), Is.EqualTo("haggis"));
+        var playedData = playedRoot.GetProperty("State").GetProperty("Data");
+        Assert.That(playedData.GetProperty("game").GetString(), Is.EqualTo("haggis"));
+        Assert.That(playedData.GetProperty("roundNumber").GetInt32(), Is.EqualTo(1));
+        Assert.That(playedData.GetProperty("moveIteration").GetInt64(), Is.EqualTo(1));
 
         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
     }
