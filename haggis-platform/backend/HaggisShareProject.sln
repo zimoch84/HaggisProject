@@ -27,7 +27,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Haggis.Infrastructure", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Serwer.API", "src\Serwer.API\Serwer.API.csproj", "{3BC0AE4A-3955-405B-B4D8-891CCE0AB4D7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game.API.Tests", "tests\Game.Api.Tests\Game.API.Tests.csproj", "{6A67259B-5383-494B-A58F-A824D7F8755C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Haggis.Infrastructure.Tests", "tests\Haggis.Infrastructure.Tests\Haggis.Infrastructure.Tests.csproj", "{6A67259B-5383-494B-A58F-A824D7F8755C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Haggis.Application", "src\Haggis.Application\Haggis.Application.csproj", "{4BEF8566-A67E-4E0D-A967-DDAFB9CACA88}"
 EndProject

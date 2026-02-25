@@ -27,17 +27,18 @@
       }
     },
     {
-      "name": "Game.API WebSocket (.NET)",
+      "name": "Haggis.Infrastructure WebSocket (.NET)",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build Game.API",
-      "program": "${workspaceFolder}/haggis-platform/backend/src/Game.API/bin/Debug/net9.0/Game.API.dll",
+      "preLaunchTask": "build Haggis.Infrastructure",
+      "program": "${workspaceFolder}/haggis-platform/backend/src/Haggis.Infrastructure/bin/Debug/net9.0/Haggis.Infrastructure.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/haggis-platform/backend/src/Game.API",
+      "cwd": "${workspaceFolder}/haggis-platform/backend/src/Haggis.Infrastructure",
       "stopAtEntry": false,
       "console": "internalConsole",
       "env": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5555"
       }
     }
   ]
