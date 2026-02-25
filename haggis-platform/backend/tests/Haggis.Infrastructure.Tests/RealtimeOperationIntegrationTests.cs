@@ -192,6 +192,41 @@ public class RealtimeOperationIntegrationTests
     }
 
     [Test]
+    public async Task GlobalOperation_CreateRoom_ReturnsRoomObjectWithSingleCreatorPlayer()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeoutCts.Token;
+
+        var globalClient = factory.Server.CreateWebSocketClient();
+        using var globalSocket = await globalClient.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), cancellationToken);
+        _ = await ReceiveTextAsync(globalSocket, cancellationToken); // bootstrap
+
+        await SendJsonAsync(globalSocket, new
+        {
+            operation = "createroom",
+            payload = new
+            {
+                playerId = "alice",
+                roomId = "room-single-player-1",
+                roomName = "Single Player Room"
+            }
+        }, cancellationToken);
+
+        var createPayload = await ReceiveTextAsync(globalSocket, cancellationToken);
+        using var createDoc = JsonDocument.Parse(createPayload);
+        var data = GetRequiredPropertyIgnoreCase(createDoc.RootElement, "data");
+        var room = GetRequiredPropertyIgnoreCase(data, "room");
+        var players = GetRequiredPropertyIgnoreCase(room, "players")
+            .EnumerateArray()
+            .Select(x => x.GetString())
+            .ToArray();
+
+        Assert.That(players, Has.Length.EqualTo(1));
+        Assert.That(players[0], Is.EqualTo("alice"));
+    }
+
+    [Test]
     public async Task GlobalOperation_PrivateChat_ReturnsGameEndpoint_AndRoomHasBothPlayers()
     {
         await using var factory = new WebApplicationFactory<Program>();
