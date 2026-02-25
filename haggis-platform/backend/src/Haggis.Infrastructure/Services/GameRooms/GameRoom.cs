@@ -1,4 +1,4 @@
-namespace Serwer.API.Services.GameRooms;
+﻿namespace Haggis.Infrastructure.Services.GameRooms;
 
 public sealed class GameRoom
 {
@@ -9,5 +9,6 @@ public sealed class GameRoom
     public DateTimeOffset CreatedAt { get; init; }
     public List<string> Players { get; init; } = new();
 }
+
 
 

@@ -1,6 +1,6 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-namespace Serwer.API.Dtos.Chat;
+namespace Haggis.Infrastructure.Dtos.Chat;
 
 public sealed record ProblemDetailsMessage(
     [property: JsonPropertyName("title")] string Title,
@@ -9,4 +9,5 @@ public sealed record ProblemDetailsMessage(
     [property: JsonPropertyName("detail")] string? Detail = null,
     [property: JsonPropertyName("instance")] string? Instance = null,
     [property: JsonPropertyName("errors")] IReadOnlyDictionary<string, IReadOnlyList<string>>? Errors = null);
+
 

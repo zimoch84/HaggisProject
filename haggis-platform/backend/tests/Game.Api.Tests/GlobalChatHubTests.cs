@@ -3,10 +3,10 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using NUnit.Framework;
-using Serwer.API.Dtos.Chat;
-using Serwer.API.Services;
+using Haggis.Infrastructure.Dtos.Chat;
+using Haggis.Infrastructure.Services;
 
-namespace Serwer.API.Tests;
+namespace Haggis.Infrastructure.Tests;
 
 [TestFixture]
 public class GlobalChatHubTests

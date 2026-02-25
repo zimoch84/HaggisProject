@@ -2,14 +2,12 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using Haggis.Infrastructure.Services.Engine;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using NUnit.Framework;
-using Serwer.API.Dtos.GameRooms;
-using Serwer.API.Services;
+using Haggis.Infrastructure.Dtos.GameRooms;
 
-namespace Serwer.API.Tests;
+namespace Haggis.Infrastructure.Tests;
 
 [TestFixture]
 public class GameRoomToGameFlowIntegrationTests
@@ -17,8 +15,7 @@ public class GameRoomToGameFlowIntegrationTests
     [Test]
     public async Task PlayerOneCanCreateRoom_PlayerTwoCanJoin_AndPlayerOneCanInitializeGameUsingRoomGameEndpoint()
     {
-        await using var roomFactory = new WebApplicationFactory<GlobalChatHub>();
-        await using var gameFactory = new WebApplicationFactory<HaggisGameEngine>();
+        await using var roomFactory = new WebApplicationFactory<Program>();
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var cancellationToken = timeoutCts.Token;
 
@@ -39,7 +36,7 @@ public class GameRoomToGameFlowIntegrationTests
         Assert.That(joinedRoom!.Players, Contains.Item("alice"));
         Assert.That(joinedRoom.Players, Contains.Item("bob"));
 
-        var wsClient = gameFactory.Server.CreateWebSocketClient();
+        var wsClient = roomFactory.Server.CreateWebSocketClient();
         using var gameSocket = await wsClient.ConnectAsync(new Uri($"ws://localhost{createdRoom.GameEndpoint}"), cancellationToken);
 
         await SendTextAsync(

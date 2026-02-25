@@ -1,10 +1,10 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using Serwer.API.Dtos.Chat;
+using Haggis.Infrastructure.Dtos.Chat;
 
-namespace Serwer.API.Services;
+namespace Haggis.Infrastructure.Services;
 
 public sealed class GlobalChatHub
 {
@@ -94,7 +94,24 @@ public sealed class GlobalChatHub
 
         while (true)
         {
-            var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+            WebSocketReceiveResult result;
+            try
+            {
+                result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+            catch (ObjectDisposedException)
+            {
+                return null;
+            }
+            catch (WebSocketException)
+            {
+                return null;
+            }
+
             if (result.MessageType == WebSocketMessageType.Close)
             {
                 return null;
@@ -114,4 +131,5 @@ public sealed class GlobalChatHub
     }
 
 }
+
 

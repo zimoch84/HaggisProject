@@ -7,6 +7,7 @@ using Haggis.Infrastructure.Services.Engine;
 using Haggis.Infrastructure.Services.Engine.Haggis;
 using Haggis.Infrastructure.Services.Hubs;
 using Haggis.Infrastructure.Services.Infrastructure.Sessions;
+using Haggis.Infrastructure.Services;
 using NUnit.Framework;
 
 namespace Haggis.Infrastructure.Tests;
@@ -91,7 +92,8 @@ public class GameWebSocketHubTests
         var engine = new HaggisGameEngine(gameLoop);
         var store = new GameSessionStore(engine);
         var appService = new GameCommandApplicationService(store);
-        return new GameWebSocketHub(appService);
+        var registry = new PlayerSocketRegistry();
+        return new GameWebSocketHub(appService, registry);
     }
 
     private sealed class FakeWebSocket : WebSocket

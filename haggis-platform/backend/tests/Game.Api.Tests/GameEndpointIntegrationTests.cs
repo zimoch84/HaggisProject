@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using NUnit.Framework;
 
 namespace Haggis.Infrastructure.Tests;
@@ -335,6 +336,126 @@ public class GameEndpointIntegrationTests
         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
     }
 
+    [Test]
+    public async Task GameEndpoint_WhenChatSent_BroadcastsChatEventToConnectedClients()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeoutCts.Token;
+
+        var wsClientA = factory.Server.CreateWebSocketClient();
+        var wsClientB = factory.Server.CreateWebSocketClient();
+
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/games/game-chat/actions"), cancellationToken);
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/games/game-chat/actions"), cancellationToken);
+
+        await SendTextAsync(socketA, "{\"type\":\"Chat\",\"chat\":{\"playerId\":\"alice\",\"text\":\"hej wszystkim\"}}", cancellationToken);
+
+        var selfPayload = await ReceiveTextAsync(socketA, cancellationToken);
+        var peerPayload = await ReceiveTextAsync(socketB, cancellationToken);
+
+        AssertChatEvent(selfPayload, expectedType: "ChatPosted", expectedGameId: "game-chat", expectedPlayerId: "alice", expectedText: "hej wszystkim");
+        AssertChatEvent(peerPayload, expectedType: "ChatPosted", expectedGameId: "game-chat", expectedPlayerId: "alice", expectedText: "hej wszystkim");
+    }
+
+    [Test]
+    public async Task AdminBroadcast_WhenAuthorized_SendsServerAnnouncementToAllGames()
+    {
+        const string adminToken = "test-admin-token";
+        await using var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, configBuilder) =>
+                {
+                    configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["GAME_ADMIN_TOKEN"] = adminToken
+                    });
+                });
+            });
+
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeoutCts.Token;
+
+        var wsClientA = factory.Server.CreateWebSocketClient();
+        var wsClientB = factory.Server.CreateWebSocketClient();
+
+        using var socketA = await wsClientA.ConnectAsync(new Uri("ws://localhost/games/game-a/actions"), cancellationToken);
+        using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/games/game-b/actions"), cancellationToken);
+
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Admin-Token", adminToken);
+
+        using var requestBody = new StringContent("{\"message\":\"Przerwa techniczna za 5 minut.\"}", Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("/admin/broadcast", requestBody, cancellationToken);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Accepted));
+
+        var payloadA = await ReceiveTextAsync(socketA, cancellationToken);
+        var payloadB = await ReceiveTextAsync(socketB, cancellationToken);
+
+        AssertChatEvent(payloadA, expectedType: "ServerAnnouncement", expectedGameId: "game-a", expectedPlayerId: "server", expectedText: "Przerwa techniczna za 5 minut.");
+        AssertChatEvent(payloadB, expectedType: "ServerAnnouncement", expectedGameId: "game-b", expectedPlayerId: "server", expectedText: "Przerwa techniczna za 5 minut.");
+    }
+
+    [Test]
+    public async Task GameCreateEndpoint_WhenAdminTokenConfigured_WithoutTokenReturnsUnauthorized()
+    {
+        await using var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, configBuilder) =>
+                {
+                    configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["GAME_ADMIN_TOKEN"] = "test-admin-token"
+                    });
+                });
+            });
+
+        using var client = factory.CreateClient();
+        using var response = await client.GetAsync("/games/create");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    [Test]
+    public async Task AdminKick_WhenAuthorized_ClosesPlayerSocket()
+    {
+        const string adminToken = "test-admin-token";
+        await using var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, configBuilder) =>
+                {
+                    configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["GAME_ADMIN_TOKEN"] = adminToken
+                    });
+                });
+            });
+
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeoutCts.Token;
+
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), cancellationToken);
+        await SendTextAsync(socket, "{\"playerId\":\"alice\",\"text\":\"hello\"}", cancellationToken);
+        _ = await ReceiveTextAsync(socket, cancellationToken);
+
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Admin-Token", adminToken);
+
+        using var requestBody = new StringContent("{\"playerId\":\"alice\"}", Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("/admin/kick", requestBody, cancellationToken);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var responseDoc = JsonDocument.Parse(responseBody);
+        Assert.That(responseDoc.RootElement.GetProperty("kickedConnections").GetInt32(), Is.GreaterThanOrEqualTo(1));
+    }
+
     private static async Task SendTextAsync(WebSocket socket, string text, CancellationToken cancellationToken)
     {
         var bytes = Encoding.UTF8.GetBytes(text);
@@ -366,6 +487,20 @@ public class GameEndpointIntegrationTests
             }
         }
     }
+
+    private static void AssertChatEvent(string payload, string expectedType, string expectedGameId, string expectedPlayerId, string expectedText)
+    {
+        using var doc = JsonDocument.Parse(payload);
+        var root = doc.RootElement;
+
+        Assert.That(root.GetProperty("Type").GetString(), Is.EqualTo(expectedType));
+        Assert.That(root.GetProperty("GameId").GetString(), Is.EqualTo(expectedGameId));
+
+        var chat = root.GetProperty("Chat");
+        Assert.That(chat.GetProperty("PlayerId").GetString(), Is.EqualTo(expectedPlayerId));
+        Assert.That(chat.GetProperty("Text").GetString(), Is.EqualTo(expectedText));
+    }
+
 
     private static void AssertAppliedEvent(string payload, long expectedOrderPointer, string expectedGameId, long expectedVersion, string expectedPlayerId, string expectedCommandType)
     {

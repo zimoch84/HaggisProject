@@ -5,11 +5,10 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using NUnit.Framework;
-using Serwer.API.Dtos.Chat;
-using Serwer.API.Dtos.GameRooms;
-using Serwer.API.Services;
+using Haggis.Infrastructure.Dtos.Chat;
+using Haggis.Infrastructure.Dtos.GameRooms;
 
-namespace Serwer.API.Tests;
+namespace Haggis.Infrastructure.Tests;
 
 [TestFixture]
 public class GameRoomEndpointIntegrationTests
@@ -17,7 +16,7 @@ public class GameRoomEndpointIntegrationTests
     [Test]
     public async Task CreateGameRoom_WhenRequestValid_ReturnsCreatedRoom()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
 
         var wsClient = factory.Server.CreateWebSocketClient();
         using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/create"), CancellationToken.None);
@@ -38,7 +37,7 @@ public class GameRoomEndpointIntegrationTests
     [Test]
     public async Task GameRoomsList_ReturnsCreatedRooms()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
 
         await CreateRoomViaWebSocketAsync(factory, "{\"gameType\":\"haggis\",\"hostPlayerId\":\"alice\"}");
         await CreateRoomViaWebSocketAsync(factory, "{\"gameType\":\"haggis\",\"hostPlayerId\":\"bob\"}");
@@ -56,7 +55,7 @@ public class GameRoomEndpointIntegrationTests
     [Test]
     public async Task JoinGameRoom_WhenRoomExists_AddsPlayer()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
 
         var createdRoom = await CreateRoomViaWebSocketAsync(factory, "{\"gameType\":\"haggis\",\"hostPlayerId\":\"alice\"}");
         Assert.That(createdRoom, Is.Not.Null);
@@ -78,7 +77,7 @@ public class GameRoomEndpointIntegrationTests
     [Test]
     public async Task JoinGameRoom_WhenRoomNotFound_ReturnsProblemDetails()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
 
         var wsClient = factory.Server.CreateWebSocketClient();
         using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/missing-room/join"), CancellationToken.None);
@@ -94,7 +93,7 @@ public class GameRoomEndpointIntegrationTests
     [Test]
     public async Task CreateGameRoom_WhenGameTypeUnsupported_ReturnsProblemDetails()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
 
         var wsClient = factory.Server.CreateWebSocketClient();
         using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/create"), CancellationToken.None);
@@ -110,7 +109,7 @@ public class GameRoomEndpointIntegrationTests
     [Test]
     public async Task CreateGameRoom_WhenRoomNameProvided_UsesProvidedName()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
 
         var room = await CreateRoomViaWebSocketAsync(factory, "{\"gameType\":\"haggis\",\"hostPlayerId\":\"alice\",\"roomName\":\"Turniejowy pokoj\"}");
         Assert.That(room, Is.Not.Null);
@@ -120,7 +119,7 @@ public class GameRoomEndpointIntegrationTests
     [Test]
     public async Task CreateRoomsEndpoint_WhenNotWebSocketRequest_ReturnsBadRequest()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
 
         using var response = await client.GetAsync("/ws/rooms/create");
@@ -130,7 +129,7 @@ public class GameRoomEndpointIntegrationTests
         Assert.That(body, Is.EqualTo("WebSocket connection expected."));
     }
 
-    private static async Task<GameRoomResponse?> CreateRoomViaWebSocketAsync(WebApplicationFactory<GlobalChatHub> factory, string requestJson)
+    private static async Task<GameRoomResponse?> CreateRoomViaWebSocketAsync(WebApplicationFactory<Program> factory, string requestJson)
     {
         var wsClient = factory.Server.CreateWebSocketClient();
         using var socket = await wsClient.ConnectAsync(new Uri("ws://localhost/ws/rooms/create"), CancellationToken.None);

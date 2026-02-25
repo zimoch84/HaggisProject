@@ -1,7 +1,7 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Net.WebSockets;
 
-namespace Serwer.API.Services;
+namespace Haggis.Infrastructure.Services;
 
 public sealed class PlayerSocketRegistry : IPlayerSocketRegistry
 {
@@ -75,6 +75,48 @@ public sealed class PlayerSocketRegistry : IPlayerSocketRegistry
         return snapshot;
     }
 
+    public Task<int> KickPlayerAsync(string playerId, string reason, CancellationToken cancellationToken)
+    {
+        var normalizedPlayerId = playerId.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedPlayerId))
+        {
+            return Task.FromResult(0);
+        }
+
+        if (!_playerConnections.TryGetValue(normalizedPlayerId, out var playerConnections))
+        {
+            return Task.FromResult(0);
+        }
+
+        var kicked = 0;
+        var connectionIds = playerConnections.Keys.ToArray();
+        foreach (var connectionId in connectionIds)
+        {
+            if (!_connections.TryGetValue(connectionId, out var connection))
+            {
+                continue;
+            }
+
+            var socket = connection.Socket;
+            if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived or WebSocketState.CloseSent)
+            {
+                try
+                {
+                    socket.Abort();
+                    socket.Dispose();
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+
+            Unregister(connectionId);
+            kicked++;
+        }
+
+        return Task.FromResult(kicked);
+    }
+
     private void RemoveConnectionFromPlayer(string playerId, Guid connectionId)
     {
         if (!_playerConnections.TryGetValue(playerId, out var playerConnections))
@@ -91,3 +133,4 @@ public sealed class PlayerSocketRegistry : IPlayerSocketRegistry
 
     private sealed record SocketConnection(WebSocket Socket, string Source);
 }
+

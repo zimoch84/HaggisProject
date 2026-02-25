@@ -1,6 +1,7 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-namespace Serwer.API.Dtos.GameRooms;
+namespace Haggis.Infrastructure.Dtos.GameRooms;
 
 public sealed record JoinGameRoomRequest(
     [property: JsonPropertyName("playerId")] string PlayerId);
+

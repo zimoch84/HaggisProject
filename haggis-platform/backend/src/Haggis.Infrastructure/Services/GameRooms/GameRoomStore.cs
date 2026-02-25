@@ -1,6 +1,6 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 
-namespace Serwer.API.Services.GameRooms;
+namespace Haggis.Infrastructure.Services.GameRooms;
 
 public sealed class GameRoomStore : IGameRoomStore
 {
@@ -95,4 +95,5 @@ public sealed class GameRoomStore : IGameRoomStore
         return char.ToUpperInvariant(normalized[0]) + normalized[1..];
     }
 }
+
 

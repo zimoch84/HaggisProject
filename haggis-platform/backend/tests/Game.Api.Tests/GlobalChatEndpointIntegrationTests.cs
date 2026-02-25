@@ -5,10 +5,10 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using NUnit.Framework;
-using Serwer.API.Services;
-using Serwer.API.Dtos.Chat;
+using Haggis.Infrastructure.Services;
+using Haggis.Infrastructure.Dtos.Chat;
 
-namespace Serwer.API.Tests;
+namespace Haggis.Infrastructure.Tests;
 
 [TestFixture]
 public class GlobalChatEndpointIntegrationTests
@@ -16,7 +16,7 @@ public class GlobalChatEndpointIntegrationTests
     [Test]
     public async Task GlobalChatEndpoint_WhenNotWebSocketRequest_ReturnsBadRequest()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
 
         using var response = await client.GetAsync("/ws/chat/global");
@@ -29,7 +29,7 @@ public class GlobalChatEndpointIntegrationTests
     [Test]
     public async Task GlobalChatEndpoint_WhenMessageSent_BroadcastsToAllConnectedClients()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
 
         var socketClientA = factory.Server.CreateWebSocketClient();
         var socketClientB = factory.Server.CreateWebSocketClient();
@@ -52,7 +52,7 @@ public class GlobalChatEndpointIntegrationTests
     [Test]
     public async Task GlobalChatEndpoint_WhenPayloadInvalid_ReturnsProblemDetails()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
         var socketClient = factory.Server.CreateWebSocketClient();
         using var socket = await socketClient.ConnectAsync(new Uri("ws://localhost/ws/chat/global"), CancellationToken.None);
 
@@ -68,7 +68,7 @@ public class GlobalChatEndpointIntegrationTests
     [Test]
     public async Task GlobalChatEndpoint_WhenMultipleMessagesSent_PreservesOrderForReceiver()
     {
-        await using var factory = new WebApplicationFactory<GlobalChatHub>();
+        await using var factory = new WebApplicationFactory<Program>();
 
         var socketClientA = factory.Server.CreateWebSocketClient();
         var socketClientB = factory.Server.CreateWebSocketClient();

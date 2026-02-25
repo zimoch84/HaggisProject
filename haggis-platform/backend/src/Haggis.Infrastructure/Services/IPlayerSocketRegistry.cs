@@ -1,6 +1,6 @@
-using System.Net.WebSockets;
+﻿using System.Net.WebSockets;
 
-namespace Serwer.API.Services;
+namespace Haggis.Infrastructure.Services;
 
 public interface IPlayerSocketRegistry
 {
@@ -9,4 +9,6 @@ public interface IPlayerSocketRegistry
     void Unregister(Guid connectionId);
     IReadOnlyCollection<WebSocket> GetPlayerSockets(string playerId);
     IReadOnlyDictionary<string, int> GetOnlinePlayerConnectionCounts();
+    Task<int> KickPlayerAsync(string playerId, string reason, CancellationToken cancellationToken);
 }
+

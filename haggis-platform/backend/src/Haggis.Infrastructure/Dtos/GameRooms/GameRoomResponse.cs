@@ -1,6 +1,6 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-namespace Serwer.API.Dtos.GameRooms;
+namespace Haggis.Infrastructure.Dtos.GameRooms;
 
 public sealed record GameRoomResponse(
     [property: JsonPropertyName("roomId")] string RoomId,
@@ -10,3 +10,4 @@ public sealed record GameRoomResponse(
     [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
     [property: JsonPropertyName("players")] IReadOnlyList<string> Players,
     [property: JsonPropertyName("gameEndpoint")] string GameEndpoint);
+
