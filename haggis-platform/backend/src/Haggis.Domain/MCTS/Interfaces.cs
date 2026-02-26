@@ -18,6 +18,7 @@ namespace MonteCarlo
 
         double GetResult(TPlayer forPlayer);
     }
+
     public interface IMctsNode<TAction> where TAction : IAction
     {
         TAction Action { get; }

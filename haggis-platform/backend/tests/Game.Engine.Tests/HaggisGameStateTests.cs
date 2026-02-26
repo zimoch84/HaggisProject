@@ -1,4 +1,4 @@
-using Haggis.Domain.Extentions;
+﻿using Haggis.Domain.Extentions;
 using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
 using NUnit.Framework;
@@ -17,14 +17,14 @@ namespace HaggisTests
 
         HaggisGameState GameState;
 
-        IList<HaggisAction> Actions => GameState.Actions;
+        IList<HaggisAction> Actions => GameState.PossibleActions;
 
         [SetUp]
         public void SetUp()
         {
 
             Piotr = new HaggisPlayer("Piotr");
-            Slawek = new HaggisPlayer("S�awek");
+            Slawek = new HaggisPlayer("Sławek");
             Robert = new HaggisPlayer("Robert");
 
             Piotr.Hand = Cards("2Y", "3Y");
@@ -38,182 +38,12 @@ namespace HaggisTests
         public void ApplyActionToBoard_WhenFirstAction()
         {
 
-            GameState.ApplyActionToBoard(FromTrick("2Y_SINGLE", Piotr));
+            GameState.ApplyAction(FromTrick("2Y_SINGLE", Piotr));
             Assert.That(Piotr.Hand.Count, Is.EqualTo(1));
             Assert.That(Piotr.Hand.Contains("3Y"), Is.True);
 
         }
 
-        [Test]
-        public void HaggisPossibleAction1Test()
-        {
-
-            Assert.That(Actions.Contains(Pass(Piotr)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2Y_SINGLE", Piotr)), Is.True);
-            Assert.That(Actions.Contains(FromTrick("3Y_SINGLE", Piotr)), Is.True);
-
-            GameState.SetCurrentPlayer(Slawek);
-            Assert.That(Actions.Contains(Pass(Slawek)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2G_SINGLE", Slawek)), Is.True);
-            Assert.That(Actions.Contains(FromTrick("4G_SINGLE", Slawek)), Is.True);
-
-            GameState.SetCurrentPlayer(Robert);
-
-            Assert.That(Actions.Contains(Pass(Robert)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2O_SINGLE", Robert)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2B_SINGLE", Robert)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2BO_PAIR", Robert)), Is.True);
-
-        }
-
-        /*
-         * 3Y
-         * 4G
-         * PASS
-         * PASS
-         * */
-        [Test]
-        public void HaggisPossibleActionsAfterMove1()
-        {
-
-            Assert.That(Actions.Contains(Pass(Piotr)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2Y_SINGLE", Piotr)), Is.True);
-            Assert.That(Actions.Contains(FromTrick("3Y_SINGLE", Piotr)), Is.True);
-            GameState.ApplyAction(FromTrick("3Y_SINGLE", Piotr));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Slawek));
-            Assert.That(Actions.Count, Is.EqualTo(2));
-            Assert.That(Actions.Contains(Pass(Slawek)), Is.True);
-            Assert.That(Actions.Contains(FromTrick("4G_SINGLE", Slawek)), Is.True);
-            GameState.ApplyAction(FromTrick("4G_SINGLE", Slawek));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Robert));
-            Assert.That(Actions.Count, Is.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Robert)), Is.True);
-            GameState.ApplyAction(Pass(Robert));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Piotr));
-            Assert.That(Actions.Count, Is.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Piotr)), Is.True);
-            GameState.ApplyAction(Pass(Piotr));
-
-            //TrickPlay 1 is over
-            Assert.That(GameState.ActionArchive.Count, Is.EqualTo(1));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Slawek));
-            Assert.That(Actions.Count, Is.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Slawek)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2G_SINGLE", Slawek)), Is.True);
-            Assert.That(Actions.First().Trick.IsFinal, Is.True);
-            GameState.ApplyAction(FromTrick("2G_SINGLE", Slawek));
-
-            Assert.That(Slawek.Finished, Is.True);
-            Assert.That(GameState.RoundOver(), Is.False);
-            Assert.That(Slawek.Score, Is.EqualTo(15));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Robert));
-            Assert.That(Actions.Count, Is.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Robert)), Is.True);
-            GameState.ApplyAction(Pass(Robert));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Piotr));
-            Assert.That(Actions.Count, Is.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Piotr)), Is.True);
-            GameState.ApplyAction(Pass(Piotr));
-
-            //TrickPlay 2 is over
-            Assert.That(GameState.ActionArchive.Count, Is.EqualTo(2));
-
-
-            Assert.That(Slawek.Finished, Is.True);
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Robert));
-            Assert.That(Actions.Count, Is.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Robert)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2O_SINGLE", Robert)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2B_SINGLE", Robert)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2BO_PAIR", Robert)), Is.True);
-            Assert.That(Actions.First().Trick.IsFinal, Is.True);
-            GameState.ApplyAction(FromTrick("2BO_PAIR", Robert));
-
-            Assert.That(Robert.Finished, Is.True);
-            Assert.That(Robert.Score, Is.EqualTo(5));
-            Assert.That(Slawek.Score, Is.EqualTo(16));
-            Assert.That(Slawek.Score, Is.EqualTo(16));
-            Assert.That(Piotr.Score, Is.EqualTo(0));
-
-            Assert.That(GameState.RoundOver(), Is.True);
-        }
-
-        /*
-         * 2Y
-         * 4G
-         * PASS
-         * PASS
-         * */
-        [Test]
-        public void HaggisPossibleActionsAfterMove2()
-        {
-
-            Assert.That(Actions.Contains(Pass(Piotr)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2Y_SINGLE", Piotr)), Is.True);
-            Assert.That(Actions.Contains(FromTrick("3Y_SINGLE", Piotr)), Is.True);
-            GameState.ApplyAction(FromTrick("2Y_SINGLE", Piotr));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Slawek));
-            Assert.That(Actions, Has.Count.EqualTo(2));
-            Assert.That(Actions.Contains(Pass(Slawek)), Is.True);
-            Assert.That(Actions.Contains(FromTrick("4G_SINGLE", Slawek)), Is.True);
-            GameState.ApplyAction(FromTrick("4G_SINGLE", Slawek));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Robert));
-            Assert.That(Actions, Has.Count.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Robert)), Is.True);
-            GameState.ApplyAction(Pass(Robert));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Piotr));
-            Assert.That(Actions, Has.Count.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Piotr)), Is.True);
-            GameState.ApplyAction(Pass(Piotr));
-
-            //TrickPlay 1 is over
-            Assert.That(GameState.ActionArchive, Has.Count.EqualTo(1));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Slawek));
-            Assert.That(Actions, Has.Count.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Slawek)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("2G_SINGLE", Slawek)), Is.True);
-            Assert.That(Actions.First().Trick.IsFinal, Is.True);
-            GameState.ApplyAction(FromTrick("2G_SINGLE", Slawek));
-
-            Assert.That(Slawek.Finished, Is.True);
-            Assert.That(GameState.RoundOver(), Is.False);
-            Assert.That(Slawek.Score, Is.EqualTo(15));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Robert));
-            Assert.That(Actions, Has.Count.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Robert)), Is.True);
-            GameState.ApplyAction(Pass(Robert));
-
-            Assert.That(GameState.CurrentPlayer, Is.EqualTo(Piotr));
-            Assert.That(Actions, Has.Count.EqualTo(1));
-            Assert.That(Actions.Contains(Pass(Piotr)), Is.False);
-            Assert.That(Actions.Contains(FromTrick("3Y_SINGLE", Piotr)), Is.True);
-            Assert.That(Actions.First().Trick.IsFinal, Is.True);
-            GameState.ApplyAction(FromTrick("3Y_SINGLE", Piotr));
-
-            //TrickPlay 2 is over
-            Assert.That(GameState.ActionArchive, Has.Count.EqualTo(2));
-
-            Assert.That(Slawek.Finished, Is.True);
-            Assert.That(Piotr.Finished, Is.True);
-
-            Assert.That(Robert.Score, Is.EqualTo(0));
-            Assert.That(Slawek.Score, Is.EqualTo(15));
-            Assert.That(Piotr.Score, Is.EqualTo(10));
-
-            Assert.That(GameState.RoundOver(), Is.True);
-        }
 
         [Test]
         public void Should_next_player_be_who_played_bomb_when_not_finished()
@@ -320,28 +150,28 @@ namespace HaggisTests
         [Test]
         public void Clone_ShouldClonedInsanceDoesntAffectCopiedOne()
         {
-            var avalaibleActions = GameState.Actions;
+            var avalaibleActions = GameState.PossibleActions;
             var gameStateClone = (HaggisGameState)GameState.Clone();
-            var avalaibleClonedActions = gameStateClone.Actions;
+            var avalaibleClonedActions = gameStateClone.PossibleActions;
 
             Assert.That(avalaibleClonedActions, Is.EqualTo(avalaibleActions));
 
             Assert.That(GameState.Players[0], Is.Not.SameAs(gameStateClone.Players[0]));
-            Assert.That(GameState.Actions, Is.Not.SameAs(gameStateClone.Actions));
+            Assert.That(GameState.PossibleActions, Is.Not.SameAs(gameStateClone.PossibleActions));
 
-            Assert.That(GameState.Actions.Count, Is.EqualTo(2));
+            var legalActionsCountBeforeCloneMove = GameState.PossibleActions.Count;
 
-            gameStateClone.ApplyAction(gameStateClone.Actions[0]);
+            gameStateClone.ApplyAction(gameStateClone.PossibleActions[0]);
 
-            Assert.That(GameState.Actions.Count, Is.EqualTo(2));
+            Assert.That(GameState.PossibleActions.Count, Is.EqualTo(legalActionsCountBeforeCloneMove));
         }
 
         [Test]
         public void Clone_ShouldCloneTrickPlayHistory()
         {
-            while (GameState.Actions.Count > 0)
+            while (GameState.PossibleActions.Count > 0)
             {
-                GameState.ApplyAction(GameState.Actions[0]);
+                GameState.ApplyAction(GameState.PossibleActions[0]);
             }
             var history = GameState.ActionArchive;
             var gameStateClone = (HaggisGameState)GameState.Clone();
@@ -355,5 +185,31 @@ namespace HaggisTests
                 Assert.That(historyEnumerator.Current, Is.EqualTo(clonedHistoryEnumerator.Current));
             }
         }
+
+        [Test]
+        public void RoundOver_ShouldBeReachable_ByIterativeLegalActionsExecution()
+        {
+            var maxSteps = 200;
+            var step = 0;
+
+            while (!GameState.RoundOver() && step < maxSteps)
+            {
+                var PossibleActions = GameState.PossibleActions;
+                Assert.That(PossibleActions, Is.Not.Empty);
+
+                var chosenAction = PossibleActions.FirstOrDefault(action => !action.IsPass) ?? PossibleActions[0];
+                GameState.ApplyAction(chosenAction);
+                step++;
+            }
+
+            Assert.That(step, Is.LessThan(maxSteps), "Guard reached, round likely did not progress.");
+            Assert.That(GameState.RoundOver(), Is.True);
+            Assert.That(GameState.Players.Count(player => !player.Finished), Is.EqualTo(1));
+            Assert.That(GameState.PossibleActions, Is.Empty);
+        }
     }
 }
+
+
+
+

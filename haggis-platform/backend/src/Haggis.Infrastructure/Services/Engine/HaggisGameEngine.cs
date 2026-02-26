@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Haggis.Infrastructure.Services.Engine.Haggis;
 using Haggis.Domain.Model;
 using Haggis.Infrastructure.Services.Interfaces;
@@ -63,7 +63,7 @@ public sealed class HaggisGameEngine : IGameEngine
                 isPass = action.IsPass,
                 desc = action.Desc
             }),
-            possibleActions = state.Actions.Select(action => new
+            possibleActions = state.PossibleActions.Select(action => new
             {
                 type = action.IsPass ? "Pass" : "Play",
                 action = action.Desc
@@ -110,3 +110,5 @@ public sealed class HaggisGameEngine : IGameEngine
         return document.RootElement.Clone();
     }
 }
+
+

@@ -1,59 +1,55 @@
 ﻿using Haggis.AI.Interfaces;
-using Haggis.AI.StartingTrickFilterStrategies;
 using Haggis.AI.Strategies;
+using Haggis.Domain.Model;
+using Haggis.Domain.Services;
 using System;
 using System.Collections.Generic;
-using Haggis.Domain.Model;
 
 namespace Haggis.AI.Model
 {
     public class AIPlayer : HaggisPlayer, ICloneable
     {
+        private static MoveGenerationService MoveGenerationService { get; } = new MoveGenerationService();
         public IPlayStrategy PlayStrategy { get; set; }
-        public IStartingTrickFilterStrategy StartingTrickFilterStrategy { get; set; }
 
-        public AIPlayer(string name, List<Card> hand, List<Card> discard) : base(name, hand, discard)
+        public AIPlayer(string name, List<Card> hand, List<Card> discard, IPlayStrategy playStrategy = null)
+            : base(name, hand, discard)
         {
-            StartingTrickFilterStrategy = new FilterNoneStrategy();
-            PlayStrategy = new MonteCarloStrategy(1000, 1000);
-            this.IsAI = true;
+            InitializeStrategy(playStrategy);
         }
 
-        public AIPlayer(string name) : base(name)
+        public AIPlayer(string name, IPlayStrategy playStrategy = null)
+            : base(name)
         {
-            StartingTrickFilterStrategy = new FilterNoneStrategy();
-            PlayStrategy = new MonteCarloStrategy(1000, 1000);
-            this.IsAI = true;
+            InitializeStrategy(playStrategy);
         }
 
-        public override List<Trick> SuggestedTricks(Trick lastTrick) { 
-            
-            var  tricks  = base.SuggestedTricks(lastTrick);
-            if (lastTrick != null)
-                return tricks;  
-                
-            var filteredTricks = StartingTrickFilterStrategy.FilterTricks(tricks);
-            return filteredTricks;
+        public HaggisAction GetPlayingAction(HaggisGameState gameState)
+        {
+            return PlayStrategy.GetPlayingAction(gameState);
         }
 
-        public HaggisAction GetPlayingAction(HaggisGameState gameState) { 
-        
-              return PlayStrategy.GetPlayingAction(gameState);
+        public List<Trick> SuggestedTricks(Trick lastTrick)
+        {
+            return MoveGenerationService.GetPossibleContinuationTricks(this, lastTrick);
         }
+
         public object Clone()
         {
             var clonedBase = (HaggisPlayer)base.Clone();
 
-            var aiPlayer =  new AIPlayer(clonedBase.Name, clonedBase.Hand, clonedBase.Discard)
+            var aiPlayer = new AIPlayer(clonedBase.Name, clonedBase.Hand, clonedBase.Discard, PlayStrategy)
             {
                 Score = clonedBase.Score,
-                GuidState = clonedBase.GUID,
-                PlayStrategy = this.PlayStrategy,
-                StartingTrickFilterStrategy = this.StartingTrickFilterStrategy
+                GuidState = clonedBase.GUID
             };
             return aiPlayer;
         }
 
+        private void InitializeStrategy(IPlayStrategy playStrategy)
+        {
+            PlayStrategy = playStrategy ?? new MonteCarloStrategy(1000, 1000);
+        }
     }
 }
 

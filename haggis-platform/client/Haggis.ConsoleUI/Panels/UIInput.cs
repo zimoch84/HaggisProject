@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using Haggis.Domain.Model;
 
 public class UIInput : PanelRegionBase
@@ -14,10 +14,10 @@ public class UIInput : PanelRegionBase
 
     public override void ApplyTextBuffer(HaggisGameState state)
     {
-        // Domyœlny tekst (mo¿na rozbudowaæ o listê akcji itp.)
+        // DomyÅ›lny tekst (moÅ¼na rozbudowaÄ‡ o listÄ™ akcji itp.)
         TextBuffer.Clear();
-        int maxIndex = state.Actions.Count - 1;
-        _prompt = $"WprowadŸ numer [0..{maxIndex}]: ";
+        int maxIndex = state.PossibleActions.Count - 1;
+        _prompt = $"WprowadÅº numer [0..{maxIndex}]: ";
         TextBuffer.Write(_prompt);
         
         
@@ -26,10 +26,10 @@ public class UIInput : PanelRegionBase
     public int ReadHumanInput(HaggisGameState state)
     {
         // Bezpieczny fallback
-        if (state == null || state.Actions == null || state.Actions.Count == 0)
+        if (state == null || state.PossibleActions == null || state.PossibleActions.Count == 0)
             return 0;
 
-        int maxIndex = state.Actions.Count - 1;
+        int maxIndex = state.PossibleActions.Count - 1;
 
         while (true)
         {
@@ -45,7 +45,7 @@ public class UIInput : PanelRegionBase
 
             if (string.IsNullOrWhiteSpace(input))
             {
-                TextBuffer.WriteLine("Nie podano ¿adnego wejœcia. Spróbuj ponownie.");
+                TextBuffer.WriteLine("Nie podano Å¼adnego wejÅ›cia. SprÃ³buj ponownie.");
                 this.DrawState(state);
                 continue;
             }
@@ -55,12 +55,12 @@ public class UIInput : PanelRegionBase
                 if (index >= 0 && index <= maxIndex)
                     return index;
 
-                TextBuffer.WriteLine($"Liczba spoza zakresu. Wybierz wartoœæ od 0 do {maxIndex}.");
+                TextBuffer.WriteLine($"Liczba spoza zakresu. Wybierz wartoÅ›Ä‡ od 0 do {maxIndex}.");
                 this.DrawState(state);
             }
             else
             {
-                TextBuffer.WriteLine("Niepoprawny format. WprowadŸ liczbê ca³kowit¹.");
+                TextBuffer.WriteLine("Niepoprawny format. WprowadÅº liczbÄ™ caÅ‚kowitÄ….");
                 this.DrawState(state);
             }
         }
@@ -131,3 +131,5 @@ public class UIInput : PanelRegionBase
         }
     }
 }
+
+

@@ -27,16 +27,15 @@ public class GameLoop
             while (!_state.RoundOver())
             {
                 StaticConsoleUI.Render(_state);
-                if (_state.CurrentPlayer.IsAI)
+                if (_state.CurrentPlayer is AIPlayer ai)
                 {
-                    var ai = (AIPlayer)_state.CurrentPlayer;
                     var action = ai.GetPlayingAction(_state);
                     _state.ApplyAction(action);
                 }
                 else
                 {
                     int index = StaticConsoleUI.ReadHumanInput(_state);
-                    _state.ApplyAction(_state.Actions[index]);
+                    _state.ApplyAction(_state.PossibleActions[index]);
                 }
             }
 
@@ -50,4 +49,7 @@ public class GameLoop
         }
     }
 }
+
+
+
 

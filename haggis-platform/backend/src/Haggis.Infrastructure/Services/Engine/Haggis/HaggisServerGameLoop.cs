@@ -1,5 +1,6 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Haggis.Application.Engine.Loop;
+using Haggis.AI.Model;
 using Haggis.Infrastructure.Services.Models;
 using Haggis.Domain.Enums;
 using Haggis.Domain.Interfaces;
@@ -69,7 +70,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
     }
 
     protected override IReadOnlyList<HaggisAction> GetLegalMoves(HaggisGameState state) =>
-        state.Actions.ToList();
+        state.PossibleActions.ToList();
 
     protected override bool TryResolveMoveFromCommand(HaggisGameState state, GameCommand command, out HaggisAction move)
     {
@@ -77,7 +78,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
 
         if (command.Type.Equals("Pass", StringComparison.OrdinalIgnoreCase))
         {
-            var passAction = state.Actions.FirstOrDefault(a => a.IsPass);
+            var passAction = state.PossibleActions.FirstOrDefault(a => a.IsPass);
             if (passAction is null)
             {
                 throw new InvalidOperationException("Pass is not a legal action right now.");
@@ -115,7 +116,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         return false;
     }
 
-    protected override bool ShouldUseAiMove(HaggisGameState state, GameCommand command) => state.CurrentPlayer.IsAI;
+    protected override bool ShouldUseAiMove(HaggisGameState state, GameCommand command) => state.CurrentPlayer is AIPlayer;
 
     protected override HaggisAction ResolveAiMove(HaggisGameState state, IReadOnlyList<HaggisAction> legalMoves) =>
         AiMoveStrategy.ChooseMove(state, legalMoves);
@@ -173,7 +174,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         }
 
         var actionValue = actionElement.GetString();
-        var matchingAction = state.Actions.FirstOrDefault(x =>
+        var matchingAction = state.PossibleActions.FirstOrDefault(x =>
             !x.IsPass && x.Desc.Equals(actionValue, StringComparison.Ordinal));
         if (matchingAction is null)
         {
@@ -316,3 +317,6 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         }
     }
 }
+
+
+

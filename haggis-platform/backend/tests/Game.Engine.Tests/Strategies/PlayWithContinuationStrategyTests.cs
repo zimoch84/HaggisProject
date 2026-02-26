@@ -89,13 +89,9 @@ namespace HaggisTests.Strategies
 
            
 
-            piotr.PlayStrategy = new ContinuationStrategy(false, true);
-            slawek.PlayStrategy = new ContinuationStrategy(false, true);
-            robert.PlayStrategy = new ContinuationStrategy(false, true);
-
-            piotr.StartingTrickFilterStrategy = new FilterContinuations(8, false);
-            slawek.StartingTrickFilterStrategy = new FilterContinuations(8, false);
-            robert.StartingTrickFilterStrategy = new FilterContinuations(8, false);
+            piotr.PlayStrategy = new HeuristicPlayStrategy(new FilterContinuations(8, false), new ContinuationTrickStrategy(false, true));
+            slawek.PlayStrategy = new HeuristicPlayStrategy(new FilterContinuations(8, false), new ContinuationTrickStrategy(false, true));
+            robert.PlayStrategy = new HeuristicPlayStrategy(new FilterContinuations(8, false), new ContinuationTrickStrategy(false, true));
 
 
             piotr.Hand = new List<string> { "2Y", "3Y", "4B", "5B", "J" }.ToCards();

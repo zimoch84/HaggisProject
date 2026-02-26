@@ -1,6 +1,5 @@
 ﻿using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
-using Haggis.AI.StartingTrickFilterStrategies;
 using Haggis.AI.Strategies;
 using Haggis.AI.Model;
 
@@ -13,7 +12,6 @@ var slawekStrategy = new MonteCarloStrategy(1000, 2000);
 
 var slawek = new AIPlayer("Sławek")
 {
-    StartingTrickFilterStrategy = new FilterContinuations(10, false),
     PlayStrategy = slawekStrategy
 };
 
@@ -22,7 +20,6 @@ var robertStrategy = new MonteCarloStrategy(1000, 2000);
 
 var robert = new AIPlayer("Robert")
 {
-    StartingTrickFilterStrategy = new FilterContinuations(10, false),
     PlayStrategy = robertStrategy
 };
 

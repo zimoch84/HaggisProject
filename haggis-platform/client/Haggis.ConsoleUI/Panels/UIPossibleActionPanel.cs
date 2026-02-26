@@ -17,7 +17,7 @@ public class UIPossibleActionPanel : PanelRegionBase
 
         TextBuffer.Clear();
 
-        IList<HaggisAction> actions = state.Actions;
+        IList<HaggisAction> actions = state.PossibleActions;
 
 
         int totalWidth = Math.Max(1, TextBuffer.Width);
@@ -76,3 +76,5 @@ public class UIPossibleActionPanel : PanelRegionBase
         return s.Substring(0, w);
     }
 }
+
+
