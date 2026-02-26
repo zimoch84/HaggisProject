@@ -1,0 +1,12 @@
+asyncapi: 2.6.0
+info:
+  title: Serwer API (Deprecated)
+  version: 2.0.0
+  description: |
+    This contract is deprecated.
+    Realtime and room management were moved to Haggis.Infrastructure.
+    Use `HaggisAPI.yaml` as the source of truth.
+defaultContentType: application/json
+
+servers: {}
+channels: {}

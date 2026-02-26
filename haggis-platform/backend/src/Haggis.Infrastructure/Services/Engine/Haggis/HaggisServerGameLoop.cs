@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Haggis.Application.Engine.Loop;
 using Haggis.Infrastructure.Services.Models;
+using Haggis.Domain.Enums;
 using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
 
@@ -53,7 +54,8 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         }
 
         var players = playerIds.Select(id => (IHaggisPlayer)new HaggisPlayer(id)).ToList();
-        var game = new HaggisGame(players);
+        var scoringStrategy = ResolveScoringStrategy(command.Payload);
+        var game = new HaggisGame(players, scoringStrategy);
 
         if (command.Payload.ValueKind == JsonValueKind.Object &&
             command.Payload.TryGetProperty("seed", out var seedElement) &&
@@ -64,7 +66,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         }
 
         game.NewRound();
-        return new HaggisGameState(players);
+        return new HaggisGameState(players, game.ScoringStrategy);
     }
 
     protected override IReadOnlyList<HaggisAction> GetLegalMoves(HaggisGameState state) =>
@@ -201,4 +203,102 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         payload.ValueKind == JsonValueKind.Object &&
         payload.TryGetProperty("trick", out var trickElement) &&
         trickElement.ValueKind == JsonValueKind.String;
+
+    private static IHaggisScoringStrategy ResolveScoringStrategy(JsonElement payload)
+    {
+        var defaultStrategy = new ClassicHaggisScoringStrategy();
+        if (payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("options", out var optionsElement) ||
+            optionsElement.ValueKind != JsonValueKind.Object ||
+            !optionsElement.TryGetProperty("scoring", out var scoringElement) ||
+            scoringElement.ValueKind != JsonValueKind.Object)
+        {
+            return defaultStrategy;
+        }
+
+        var runOutMultiplier = defaultStrategy.RunOutMultiplier;
+        if (scoringElement.TryGetProperty("runOutMultiplier", out var multiplierElement) &&
+            multiplierElement.ValueKind == JsonValueKind.Number &&
+            multiplierElement.TryGetInt32(out var parsedMultiplier))
+        {
+            runOutMultiplier = parsedMultiplier;
+        }
+
+        if (scoringElement.TryGetProperty("strategy", out var strategyElement) &&
+            strategyElement.ValueKind == JsonValueKind.String)
+        {
+            var strategy = strategyElement.GetString();
+            if (string.Equals(strategy, "EveryCardOnePoint", StringComparison.OrdinalIgnoreCase))
+            {
+                return new EveryCardOnePointScoringStrategy(runOutMultiplier);
+            }
+        }
+
+        if (!scoringElement.TryGetProperty("cardPointsByRank", out var pointsElement) ||
+            pointsElement.ValueKind != JsonValueKind.Object)
+        {
+            return new ClassicHaggisScoringStrategy(runOutMultiplier);
+        }
+
+        var pointsByRank = new Dictionary<Rank, int>();
+        foreach (var property in pointsElement.EnumerateObject())
+        {
+            if (!TryParseRank(property.Name, out var rank) ||
+                property.Value.ValueKind != JsonValueKind.Number ||
+                !property.Value.TryGetInt32(out var points))
+            {
+                continue;
+            }
+
+            pointsByRank[rank] = points;
+        }
+
+        return new ConfigurableHaggisScoringStrategy(pointsByRank, runOutMultiplier);
+    }
+
+    private static bool TryParseRank(string value, out Rank rank)
+    {
+        switch (value)
+        {
+            case "2":
+                rank = Rank.TWO;
+                return true;
+            case "3":
+                rank = Rank.THREE;
+                return true;
+            case "4":
+                rank = Rank.FOUR;
+                return true;
+            case "5":
+                rank = Rank.FIVE;
+                return true;
+            case "6":
+                rank = Rank.SIX;
+                return true;
+            case "7":
+                rank = Rank.SEVEN;
+                return true;
+            case "8":
+                rank = Rank.EIGHT;
+                return true;
+            case "9":
+                rank = Rank.NINE;
+                return true;
+            case "10":
+                rank = Rank.TEN;
+                return true;
+            case "J":
+                rank = Rank.JACK;
+                return true;
+            case "Q":
+                rank = Rank.QUEEN;
+                return true;
+            case "K":
+                rank = Rank.KING;
+                return true;
+            default:
+                rank = default;
+                return false;
+        }
+    }
 }

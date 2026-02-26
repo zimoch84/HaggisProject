@@ -2,42 +2,18 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "HaggisRuntime (.NET)",
+      "name": "Haggis.Infrastructure WebSocket (.NET)",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build HaggisRuntime",
-      "program": "${workspaceFolder}/haggis-platform/backend/src/Game.Engine/HaggisRuntime/bin/Debug/net8.0/HaggisRuntime.dll",
+      "preLaunchTask": "build Haggis.Infrastructure",
+      "program": "${workspaceFolder}/haggis-platform/backend/src/Haggis.Infrastructure/bin/Debug/net9.0/Haggis.Infrastructure.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/haggis-platform/backend/src/Game.Engine/HaggisRuntime",
-      "stopAtEntry": false,
-      "console": "externalTerminal"
-    },
-    {
-      "name": "Serwer.API Chat (.NET)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build Serwer.API",
-      "program": "${workspaceFolder}/haggis-platform/backend/src/Serwer.API/bin/Debug/net9.0/Serwer.API.dll",
-      "args": [],
-      "cwd": "${workspaceFolder}/haggis-platform/backend/src/Serwer.API",
+      "cwd": "${workspaceFolder}/haggis-platform/backend/src/Haggis.Infrastructure",
       "stopAtEntry": false,
       "console": "internalConsole",
       "env": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      }
-    },
-    {
-      "name": "Game.API WebSocket (.NET)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build Game.API",
-      "program": "${workspaceFolder}/haggis-platform/backend/src/Game.API/bin/Debug/net9.0/Game.API.dll",
-      "args": [],
-      "cwd": "${workspaceFolder}/haggis-platform/backend/src/Game.API",
-      "stopAtEntry": false,
-      "console": "internalConsole",
-      "env": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5555"
       }
     }
   ]

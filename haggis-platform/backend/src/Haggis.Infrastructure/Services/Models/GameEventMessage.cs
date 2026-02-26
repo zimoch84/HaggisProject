@@ -7,4 +7,6 @@ public sealed record GameEventMessage(
     string? Error,
     GameCommand? Command,
     GameStateSnapshot? State,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    GameChatMessage? Chat = null,
+    string? CurrentPlayerId = null);

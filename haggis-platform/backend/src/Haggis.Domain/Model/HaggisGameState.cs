@@ -1,4 +1,4 @@
-using Haggis.Domain.Extentions;
+ï»¿using Haggis.Domain.Extentions;
 using MonteCarlo;
 using System.Text;
 using Newtonsoft.Json;
@@ -11,9 +11,9 @@ namespace Haggis.Domain.Model
 {
     public class HaggisGameState : IState<IHaggisPlayer, HaggisAction>
     {
-
         private TrickPlay _currentTrickPlay;
         private readonly List<IHaggisPlayer> _players;
+        private readonly IHaggisScoringStrategy _scoringStrategy;
         private HaggisPlayerQueue _playerQueue;
         private List<HaggisAction> NotPassActions => _currentTrickPlay.NotPassActions;
         private HaggisAction LastAction => _currentTrickPlay?.LastAction;
@@ -21,7 +21,7 @@ namespace Haggis.Domain.Model
         public List<IHaggisPlayer> Players { get { return _players; } }
         [JsonIgnore]
         public IHaggisPlayer CurrentPlayer => FindPlayerByGUID(_playerQueue.GetCurrentPlayer());
-        
+
         [JsonIgnore]
         public IHaggisPlayer NextPlayer => FindPlayerByGUID(_playerQueue.GetNextPlayer());
 
@@ -29,28 +29,32 @@ namespace Haggis.Domain.Model
         public TrickPlay CurrentTrickPlay => _currentTrickPlay;
 
         [JsonIgnore]
-        public  LinkedList<TrickPlay> ActionArchive;
+        public LinkedList<TrickPlay> ActionArchive;
 
         [JsonIgnore]
         public IList<HaggisAction> Actions => GetPossibleActionsForCurrentPlayer();
 
-        public HaggisGameState(List<IHaggisPlayer> players)
+        public HaggisGameState(List<IHaggisPlayer> players, IHaggisScoringStrategy scoringStrategy = null)
         {
             ActionArchive = new LinkedList<TrickPlay>();
             _currentTrickPlay = new TrickPlay(players.Count);
             _playerQueue = new HaggisPlayerQueue(players);
             _players = new List<IHaggisPlayer>(players);
+            _scoringStrategy = scoringStrategy ?? new ClassicHaggisScoringStrategy();
         }
 
-        private HaggisGameState(LinkedList<TrickPlay> historyTricks,
+        private HaggisGameState(
+            LinkedList<TrickPlay> historyTricks,
             TrickPlay trickPlay,
             List<IHaggisPlayer> players,
-            HaggisPlayerQueue playerQueue)
+            HaggisPlayerQueue playerQueue,
+            IHaggisScoringStrategy scoringStrategy)
         {
             ActionArchive = new LinkedList<TrickPlay>(historyTricks);
             _currentTrickPlay = trickPlay;
             _players = new List<IHaggisPlayer>(players);
             _playerQueue = playerQueue;
+            _scoringStrategy = scoringStrategy ?? new ClassicHaggisScoringStrategy();
         }
 
         public bool RoundOver()
@@ -62,7 +66,7 @@ namespace Haggis.Domain.Model
         {
             if (RoundOver())
                 return Enumerable.Empty<HaggisAction>().ToList();
-            
+
             var actions = new List<HaggisAction>();
             var lastTrick = NotPassActions?.LastOrDefault()?.Trick;
             var possibleTricks = CurrentPlayer.SuggestedTricks(lastTrick);
@@ -101,7 +105,7 @@ namespace Haggis.Domain.Model
         {
             var target = FindPlayerByGUID(player.GUID);
 
-            // Zbierz wszystkie karty z akcji bie¿¹cego TrickPlay (tylko nie-pass)
+            // Collect all cards from current TrickPlay actions (non-pass only).
             var cardsToMove = _currentTrickPlay?.Actions
                 .Where(a => !a.IsPass && a.Trick != null)
                 .SelectMany(a => a.Trick.Cards)
@@ -109,46 +113,43 @@ namespace Haggis.Domain.Model
 
             if (cardsToMove != null && cardsToMove.Count > 0)
             {
-                // Dodaj kopiê listy kart do discard docelowego gracza
                 target.AddToDiscard(new List<Card>(cardsToMove));
             }
 
-            // Wyczyœæ bie¿¹ce TrickPlay, aby nie dublowaæ przeniesienia kart
+            // Clear current TrickPlay to avoid moving same cards twice.
             _currentTrickPlay?.Clear();
         }
 
-        private void PlayerQueueRemoveOrRotate(HaggisAction action) {
-
+        private void PlayerQueueRemoveOrRotate(HaggisAction action)
+        {
             if (FindPlayerByGUID(action.Player.GUID).Finished)
                 _playerQueue.RemoveFromQueue(action.Player);
             else
                 _playerQueue.RotatePlayersClockwise();
         }
 
-        private void CheckEndingPassAndMoveCardsToTakingPlayer() {
-            
+        private void CheckEndingPassAndMoveCardsToTakingPlayer()
+        {
             if (_currentTrickPlay.IsEndingPass())
             {
                 var takingPlayer = _currentTrickPlay.Taking();
                 ActionArchive.AddLast(_currentTrickPlay);
-                
+
                 MoveCardsToDiscardForPlayer(takingPlayer);
                 _currentTrickPlay = new TrickPlay(_players.Where(p => !p.Finished).Count());
             }
         }
-        
+
         public void ApplyAction(HaggisAction action)
         {
             ApplyActionToBoard(action);
 
-            action.ScoreForRunOut(_players, HaggisGame.HAND_RUNS_OUT_MULTIPLAYER);
+            ScoreForRunOut(action);
 
             if (!RoundOver())
             {
                 PlayerQueueRemoveOrRotate(action);
-
                 CheckEndingPassAndMoveCardsToTakingPlayer();
-
             }
             else
             {
@@ -159,12 +160,30 @@ namespace Haggis.Domain.Model
 
         private void ScoreForDiscardCards()
         {
-            _players.ToList().ForEach(_players => _players.ScoreForDiscard());  
+            foreach (var player in _players)
+            {
+                player.Score += player.Discard.Sum(card => _scoringStrategy.GetCardPoints(card));
+            }
+        }
+
+        private void ScoreForRunOut(HaggisAction action)
+        {
+            if (action == null || action.Player == null)
+                return;
+
+            var target = _players.FirstOrDefault(p => p.GUID == action.Player.GUID);
+            if (target == null || !target.Finished)
+                return;
+
+            foreach (var player in _players.Where(p => !p.Finished && p.GUID != action.Player.GUID))
+            {
+                target.Score += player.Hand.Count * _scoringStrategy.RunOutMultiplier;
+            }
         }
 
         private IHaggisPlayer FindPlayerByGUID(Guid guid)
         {
-            return _players.First(p => p.GUID== guid);
+            return _players.First(p => p.GUID == guid);
         }
 
         public IState<IHaggisPlayer, HaggisAction> Clone()
@@ -173,20 +192,20 @@ namespace Haggis.Domain.Model
             var board = (TrickPlay)_currentTrickPlay?.Clone();
             var archive = new LinkedList<TrickPlay>(ActionArchive.DeepCopy());
             var playerQueue = (HaggisPlayerQueue)_playerQueue.Clone();
-            return new HaggisGameState(archive, board, players, playerQueue);
+            return new HaggisGameState(archive, board, players, playerQueue, _scoringStrategy);
         }
 
         public double GetResult(IHaggisPlayer forPlayer)
         {
-            var forPlayerScore = _players.Where(p => p.GUID== forPlayer.GUID).First().Score;
+            var forPlayerScore = _players.Where(p => p.GUID == forPlayer.GUID).First().Score;
 
             var otherWinner = _players.Where(p => p.Score > forPlayerScore).Count();
             if (otherWinner > 0)
                 return 0;
 
             return 1;
-
         }
+
         override
         public string ToString()
         {

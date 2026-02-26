@@ -21,6 +21,5 @@ namespace Haggis.Domain.Interfaces
         List<Trick> AllPossibleTricks(TrickType? lastTrickType);
         void RemoveFromHand(List<Card> cards);
         void AddToDiscard(List<Card> cards);
-        void ScoreForDiscard();
      }
 }

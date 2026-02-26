@@ -22,12 +22,12 @@
       "problemMatcher": "$msCompile"
     },
     {
-      "label": "build Game.API",
+      "label": "build Haggis.Infrastructure",
       "type": "process",
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/haggis-platform/backend/src/Game.Api/Game.API.csproj"
+        "${workspaceFolder}/haggis-platform/backend/src/Haggis.Infrastructure/Haggis.Infrastructure.csproj"
       ],
       "problemMatcher": "$msCompile"
     }

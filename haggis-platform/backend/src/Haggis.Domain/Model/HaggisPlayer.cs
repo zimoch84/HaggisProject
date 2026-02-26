@@ -13,19 +13,17 @@ namespace Haggis.Domain.Model
 {
     public class HaggisPlayer : IHaggisPlayer
     {
+        private bool Starts { get; set; }
+        private List<Card> HandState { get; set; }
+        private List<Card> DiscardState { get; set; }
+        protected Guid GuidState { get; set; }
 
-        private bool _starts;
-        private string _name;
-        private List<Card> _hand;
-        private List<Card> _discard;
-        protected Guid _guid;
-
-        public string Name { get { return _name; } set { _name = value; } }
+        public string Name { get; set; }
 
         [JsonIgnore]
-        public List<Card> Hand { get => _hand; set { _hand = value; _hand.Sort(); } }
+        public List<Card> Hand { get => HandState; set { HandState = value; HandState.Sort(); } }
         [JsonIgnore]
-        public List<Card> Discard { get => _discard; set => _discard = value; }
+        public List<Card> Discard { get => DiscardState; set => DiscardState = value; }
         public int Score { get; set; }
 
         public string HandDesc => Hand.ToLetters();
@@ -33,18 +31,18 @@ namespace Haggis.Domain.Model
 
         public HaggisPlayer(string name)
         {
-            _name = name;
-            _guid = Guid.NewGuid();
-            _hand = new List<Card>();
-            _discard = new List<Card>();
+            Name = name;
+            GuidState = Guid.NewGuid();
+            HandState = new List<Card>();
+            DiscardState = new List<Card>();
             this.IsAI = false;
         }
 
         public HaggisPlayer(string name, List<Card> hand, List<Card> discard)
         {
-            _name = name;
-            _hand = hand.DeepCopy().ToList();
-            _discard = discard.DeepCopy().ToList();
+            Name = name;
+            HandState = hand.DeepCopy().ToList();
+            DiscardState = discard.DeepCopy().ToList();
             this.IsAI = false;
          }
 
@@ -62,7 +60,7 @@ namespace Haggis.Domain.Model
             /*Search if there is final trick and return only him if possible */
             foreach (var t in allPossibbleTricks)
             {
-                if (t.Cards.Count() == _hand.Count())
+                if (t.Cards.Count() == HandState.Count())
                 {
                     t.IsFinal = true;
                     return new List<Trick> { t };
@@ -82,18 +80,18 @@ namespace Haggis.Domain.Model
             {
                 foreach (var trickType in sameCardTypes)
                 {
-                    tricks.AddRange(_hand.FindTheSameCards(trickType));
-                    tricks.AddRange(_hand.FindTheSameCardsWithWildCards(trickType));
+                    tricks.AddRange(HandState.FindTheSameCards(trickType));
+                    tricks.AddRange(HandState.FindTheSameCardsWithWildCards(trickType));
                 }
 
                 foreach (var trickType in sequenceTypes)
                 {
-                    tricks.AddRange(_hand.FindCardSequences(trickType));
+                    tricks.AddRange(HandState.FindCardSequences(trickType));
                 }
 
                 foreach (var trickType in pairedSequenceType)
                 {
-                    tricks.AddRange(_hand.FindPairedSequences(trickType));
+                    tricks.AddRange(HandState.FindPairedSequences(trickType));
                 }
 
             }
@@ -101,21 +99,21 @@ namespace Haggis.Domain.Model
             {
                 if (sameCardTypes.Contains(lastTrickType.Value))
                 {
-                    tricks.AddRange(_hand.FindTheSameCards(lastTrickType.Value));
-                    tricks.AddRange(_hand.FindTheSameCardsWithWildCards(lastTrickType.Value));
+                    tricks.AddRange(HandState.FindTheSameCards(lastTrickType.Value));
+                    tricks.AddRange(HandState.FindTheSameCardsWithWildCards(lastTrickType.Value));
                 }
                 if (sequenceTypes.Contains(lastTrickType.Value))
-                    tricks.AddRange(_hand.FindCardSequences(lastTrickType.Value));
+                    tricks.AddRange(HandState.FindCardSequences(lastTrickType.Value));
 
                 if (pairedSequenceType.Contains(lastTrickType.Value))
-                    tricks.AddRange(_hand.FindPairedSequences(lastTrickType.Value));
+                    tricks.AddRange(HandState.FindPairedSequences(lastTrickType.Value));
             }
-            var bombs = _hand.FindAllPossibleBombs();
+            var bombs = HandState.FindAllPossibleBombs();
             tricks.AddRange(bombs);
 
             return tricks;
         }
-        public Guid GUID => _guid;
+        public Guid GUID => GuidState;
         public bool Finished => !Hand.Any();
         public int CardCount()
         {
@@ -130,20 +128,15 @@ namespace Haggis.Domain.Model
         }
         public void AddToDiscard(List<Card> cards)
         {
-            _discard.AddRange(cards);
+            DiscardState.AddRange(cards);
         }
-        public void ScoreForDiscard()
-        {
-            _discard.ToList().ForEach(
-                card => Score+= card.Point);
-         }
 
         override
         public string ToString()
         {
             StringBuilder stringBuilder = new StringBuilder();
 
-            stringBuilder.Append(_name);
+            stringBuilder.Append(Name);
             stringBuilder.Append("\r\n");
             stringBuilder.Append("Hand:");
             stringBuilder.Append(Hand.ToLetters());
@@ -155,10 +148,10 @@ namespace Haggis.Domain.Model
 
         public object Clone()
         {
-            var clonedPlayer = new HaggisPlayer(_name, _hand, _discard)
+            var clonedPlayer = new HaggisPlayer(Name, HandState, DiscardState)
             {
-                _starts = _starts,
-                _guid = this._guid,
+                Starts = this.Starts,
+                GuidState = this.GuidState,
                 Score = this.Score,
                 IsAI = this.IsAI
             };
@@ -168,7 +161,7 @@ namespace Haggis.Domain.Model
 
         public void RemoveFromHand(List<Card> cards)
         {
-            _hand.RemoveAll(card => cards.Contains(card));
+            HandState.RemoveAll(card => cards.Contains(card));
         }
 
         public bool Equals(IHaggisPlayer other)

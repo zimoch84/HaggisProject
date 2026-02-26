@@ -20,13 +20,17 @@ cd haggis-platform
 
 ## Wariant B: lokalnie bez kontenerow (backend)
 
-Aktualnie katalog `backend/src/Game.Api` jest przygotowany pod API, ale nie ma jeszcze kompletnego projektu `.csproj` do uruchomienia.
+Uruchamiaj backend realtime z projektu `Haggis.Infrastructure`:
 
-Docelowy proces lokalnego startu backendu:
+```powershell
+dotnet run --project .\backend\src\Haggis.Infrastructure\Haggis.Infrastructure.csproj
+```
 
-1. Przygotuj SQL Server (lokalnie lub kontener).
-2. Ustaw `ConnectionStrings__Main` dla projektu API.
-3. Uruchom API komenda `dotnet run --project <sciezka-do-Game.Api.csproj>` po dodaniu projektu API.
+Domyslny endpoint lokalny:
+
+- `http://localhost:5555`
+- `ws://localhost:5555/ws/global/chat`
+- `ws://localhost:5555/ws/games/{gameId}`
 
 ## Testy silnika gry
 
