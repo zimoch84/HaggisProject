@@ -9,7 +9,7 @@ public abstract class GameLoopEngineBase<TState, TMove, TCommand>
 
     protected abstract bool IsStartCommand(TCommand command);
     protected abstract bool IsNextMoveCommand(TCommand command);
-    protected abstract TState CreateInitialState(TCommand command);
+    protected abstract TState CreateInitialState(string gameId, TCommand command);
     protected abstract IReadOnlyList<TMove> GetLegalMoves(TState state);
     protected abstract bool TryResolveMoveFromCommand(TState state, TCommand command, out TMove move);
     protected abstract bool ShouldUseAiMove(TState state, TCommand command);
@@ -25,7 +25,7 @@ public abstract class GameLoopEngineBase<TState, TMove, TCommand>
     {
         if (IsStartCommand(command))
         {
-            var initialized = CreateInitialState(command);
+            var initialized = CreateInitialState(gameId, command);
             SetState(gameId, initialized);
             return new GameLoopExecutionResult<TState, TMove>(
                 Handled: true,

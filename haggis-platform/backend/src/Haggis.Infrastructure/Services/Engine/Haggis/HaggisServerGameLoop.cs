@@ -1,15 +1,22 @@
-﻿using System.Text.Json;
+using System.Collections.Concurrent;
+using System.Text.Json;
 using Haggis.Application.Engine.Loop;
+using Haggis.AI.Interfaces;
 using Haggis.AI.Model;
-using Haggis.Infrastructure.Services.Models;
+using Haggis.AI.StartingTrickFilterStrategies;
+using Haggis.AI.Strategies;
 using Haggis.Domain.Enums;
 using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
+using Haggis.Infrastructure.Services.Models;
 
 namespace Haggis.Infrastructure.Services.Engine.Haggis;
 
 public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, HaggisAction, GameCommand>
 {
+    private static readonly JsonElement EmptyPayload = JsonDocument.Parse("{}").RootElement.Clone();
+    private readonly ConcurrentDictionary<string, HaggisGame> _games = new();
+
     private IAiMoveStrategy<HaggisGameState, HaggisAction> AiMoveStrategy { get; }
     private IMoveRuleValidator<HaggisGameState, HaggisAction, GameCommand> MoveRuleValidator { get; }
 
@@ -21,18 +28,48 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         MoveRuleValidator = moveRuleValidator;
     }
 
-    public bool TryExecute(string gameId, GameCommand command, out HaggisGameState? state, out HaggisAction appliedMove)
+    public bool TryExecute(string gameId, GameCommand command, out HaggisGameState? state, out HaggisAction? appliedMove)
     {
         var result = Execute(gameId, command);
         if (!result.Handled || result.State is null)
         {
             state = default;
-            appliedMove = default!;
+            appliedMove = null;
             return false;
         }
 
         state = result.State;
         appliedMove = result.AppliedMove;
+        return true;
+    }
+
+    public bool TryExecuteAiStep(string gameId, out HaggisGameState? state, out HaggisAction? appliedMove)
+    {
+        return TryExecute(
+            gameId,
+            new GameCommand(
+                Type: "NextMove",
+                PlayerId: string.Empty,
+                Payload: EmptyPayload),
+            out state,
+            out appliedMove);
+    }
+
+    public bool TryCreateNextRound(string gameId, HaggisGameState state, out HaggisGameState? nextRoundState)
+    {
+        nextRoundState = null;
+        if (!state.RoundOver() || IsGameOver(state))
+        {
+            return false;
+        }
+
+        if (!_games.TryGetValue(gameId, out var game))
+        {
+            return false;
+        }
+
+        nextRoundState = game.NewRound();
+        SetState(gameId, nextRoundState);
         return true;
     }
 
@@ -46,15 +83,14 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         command.Type.Equals("Pass", StringComparison.OrdinalIgnoreCase) ||
         command.Type.Equals("NextMove", StringComparison.OrdinalIgnoreCase);
 
-    protected override HaggisGameState CreateInitialState(GameCommand command)
+    protected override HaggisGameState CreateInitialState(string gameId, GameCommand command)
     {
-        var playerIds = ReadPlayers(command.Payload);
-        if (playerIds.Count < 2)
+        var players = ReadPlayers(command.Payload);
+        if (players.Count < 2)
         {
             throw new InvalidOperationException("Haggis requires at least 2 players in payload.players.");
         }
 
-        var players = playerIds.Select(id => (IHaggisPlayer)new HaggisPlayer(id)).ToList();
         var scoringStrategy = ResolveScoringStrategy(command.Payload);
         var game = new HaggisGame(players, scoringStrategy);
 
@@ -66,6 +102,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
             game.SetSeed(seed);
         }
 
+        _games[gameId] = game;
         return game.NewRound();
     }
 
@@ -130,22 +167,169 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
 
     protected override void ApplyMove(HaggisGameState state, HaggisAction move) => state.ApplyAction(move);
 
-    private static List<string> ReadPlayers(JsonElement payload)
+    private static List<IHaggisPlayer> ReadPlayers(JsonElement payload)
     {
+        var players = new List<IHaggisPlayer>();
         if (payload.ValueKind != JsonValueKind.Object ||
             !payload.TryGetProperty("players", out var playersElement) ||
             playersElement.ValueKind != JsonValueKind.Array)
         {
-            return new List<string>();
+            return players;
         }
 
-        return playersElement.EnumerateArray()
-            .Where(x => x.ValueKind == JsonValueKind.String)
-            .Select(x => x.GetString())
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Select(x => x!.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        foreach (var playerElement in playersElement.EnumerateArray())
+        {
+            var player = CreatePlayer(playerElement);
+            if (player is null || players.Any(p => p.Name.Equals(player.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            players.Add(player);
+        }
+
+        return players;
+    }
+
+    private static IHaggisPlayer? CreatePlayer(JsonElement playerElement)
+    {
+        if (playerElement.ValueKind == JsonValueKind.String)
+        {
+            var rawPlayerId = playerElement.GetString()?.Trim();
+            return string.IsNullOrWhiteSpace(rawPlayerId) ? null : new HaggisPlayer(rawPlayerId);
+        }
+
+        if (playerElement.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var playerId = TryReadString(playerElement, "id")
+            ?? TryReadString(playerElement, "playerId")
+            ?? TryReadString(playerElement, "name");
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return null;
+        }
+
+        var type = TryReadString(playerElement, "type") ?? TryReadString(playerElement, "kind");
+        if (!string.Equals(type, "ai", StringComparison.OrdinalIgnoreCase))
+        {
+            return new HaggisPlayer(playerId);
+        }
+
+        return new AIPlayer(playerId, ResolveAiPlayStrategy(playerElement));
+    }
+
+    private static IPlayStrategy ResolveAiPlayStrategy(JsonElement playerElement)
+    {
+        if (!TryGetObject(playerElement, "ai", out var aiElement))
+        {
+            return new MonteCarloStrategy(300, 25L);
+        }
+
+        var strategyName = TryReadString(aiElement, "strategy");
+        if (string.Equals(strategyName, "heuristic", StringComparison.OrdinalIgnoreCase))
+        {
+            var useWildsInContinuations = TryReadBoolean(aiElement, "useWildsInContinuations") ??
+                                          TryReadBoolean(aiElement, "heuristicUseWildsInContinuations") ??
+                                          false;
+            var takeLessValueTrickFirst = TryReadBoolean(aiElement, "takeLessValueTrickFirst") ?? true;
+
+            var filter = ResolveStartingTrickFilterStrategy(aiElement, useWildsInContinuations);
+            return new HeuristicPlayStrategy(
+                new StartingTrickStrategy(filter),
+                new ContinuationTrickStrategy(useWildsInContinuations, takeLessValueTrickFirst));
+        }
+
+        var simulations = TryReadInt(aiElement, "simulations") ?? 300;
+        var timeBudgetMs = TryReadLong(aiElement, "timeBudgetMs") ?? 25L;
+        return new MonteCarloStrategy(simulations, timeBudgetMs);
+    }
+
+    private static IStartingTrickFilterStrategy ResolveStartingTrickFilterStrategy(JsonElement aiElement, bool useWildsInContinuations)
+    {
+        var filterName = TryReadString(aiElement, "filter");
+        var filterLimit = Math.Max(1, TryReadInt(aiElement, "filterLimit") ?? 5);
+
+        if (string.Equals(filterName, "continuations", StringComparison.OrdinalIgnoreCase))
+        {
+            return new FilterContinuations(filterLimit, useWildsInContinuations);
+        }
+
+        if (string.Equals(filterName, "least", StringComparison.OrdinalIgnoreCase))
+        {
+            return new FilterXLeastValuebleStrategy(filterLimit);
+        }
+
+        if (string.Equals(filterName, "most", StringComparison.OrdinalIgnoreCase))
+        {
+            return new FilterXMostValuebleStrategy(filterLimit);
+        }
+
+        return new FilterNoneStrategy();
+    }
+
+    private static bool IsGameOver(HaggisGameState state) =>
+        state.RoundOver() && state.Players.Any(player => player.Score >= state.ScoringStrategy.GameOverScore);
+
+    private static string? TryReadString(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object ||
+            !source.TryGetProperty(propertyName, out var propertyElement) ||
+            propertyElement.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var value = propertyElement.GetString();
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static int? TryReadInt(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object ||
+            !source.TryGetProperty(propertyName, out var propertyElement) ||
+            propertyElement.ValueKind != JsonValueKind.Number ||
+            !propertyElement.TryGetInt32(out var value))
+        {
+            return null;
+        }
+
+        return value;
+    }
+
+    private static long? TryReadLong(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object ||
+            !source.TryGetProperty(propertyName, out var propertyElement) ||
+            propertyElement.ValueKind != JsonValueKind.Number ||
+            !propertyElement.TryGetInt64(out var value))
+        {
+            return null;
+        }
+
+        return value;
+    }
+
+    private static bool? TryReadBoolean(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object ||
+            !source.TryGetProperty(propertyName, out var propertyElement) ||
+            propertyElement.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            return null;
+        }
+
+        return propertyElement.GetBoolean();
+    }
+
+    private static bool TryGetObject(JsonElement source, string propertyName, out JsonElement objectElement)
+    {
+        objectElement = default;
+        return source.ValueKind == JsonValueKind.Object &&
+               source.TryGetProperty(propertyName, out objectElement) &&
+               objectElement.ValueKind == JsonValueKind.Object;
     }
 
     private static IHaggisPlayer ResolvePlayer(HaggisGameState state, string playerId)
@@ -317,6 +501,3 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         }
     }
 }
-
-
-

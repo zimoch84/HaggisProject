@@ -40,7 +40,11 @@ namespace Haggis.Domain.Model
         {
             CurrentRoundNumber++;
             var deck = DeckDealer.CreateShuffledDeck(Seed);
-            Players.ForEach(player => player.Hand = DeckDealer.DealSetupCards(deck));
+            Players.ForEach(player =>
+            {
+                player.Discard.Clear();
+                player.Hand = DeckDealer.DealSetupCards(deck);
+            });
             var state = new HaggisGameState(Players, ScoringStrategy, CurrentRoundNumber, moveIteration: 0);
             if (Players.Count > 0)
             {
