@@ -90,7 +90,7 @@ namespace HaggisTests
         }
 
         [TestCase(new string[] { "3Y", "5O", "7Y", "9B" }, 4)]
-        [TestCase(new string[] { "3Y", "5O", "7G", "9B" }, 4)]
+        [TestCase(new string[] { "3Y", "5O", "7G", "9B" }, 5)]
         [TestCase(new string[] { "3Y", "5O", "7G", "9B", "10O" }, 6)]
         public void CheckIfAllPossibleTricksAreCorrect(string[] cards, int expectedTricks)
         {
@@ -101,10 +101,10 @@ namespace HaggisTests
         }
 
         [TestCase("2O_SINGLE", new string[] { "3Y", "5O", "7Y", "9B" }, 4)]
-        [TestCase("2O_SINGLE", new string[] { "3Y", "5O", "7G", "9B" }, 4)]
+        [TestCase("2O_SINGLE", new string[] { "3Y", "5O", "7G", "9B" }, 5)]
         [TestCase("2O_SINGLE", new string[] { "3Y", "5O", "7G", "9B", "10O" }, 6)]
         [TestCase("5O_SINGLE", new string[] { "3Y", "5O", "7Y", "9B" }, 2)]
-        [TestCase("5O_SINGLE", new string[] { "3Y", "5O", "7G", "9B" }, 2)]
+        [TestCase("5O_SINGLE", new string[] { "3Y", "5O", "7G", "9B" }, 3)]
         [TestCase("5O_SINGLE", new string[] { "3Y", "5O", "7G", "9B", "10O" }, 4)]
         public void CheckIfAllPossibleTricksAreCorrectIfLastTrickWas(string lastTrick, string[] cards, int expectedTricks)
         {
