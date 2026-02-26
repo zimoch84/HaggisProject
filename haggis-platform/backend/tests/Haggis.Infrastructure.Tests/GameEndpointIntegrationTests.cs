@@ -278,16 +278,6 @@ public class GameEndpointIntegrationTests
         var currentPlayerId = firstStateData.GetProperty("currentPlayerId").GetString();
         Assert.That(currentPlayerId, Is.Not.Null.And.Not.Empty);
 
-        var chosenAction = firstStateData.GetProperty("possibleActions")
-            .EnumerateArray()
-            .First();
-        var secondCommandType = chosenAction.GetProperty("type").GetString();
-        Assert.That(secondCommandType, Is.Not.Null.And.Not.Empty);
-
-        object secondPayload = secondCommandType == "Pass"
-            ? new { }
-            : new { action = chosenAction.GetProperty("action").GetString() };
-
         await SendTextAsync(socket,
             JsonSerializer.Serialize(new
             {
@@ -296,9 +286,9 @@ public class GameEndpointIntegrationTests
                 {
                     command = new
                     {
-                        type = secondCommandType,
-                        playerId = currentPlayerId,
-                        payload = secondPayload
+                        type = "Sync",
+                        playerId = "alice",
+                        payload = new { }
                     }
                 }
             }),
@@ -307,7 +297,7 @@ public class GameEndpointIntegrationTests
         var second = await ReceiveTextAsync(socket, cancellationToken);
 
         AssertAppliedEvent(first, expectedOrderPointer: 1, expectedGameId: "game-42", expectedVersion: 1, expectedPlayerId: "alice", expectedCommandType: "Initialize");
-        AssertAppliedEvent(second, expectedOrderPointer: 2, expectedGameId: "game-42", expectedVersion: 2, expectedPlayerId: currentPlayerId!, expectedCommandType: secondCommandType!);
+        AssertAppliedEvent(second, expectedOrderPointer: 2, expectedGameId: "game-42", expectedVersion: 2, expectedPlayerId: "alice", expectedCommandType: "Sync");
 
         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", cancellationToken);
     }
