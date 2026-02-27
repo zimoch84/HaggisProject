@@ -6,14 +6,14 @@ namespace Haggis.Domain.Services
     public sealed class ActionApplicationService : IActionApplicationService
     {
         private IBoardMutationService BoardMutationService { get; }
-        private IRunOutScoringService RunOutScoringService { get; }
+        private IRoundScoringService RunOutScoringService { get; }
         private ITurnOrderService TurnOrderService { get; }
         private ITrickResolutionService TrickResolutionService { get; }
         private IRoundEndScoringService RoundEndScoringService { get; }
 
         public ActionApplicationService(
             IBoardMutationService boardMutationService = null,
-            IRunOutScoringService runOutScoringService = null,
+            IRoundScoringService runOutScoringService = null,
             ITurnOrderService turnOrderService = null,
             ITrickResolutionService trickResolutionService = null,
             IRoundEndScoringService roundEndScoringService = null)
@@ -25,7 +25,7 @@ namespace Haggis.Domain.Services
             RoundEndScoringService = roundEndScoringService ?? new RoundEndScoringService();
         }
 
-        public void Apply(HaggisGameState state, HaggisAction action)
+        public void Apply(RoundState state, HaggisAction action)
         {
             BoardMutationService.Apply(state, action);
             state.MoveIteration++;

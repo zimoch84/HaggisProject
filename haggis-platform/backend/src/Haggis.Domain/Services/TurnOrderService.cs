@@ -6,7 +6,7 @@ namespace Haggis.Domain.Services
 {
     public sealed class TurnOrderService : ITurnOrderService
     {
-        public void Update(HaggisGameState state, HaggisAction action)
+        public void Update(RoundState state, HaggisAction action)
         {
             var player = state.Players.First(p => p.GUID == action.Player.GUID);
             if (player.Finished)

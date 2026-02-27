@@ -1,4 +1,4 @@
-namespace Haggis.Application.Engine.Loop;
+namespace Haggis.Infrastructure.Services.Engine.Loop;
 
 public interface IAiMoveStrategy<TState, TMove>
 {

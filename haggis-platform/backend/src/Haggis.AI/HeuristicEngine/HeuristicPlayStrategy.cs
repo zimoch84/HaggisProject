@@ -29,7 +29,7 @@ namespace Haggis.AI.Strategies
             };
         }
 
-        public HaggisAction GetPlayingAction(HaggisGameState gameState)
+        public HaggisAction GetPlayingAction(RoundState gameState)
         {
             foreach (var strategy in TrickStrategies)
             {

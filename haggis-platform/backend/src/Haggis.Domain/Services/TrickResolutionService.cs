@@ -7,18 +7,18 @@ namespace Haggis.Domain.Services
 {
     public sealed class TrickResolutionService : ITrickResolutionService
     {
-        public void Resolve(HaggisGameState state)
+        public void Resolve(RoundState state)
         {
-            if (!state.CurrentTrickPlayState.IsEndingPass())
+            if (!state.CurrentTrickPlay.IsEndingPass())
             {
                 return;
             }
 
-            var takingPlayer = state.CurrentTrickPlayState.Taking();
-            state.ActionArchive.AddLast(state.CurrentTrickPlayState);
+            var takingPlayer = state.CurrentTrickPlay.Taking();
+            state.ActionArchive.AddLast(state.CurrentTrickPlay);
 
             var target = state.Players.First(p => p.GUID == takingPlayer.GUID);
-            var cardsToMove = state.CurrentTrickPlayState.Actions
+            var cardsToMove = state.CurrentTrickPlay.Actions
                 .Where(a => !a.IsPass && a.Trick != null)
                 .SelectMany(a => a.Trick.Cards)
                 .ToList();
@@ -28,8 +28,8 @@ namespace Haggis.Domain.Services
                 target.AddToDiscard(new List<Card>(cardsToMove));
             }
 
-            state.CurrentTrickPlayState.Clear();
-            state.CurrentTrickPlayState = new TrickPlay(state.Players.Where(p => !p.Finished).Count());
+            state.CurrentTrickPlay.Clear();
+            state.CurrentTrickPlay = new TrickPlay(state.Players.Where(p => !p.Finished).Count());
         }
     }
 }

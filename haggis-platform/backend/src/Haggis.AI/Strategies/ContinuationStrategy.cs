@@ -13,7 +13,7 @@ namespace Haggis.AI.Strategies
             ContinuationTrickStrategy = new ContinuationTrickStrategy(useWildsInContinuations, takeLessValueTrickFirst);
         }
 
-        public HaggisAction GetPlayingAction(HaggisGameState gameState)
+        public HaggisAction GetPlayingAction(RoundState gameState)
         {
             return ContinuationTrickStrategy.GetPlayingAction(gameState) ?? gameState.PossibleActions[0];
         }

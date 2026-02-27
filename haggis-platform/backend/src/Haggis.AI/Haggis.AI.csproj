@@ -1,16 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Nullable>disable</Nullable>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Haggis.Domain\Haggis.Domain.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
-
 </Project>

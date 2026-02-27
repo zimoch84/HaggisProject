@@ -4,6 +4,6 @@ namespace Haggis.Domain.Interfaces
 {
     public interface ITurnOrderService
     {
-        void Update(HaggisGameState state, HaggisAction action);
+        void Update(RoundState state, HaggisAction action);
     }
 }

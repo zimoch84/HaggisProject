@@ -17,7 +17,7 @@ namespace HaggisTests.Strategies
     {
 
         public MonteCarloStrategy strategy;
-        HaggisGameState GameState;
+        RoundState GameState;
         AIPlayer Piotr;
         AIPlayer Slawek;
         AIPlayer Robert;
@@ -40,7 +40,7 @@ namespace HaggisTests.Strategies
 
             _players = new List<IHaggisPlayer> { Piotr, Slawek, Robert };
 
-            GameState = new HaggisGameState(_players);
+            GameState = new RoundState(_players);
 
         }
 
@@ -64,7 +64,7 @@ namespace HaggisTests.Strategies
         {
             var game = new HaggisGame(_players);
 
-            var gameState = new HaggisGameState(_players);
+            var gameState = new RoundState(_players);
 
             var currentPlayerName = gameState.CurrentPlayer.Name;
             var nextPlayerName = gameState.NextPlayer.Name;
@@ -82,7 +82,7 @@ namespace HaggisTests.Strategies
         public void ShouldRunTillGameOver(int maxIteration, long timeBudget)
         {
             var game = new HaggisGame(_players);
-            var gameState = new HaggisGameState(_players);
+            var gameState = new RoundState(_players);
 
             while (!gameState.RoundOver())
             {

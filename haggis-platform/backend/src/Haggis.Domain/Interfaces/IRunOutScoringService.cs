@@ -2,8 +2,8 @@ using Haggis.Domain.Model;
 
 namespace Haggis.Domain.Interfaces
 {
-    public interface IRunOutScoringService
+    public interface IRoundScoringService
     {
-        void Apply(HaggisGameState state, HaggisAction action);
+        void Apply(RoundState state, HaggisAction action);
     }
 }

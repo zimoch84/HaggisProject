@@ -14,7 +14,7 @@ namespace HaggisTests
         private HaggisPlayer Piotr;
         private HaggisPlayer Slawek;
         private HaggisPlayer Robert;
-        private HaggisGameState GameState;
+        private RoundState GameState;
         private MoveGenerationService Service;
 
         [SetUp]
@@ -28,7 +28,7 @@ namespace HaggisTests
             Slawek.Hand = Cards("2G", "4G");
             Robert.Hand = Cards("2O", "2B");
 
-            GameState = new HaggisGameState(new List<IHaggisPlayer> { Piotr, Slawek, Robert });
+            GameState = new RoundState(new List<IHaggisPlayer> { Piotr, Slawek, Robert });
             Service = new MoveGenerationService();
         }
 

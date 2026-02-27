@@ -1,46 +1,45 @@
 using System;
 using System.Collections.Generic;
 using Haggis.Domain.Extentions;
-using Haggis.Domain.Interfaces;
 using static Haggis.Domain.Enums.Rank;
 using static Haggis.Domain.Enums.Suit;
 
 namespace Haggis.Domain.Model
 {
-    public sealed class HaggisDeckDealer : IDeckDealer
+    public sealed class HaggisDeckDealer
     {
-        public List<Card> CreateShuffledDeck(int seed)
+        private readonly List<Card> _haggisCards;
+
+        public HaggisDeckDealer(int seed)
         {
-            var deck = CreateAllCards();
+            _haggisCards = CreateAllCards();
             var random = new Random(seed);
 
-            for (var n = deck.Count - 1; n > 0; --n)
+            for (var n = _haggisCards.Count - 1; n > 0; --n)
             {
                 var k = random.Next(n + 1);
-                (deck[n], deck[k]) = (deck[k], deck[n]);
+                (_haggisCards[n], _haggisCards[k]) = (_haggisCards[k], _haggisCards[n]);
             }
-
-            return deck;
         }
 
-        public List<Card> DealSetupCards(List<Card> deck)
+        public List<Card> DealSetupCards()
         {
-            if (deck is null)
-            {
-                throw new ArgumentNullException(nameof(deck));
-            }
-
-            if (deck.Count < 14)
+            if (_haggisCards.Count < 14)
             {
                 throw new InvalidOperationException("Not enough cards in deck to deal setup cards.");
             }
 
-            var dealt = deck.GetRange(0, 14);
-            deck.RemoveRange(0, 14);
+            var dealt = _haggisCards.GetRange(0, 14);
+            _haggisCards.RemoveRange(0, 14);
             dealt.Add(JACK.ToCard());
             dealt.Add(QUEEN.ToCard());
             dealt.Add(KING.ToCard());
             return dealt;
+        }
+
+        public IReadOnlyList<Card> GetHaggisCards()
+        {
+            return _haggisCards.AsReadOnly();
         }
 
         private static List<Card> CreateAllCards()

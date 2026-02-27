@@ -1,4 +1,3 @@
-﻿using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
 using Haggis.Domain.Services;
 using System.Collections.Generic;
@@ -19,14 +18,14 @@ namespace MonteCarlo
             TrickSelectionStrategy = trickSelectionStrategy ?? new SelectAllMonteCarloTricksStrategy();
         }
 
-        public IList<HaggisAction> GetPossibleActionsForCurrentPlayer(HaggisGameState state)
+        public IList<MonteCarloHaggisAction> GetPossibleActionsForCurrentPlayer(RoundState state)
         {
             if (state.RoundOver())
             {
-                return new List<HaggisAction>();
+                return new List<MonteCarloHaggisAction>();
             }
 
-            var actions = new List<HaggisAction>();
+            var actions = new List<MonteCarloHaggisAction>();
             var lastTrick = state.CurrentTrickPlay.NotPassActions.LastOrDefault()?.Trick;
             var generatedTricks = lastTrick == null
                 ? BuildPossibleOpeningTricks(state.CurrentPlayer)
@@ -36,13 +35,16 @@ namespace MonteCarlo
                 .Select(state, generatedTricks, lastTrick == null)
                 .ToList();
 
-            possibleTricks.ForEach(trick => actions.Add(HaggisAction.FromTrick(trick, state.CurrentPlayer)));
+            possibleTricks.ForEach(trick => actions.Add(MonteCarloHaggisAction.FromTrick(trick, state.CurrentPlayer)));
 
-            var selectedActions = ActionSelectionStrategy.Select(state, actions);
+            var selectedDomainActions = ActionSelectionStrategy.Select(state, actions.Cast<HaggisAction>().ToList());
+            var selectedActions = selectedDomainActions
+                .Select(MonteCarloHaggisAction.FromHaggisAction)
+                .ToList();
             var hasFinalAction = selectedActions.Any(action => !action.IsPass && action.Trick != null && action.Trick.IsFinal);
             if (state.CurrentTrickPlay.LastAction != null && !hasFinalAction)
             {
-                selectedActions.Add(HaggisAction.Pass(state.CurrentPlayer));
+                selectedActions.Add(MonteCarloHaggisAction.Pass(state.CurrentPlayer));
             }
 
             return selectedActions;

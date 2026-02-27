@@ -20,6 +20,7 @@ namespace Haggis.Domain.Model
         [JsonIgnore]
         public List<Card> Discard { get; set; }
         public int Score { get; set; }
+        public int OpponentRemainingCardsOnFinish { get; set; }
 
         public string HandDesc => Hand.ToLetters();
 
@@ -29,6 +30,7 @@ namespace Haggis.Domain.Model
             GuidState = Guid.NewGuid();
             Hand = new List<Card>();
             Discard = new List<Card>();
+            OpponentRemainingCardsOnFinish = -1;
         }
 
         public HaggisPlayer(string name, List<Card> hand, List<Card> discard)
@@ -36,6 +38,7 @@ namespace Haggis.Domain.Model
             Name = name;
             Hand = hand.DeepCopy().ToList();
             Discard = discard.DeepCopy().ToList();
+            OpponentRemainingCardsOnFinish = -1;
         }
 
         public Guid GUID => GuidState;
@@ -81,7 +84,8 @@ namespace Haggis.Domain.Model
             {
                 Starts = Starts,
                 GuidState = GuidState,
-                Score = Score
+                Score = Score,
+                OpponentRemainingCardsOnFinish = OpponentRemainingCardsOnFinish
             };
 
             return clonedPlayer;

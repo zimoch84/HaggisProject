@@ -5,14 +5,14 @@ using System.Linq;
 
 namespace MonteCarlo
 {
-    public sealed class MonteCarloHaggisState : IState<IHaggisPlayer, HaggisAction>
+    public sealed class MonteCarloHaggisState : IState<MonteCarloHaggisPlayer, MonteCarloHaggisAction>
     {
-        private HaggisGameState DomainState { get; }
+        private RoundState DomainState { get; }
         private IMonteCarloActionSelectionStrategy ActionSelectionStrategy { get; }
         private MonteCarloMoveGenerationService MoveGenerationService { get; }
 
         public MonteCarloHaggisState(
-            HaggisGameState domainState,
+            RoundState domainState,
             IMonteCarloActionSelectionStrategy actionSelectionStrategy = null)
         {
             DomainState = domainState;
@@ -20,23 +20,23 @@ namespace MonteCarlo
             MoveGenerationService = new MonteCarloMoveGenerationService(ActionSelectionStrategy);
         }
 
-        public IHaggisPlayer CurrentPlayer => DomainState.CurrentPlayer;
+        public MonteCarloHaggisPlayer CurrentPlayer => new MonteCarloHaggisPlayer(DomainState.CurrentPlayer);
 
-        public IList<HaggisAction> Actions => MoveGenerationService.GetPossibleActionsForCurrentPlayer(DomainState);
+        public IList<MonteCarloHaggisAction> Actions => MoveGenerationService.GetPossibleActionsForCurrentPlayer(DomainState);
 
-        public void ApplyAction(HaggisAction action)
+        public void ApplyAction(MonteCarloHaggisAction action)
         {
             DomainState.ApplyAction(action);
         }
 
-        public IState<IHaggisPlayer, HaggisAction> Clone()
+        public IState<MonteCarloHaggisPlayer, MonteCarloHaggisAction> Clone()
         {
             return new MonteCarloHaggisState(DomainState.Clone(), ActionSelectionStrategy);
         }
 
-        public double GetResult(IHaggisPlayer forPlayer)
+        public double GetResult(MonteCarloHaggisPlayer forPlayer)
         {
-            var forPlayerScore = DomainState.Players.First(p => p.GUID == forPlayer.GUID).Score;
+            var forPlayerScore = DomainState.Players.First(p => p.GUID == forPlayer.DomainPlayer.GUID).Score;
             var hasBetterPlayer = DomainState.Players.Any(p => p.Score > forPlayerScore);
             return hasBetterPlayer ? 0 : 1;
         }

@@ -6,7 +6,7 @@ namespace Haggis.Domain.Services
 {
     public sealed class BoardMutationService : IBoardMutationService
     {
-        public void Apply(HaggisGameState state, HaggisAction action)
+        public void Apply(RoundState state, HaggisAction action)
         {
             if (!action.IsPass)
             {
@@ -14,7 +14,7 @@ namespace Haggis.Domain.Services
                 player.RemoveFromHand(action.Trick.Cards);
             }
 
-            state.CurrentTrickPlayState.AddAction(action);
+            state.CurrentTrickPlay.AddAction(action);
         }
     }
 }

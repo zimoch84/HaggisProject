@@ -1,13 +1,11 @@
 using Haggis.Domain.Extentions;
 using Haggis.Domain.Interfaces;
-using MonteCarlo;
 using Newtonsoft.Json;
-using nsoftware.SecureBlackbox;
 using System;
 
 namespace Haggis.Domain.Model
 {
-    public class HaggisAction : IAction, ICloneable, IEquatable<HaggisAction>
+    public class HaggisAction : ICloneable, IEquatable<HaggisAction>
     {
         private readonly Trick _trick;
         private readonly IHaggisPlayer _player;
@@ -42,7 +40,7 @@ namespace Haggis.Domain.Model
             return haggisAction;
         }
 
-        private HaggisAction(Trick trick, IHaggisPlayer player)
+        protected HaggisAction(Trick trick, IHaggisPlayer player)
         {
             if (trick == null)
             {

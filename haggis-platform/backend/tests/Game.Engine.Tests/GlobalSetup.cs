@@ -11,10 +11,10 @@ namespace HaggisTests
     public class GlobalSetup
     {
         IHaggisPlayer Piotr = new HaggisPlayer("Piotr");
-        IHaggisPlayer Slawek = new HaggisPlayer("S³awek");
+        IHaggisPlayer Slawek = new HaggisPlayer("Sï¿½awek");
         IHaggisPlayer Robert = new HaggisPlayer("Robert");
 
-        HaggisGameState GameState;
+        RoundState GameState;
 
         [OneTimeSetUp]
         public void RunBeforeAnyTests()
@@ -23,14 +23,14 @@ namespace HaggisTests
             Piotr.Hand = new List<string> { "2Y", "3Y" }.ToCards();
             Slawek.Hand = new List<string> { "2G", "4G" }.ToCards();
             Robert.Hand = new List<string> { "3O", "3B" }.ToCards();
-            GameState = new HaggisGameState(new List<IHaggisPlayer> { Piotr, Slawek, Robert });
+            GameState = new RoundState(new List<IHaggisPlayer> { Piotr, Slawek, Robert });
         }
 
         [OneTimeTearDown]
         public void RunAfterAllTests()
         {
-            // Tutaj umieœæ kod, który chcesz wykonaæ po zakoñczeniu wszystkich testów
-            // Na przyk³ad zwolnienie zasobów wspó³dzielonych przez wszystkie testy
+            // Tutaj umieï¿½ï¿½ kod, ktï¿½ry chcesz wykonaï¿½ po zakoï¿½czeniu wszystkich testï¿½w
+            // Na przykï¿½ad zwolnienie zasobï¿½w wspï¿½dzielonych przez wszystkie testy
         }
     }
 }

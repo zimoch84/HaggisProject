@@ -9,7 +9,7 @@ public class StaticConsoleUI
     private readonly int leftWidth;
     private List<PanelRegionBase> panels = new List<PanelRegionBase>();
 
-    public StaticConsoleUI(HaggisGameState state)
+    public StaticConsoleUI(RoundState state)
     {
         W = SafeConsoleWidth();
         H = SafeConsoleHeight();
@@ -65,7 +65,7 @@ public class StaticConsoleUI
         }
     }
 
-    private void Initialize(HaggisGameState state)
+    private void Initialize(RoundState state)
     {
         SafeClear();
         SafeSetCursorVisible(false);
@@ -103,7 +103,7 @@ public class StaticConsoleUI
 
     }
 
-    public void Render(HaggisGameState state)
+    public void Render(RoundState state)
     {
         SafeClear();
 
@@ -114,7 +114,7 @@ public class StaticConsoleUI
 
     }
 
-    public int ReadHumanInput(HaggisGameState state)
+    public int ReadHumanInput(RoundState state)
     {
         var uiInput = panels.OfType<UIInput>().FirstOrDefault();
         if (uiInput != null)

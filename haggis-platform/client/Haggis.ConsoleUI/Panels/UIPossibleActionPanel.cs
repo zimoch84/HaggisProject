@@ -9,7 +9,7 @@ public class UIPossibleActionPanel : PanelRegionBase
         IsVisible = true;
     }
 
-    override public void ApplyTextBuffer(HaggisGameState state)
+    override public void ApplyTextBuffer(RoundState state)
     {
 
         if (state.CurrentPlayer is AIPlayer)

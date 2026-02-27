@@ -34,7 +34,7 @@ namespace Haggis.AI.Strategies
             ActionSelectionStrategy = actionSelectionStrategy;
         }
 
-        public HaggisAction GetPlayingAction(HaggisGameState gameState)
+        public HaggisAction GetPlayingAction(RoundState gameState)
         {
             var top = GetTopActions(gameState, Simulations, TimeBudget, ActionSelectionStrategy).ToList();
 
@@ -54,13 +54,13 @@ namespace Haggis.AI.Strategies
             return result.Actions.First().Action;
         }
 
-        public static IEnumerable<IMctsNode<HaggisAction>> GetTopActions(HaggisGameState gameState, int maxIteration, long timeBudget)
+        public static IEnumerable<IMctsNode<MonteCarloHaggisAction>> GetTopActions(RoundState gameState, int maxIteration, long timeBudget)
         {
             return GetTopActions(gameState, maxIteration, timeBudget, null);
         }
 
-        public static IEnumerable<IMctsNode<HaggisAction>> GetTopActions(
-            HaggisGameState gameState,
+        public static IEnumerable<IMctsNode<MonteCarloHaggisAction>> GetTopActions(
+            RoundState gameState,
             int maxIteration,
             long timeBudget,
             IMonteCarloActionSelectionStrategy actionSelectionStrategy)
@@ -70,7 +70,7 @@ namespace Haggis.AI.Strategies
             return MonteCarloTreeSearch.GetTopActions(monteCarloState, maxIteration, timeBudget).ToList();
         }
 
-        public static IEnumerable<IMctsNode<HaggisAction>> GetTopActions(HaggisGameState gameState, int maxIteration)
+        public static IEnumerable<IMctsNode<MonteCarloHaggisAction>> GetTopActions(RoundState gameState, int maxIteration)
         {
             var gameStateClone = gameState.Clone();
             var monteCarloState = new MonteCarloHaggisState(gameStateClone);

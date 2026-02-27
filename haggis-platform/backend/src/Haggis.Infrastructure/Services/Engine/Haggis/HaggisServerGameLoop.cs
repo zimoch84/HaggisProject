@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using Haggis.Application.Engine.Loop;
+using Haggis.Infrastructure.Services.Engine.Loop;
 using Haggis.AI.Interfaces;
 using Haggis.AI.Model;
 using Haggis.AI.StartingTrickFilterStrategies;
@@ -12,23 +12,23 @@ using Haggis.Infrastructure.Services.Models;
 
 namespace Haggis.Infrastructure.Services.Engine.Haggis;
 
-public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, HaggisAction, GameCommand>
+public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, HaggisAction, GameCommand>
 {
     private static readonly JsonElement EmptyPayload = JsonDocument.Parse("{}").RootElement.Clone();
     private readonly ConcurrentDictionary<string, HaggisGame> _games = new();
 
-    private IAiMoveStrategy<HaggisGameState, HaggisAction> AiMoveStrategy { get; }
-    private IMoveRuleValidator<HaggisGameState, HaggisAction, GameCommand> MoveRuleValidator { get; }
+    private IAiMoveStrategy<RoundState, HaggisAction> AiMoveStrategy { get; }
+    private IMoveRuleValidator<RoundState, HaggisAction, GameCommand> MoveRuleValidator { get; }
 
     public HaggisServerGameLoop(
-        IAiMoveStrategy<HaggisGameState, HaggisAction> aiMoveStrategy,
-        IMoveRuleValidator<HaggisGameState, HaggisAction, GameCommand> moveRuleValidator)
+        IAiMoveStrategy<RoundState, HaggisAction> aiMoveStrategy,
+        IMoveRuleValidator<RoundState, HaggisAction, GameCommand> moveRuleValidator)
     {
         AiMoveStrategy = aiMoveStrategy;
         MoveRuleValidator = moveRuleValidator;
     }
 
-    public bool TryExecute(string gameId, GameCommand command, out HaggisGameState? state, out HaggisAction? appliedMove)
+    public bool TryExecute(string gameId, GameCommand command, out RoundState? state, out HaggisAction? appliedMove)
     {
         var result = Execute(gameId, command);
         if (!result.Handled || result.State is null)
@@ -43,7 +43,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         return true;
     }
 
-    public bool TryExecuteAiStep(string gameId, out HaggisGameState? state, out HaggisAction? appliedMove)
+    public bool TryExecuteAiStep(string gameId, out RoundState? state, out HaggisAction? appliedMove)
     {
         return TryExecute(
             gameId,
@@ -55,10 +55,10 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
             out appliedMove);
     }
 
-    public bool TryCreateNextRound(string gameId, HaggisGameState state, out HaggisGameState? nextRoundState)
+    public bool TryCreateNextRound(string gameId, RoundState state, out RoundState? nextRoundState)
     {
         nextRoundState = null;
-        if (!state.RoundOver() || IsGameOver(state))
+        if (!state.RoundOver())
         {
             return false;
         }
@@ -68,9 +68,54 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
             return false;
         }
 
+        game.RegisterRoundScoringResult(state);
+        if (game.GameOver())
+        {
+            return false;
+        }
+
         nextRoundState = game.NewRound();
         SetState(gameId, nextRoundState);
         return true;
+    }
+
+    public void TryRegisterRoundScoringResult(string gameId, RoundState state)
+    {
+        if (_games.TryGetValue(gameId, out var game))
+        {
+            game.RegisterRoundScoringResult(state);
+        }
+    }
+
+    public bool IsGameOver(string gameId)
+    {
+        return _games.TryGetValue(gameId, out var game) && game.GameOver();
+    }
+
+    public IReadOnlyDictionary<string, int> GetDisplayedScores(string gameId, RoundState state)
+    {
+        if (!_games.TryGetValue(gameId, out var game))
+        {
+            return state.Players.ToDictionary(player => player.Name, player => player.Score, StringComparer.OrdinalIgnoreCase);
+        }
+
+        var totals = new Dictionary<string, int>(game.ScoringTable.GetPlayersTotalPoints(), StringComparer.OrdinalIgnoreCase);
+        var roundAlreadyRegistered = game.ScoringTable.RoundScores.Any(score => score.RoundNumber == state.RoundNumber);
+
+        foreach (var player in state.Players)
+        {
+            if (!totals.ContainsKey(player.Name))
+            {
+                totals[player.Name] = 0;
+            }
+
+            if (!roundAlreadyRegistered)
+            {
+                totals[player.Name] += player.Score;
+            }
+        }
+
+        return totals;
     }
 
     protected override bool IsStartCommand(GameCommand command) =>
@@ -83,7 +128,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         command.Type.Equals("Pass", StringComparison.OrdinalIgnoreCase) ||
         command.Type.Equals("NextMove", StringComparison.OrdinalIgnoreCase);
 
-    protected override HaggisGameState CreateInitialState(string gameId, GameCommand command)
+    protected override RoundState CreateInitialState(string gameId, GameCommand command)
     {
         var players = ReadPlayers(command.Payload);
         if (players.Count < 2)
@@ -106,10 +151,10 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         return game.NewRound();
     }
 
-    protected override IReadOnlyList<HaggisAction> GetLegalMoves(HaggisGameState state) =>
+    protected override IReadOnlyList<HaggisAction> GetLegalMoves(RoundState state) =>
         state.PossibleActions.ToList();
 
-    protected override bool TryResolveMoveFromCommand(HaggisGameState state, GameCommand command, out HaggisAction move)
+    protected override bool TryResolveMoveFromCommand(RoundState state, GameCommand command, out HaggisAction move)
     {
         move = default!;
 
@@ -153,19 +198,19 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         return false;
     }
 
-    protected override bool ShouldUseAiMove(HaggisGameState state, GameCommand command) => state.CurrentPlayer is AIPlayer;
+    protected override bool ShouldUseAiMove(RoundState state, GameCommand command) => state.CurrentPlayer is AIPlayer;
 
-    protected override HaggisAction ResolveAiMove(HaggisGameState state, IReadOnlyList<HaggisAction> legalMoves) =>
+    protected override HaggisAction ResolveAiMove(RoundState state, IReadOnlyList<HaggisAction> legalMoves) =>
         AiMoveStrategy.ChooseMove(state, legalMoves);
 
     protected override MoveValidationResult ValidateMove(
-        HaggisGameState state,
+        RoundState state,
         GameCommand command,
         HaggisAction move,
         IReadOnlyList<HaggisAction> legalMoves) =>
         MoveRuleValidator.Validate(state, command, move, legalMoves);
 
-    protected override void ApplyMove(HaggisGameState state, HaggisAction move) => state.ApplyAction(move);
+    protected override void ApplyMove(RoundState state, HaggisAction move) => state.ApplyAction(move);
 
     private static List<IHaggisPlayer> ReadPlayers(JsonElement payload)
     {
@@ -270,9 +315,6 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
         return new FilterNoneStrategy();
     }
 
-    private static bool IsGameOver(HaggisGameState state) =>
-        state.RoundOver() && state.Players.Any(player => player.Score >= state.ScoringStrategy.GameOverScore);
-
     private static string? TryReadString(JsonElement source, string propertyName)
     {
         if (source.ValueKind != JsonValueKind.Object ||
@@ -332,7 +374,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
                objectElement.ValueKind == JsonValueKind.Object;
     }
 
-    private static IHaggisPlayer ResolvePlayer(HaggisGameState state, string playerId)
+    private static IHaggisPlayer ResolvePlayer(RoundState state, string playerId)
     {
         var player = state.Players.FirstOrDefault(p =>
             p.Name.Equals(playerId, StringComparison.OrdinalIgnoreCase));
@@ -345,7 +387,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<HaggisGameState, H
     }
 
     private static bool TryResolvePlayByActionDescription(
-        HaggisGameState state,
+        RoundState state,
         JsonElement payload,
         out HaggisAction move)
     {

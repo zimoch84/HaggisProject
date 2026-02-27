@@ -12,7 +12,7 @@ public class UIInput : PanelRegionBase
 
 
 
-    public override void ApplyTextBuffer(HaggisGameState state)
+    public override void ApplyTextBuffer(RoundState state)
     {
         // Domyślny tekst (można rozbudować o listę akcji itp.)
         TextBuffer.Clear();
@@ -23,7 +23,7 @@ public class UIInput : PanelRegionBase
         
     }
 
-    public int ReadHumanInput(HaggisGameState state)
+    public int ReadHumanInput(RoundState state)
     {
         // Bezpieczny fallback
         if (state == null || state.PossibleActions == null || state.PossibleActions.Count == 0)

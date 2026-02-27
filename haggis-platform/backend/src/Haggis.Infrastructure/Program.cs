@@ -1,8 +1,8 @@
-using Haggis.Application.Engine.Loop;
 using System.Net.WebSockets;
 using Haggis.Infrastructure.Services.Application;
 using Haggis.Infrastructure.Services.Engine;
 using Haggis.Infrastructure.Services.Engine.Haggis;
+using Haggis.Infrastructure.Services.Engine.Loop;
 using Haggis.Infrastructure.Services.GameRooms;
 using Haggis.Infrastructure.Services.Hubs;
 using Haggis.Infrastructure.Services.Interfaces;
@@ -12,8 +12,8 @@ using Haggis.Infrastructure.Services.Infrastructure.Sessions;
 using Haggis.Domain.Model;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSingleton<IAiMoveStrategy<HaggisGameState, HaggisAction>, HaggisAiMoveStrategy>();
-builder.Services.AddSingleton<IMoveRuleValidator<HaggisGameState, HaggisAction, GameCommand>, HaggisMoveRuleValidator>();
+builder.Services.AddSingleton<IAiMoveStrategy<RoundState, HaggisAction>, HaggisAiMoveStrategy>();
+builder.Services.AddSingleton<IMoveRuleValidator<RoundState, HaggisAction, GameCommand>, HaggisMoveRuleValidator>();
 builder.Services.AddSingleton<HaggisServerGameLoop>();
 builder.Services.AddSingleton<IGameEngine, HaggisGameEngine>();
 builder.Services.AddSingleton<IGameSessionStore, GameSessionStore>();

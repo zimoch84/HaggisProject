@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace Haggis.Application.Engine.Loop;
+namespace Haggis.Infrastructure.Services.Engine.Loop;
 
 public abstract class GameLoopEngineBase<TState, TMove, TCommand>
     where TState : class

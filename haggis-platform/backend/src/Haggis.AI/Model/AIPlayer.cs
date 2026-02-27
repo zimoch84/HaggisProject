@@ -24,7 +24,7 @@ namespace Haggis.AI.Model
             InitializeStrategy(playStrategy);
         }
 
-        public HaggisAction GetPlayingAction(HaggisGameState gameState)
+        public HaggisAction GetPlayingAction(RoundState gameState)
         {
             return PlayStrategy.GetPlayingAction(gameState);
         }

@@ -4,9 +4,9 @@ using System.Linq;
 
 namespace Haggis.Domain.Services
 {
-    public sealed class RunOutScoringService : IRunOutScoringService
+    public sealed class RunOutScoringService : IRoundScoringService
     {
-        public void Apply(HaggisGameState state, HaggisAction action)
+        public void Apply(RoundState state, HaggisAction action)
         {
             if (action == null || action.Player == null)
                 return;
@@ -15,10 +15,16 @@ namespace Haggis.Domain.Services
             if (target == null || !target.Finished)
                 return;
 
-            foreach (var player in state.Players.Where(p => !p.Finished && p.GUID != action.Player.GUID))
+            state.RegisterPlayerFinished(target);
+
+            if (target.OpponentRemainingCardsOnFinish >= 0)
             {
-                target.Score += player.Hand.Count * state.ScoringStrategy.RunOutMultiplier;
+                return;
             }
+
+            target.OpponentRemainingCardsOnFinish = state.Players
+                .Where(p => !p.Finished && p.GUID != action.Player.GUID)
+                .Sum(player => player.Hand.Count);
         }
     }
 }

@@ -4,6 +4,6 @@ namespace Haggis.Domain.Interfaces
 {
     public interface IActionApplicationService
     {
-        void Apply(HaggisGameState state, HaggisAction action);
+        void Apply(RoundState state, HaggisAction action);
     }
 }

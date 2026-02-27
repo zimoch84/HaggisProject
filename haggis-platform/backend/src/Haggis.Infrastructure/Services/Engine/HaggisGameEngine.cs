@@ -32,7 +32,9 @@ public sealed class HaggisGameEngine : IGameEngine
                 appliedMoves.Add(appliedMove);
             }
             var finalState = AdvanceGameUntilHumanTurnOrGameOver(gameId, haggisState!, appliedMoves);
-            nextData = BuildHaggisStateData(finalState, command, appliedMove, appliedMoves);
+            var gameOver = GameLoop.IsGameOver(gameId);
+            var displayedScores = GameLoop.GetDisplayedScores(gameId, finalState);
+            nextData = BuildHaggisStateData(finalState, displayedScores, gameOver, command, appliedMove, appliedMoves);
         }
         else
         {
@@ -47,20 +49,14 @@ public sealed class HaggisGameEngine : IGameEngine
         };
     }
 
-    private HaggisGameState AdvanceGameUntilHumanTurnOrGameOver(
+    private RoundState AdvanceGameUntilHumanTurnOrGameOver(
         string gameId,
-        HaggisGameState state,
+        RoundState state,
         List<HaggisAction> appliedMoves)
     {
         var safetyCounter = 0;
         while (safetyCounter++ < 5000)
         {
-            var gameOver = state.RoundOver() && state.Players.Any(player => player.Score >= state.ScoringStrategy.GameOverScore);
-            if (gameOver)
-            {
-                return state;
-            }
-
             if (state.RoundOver())
             {
                 if (!GameLoop.TryCreateNextRound(gameId, state, out var nextRoundState) || nextRoundState is null)
@@ -93,14 +89,15 @@ public sealed class HaggisGameEngine : IGameEngine
     }
 
     private static JsonElement BuildHaggisStateData(
-        HaggisGameState state,
+        RoundState state,
+        IReadOnlyDictionary<string, int> displayedScores,
+        bool gameOver,
         GameCommand command,
         HaggisAction? appliedMove,
         IReadOnlyList<HaggisAction> appliedMoves)
     {
         var gameOverScore = state.ScoringStrategy.GameOverScore;
         var roundOver = state.RoundOver();
-        var gameOver = roundOver && state.Players.Any(player => player.Score >= gameOverScore);
 
         var data = new
         {
@@ -114,7 +111,7 @@ public sealed class HaggisGameEngine : IGameEngine
             players = state.Players.Select(player => new
             {
                 id = player.Name,
-                score = player.Score,
+                score = displayedScores.TryGetValue(player.Name, out var totalScore) ? totalScore : player.Score,
                 handCount = player.Hand.Count,
                 hand = player.Hand.Select(card => card.ToString()),
                 finished = player.Finished,

@@ -21,8 +21,8 @@ AI strategies and heuristics live in `Haggis.AI`.
 - `Initialize` creates a persisted `HaggisGame` per `gameId`, starts round `1`, and returns engine snapshot in `CommandApplied`.
 - `Play` / `Pass` apply one human move and then auto-progress AI turns until another human turn, next round, or game over.
 - Round transition is automatic:
-- if `roundOver=true` and no player reached `winScore`, server opens a new round immediately.
-- if `roundOver=true` and some player reached `winScore`, server returns `gameOver=true`.
+- if `roundOver=true` and no player reached cumulative `winScore` from `ScoringTable`, server opens a new round immediately.
+- if `roundOver=true` and some player reached cumulative `winScore`, server returns `gameOver=true`.
 
 ## Player Configuration In `Initialize.payload.players`
 

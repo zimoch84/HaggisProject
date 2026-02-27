@@ -13,7 +13,7 @@ namespace HaggisTests
     {
         private sealed class KeepHighestSingleTrickStrategy : IMonteCarloTrickSelectionStrategy
         {
-            public IList<Trick> Select(HaggisGameState state, IList<Trick> generatedTricks, bool isOpeningTrick)
+            public IList<Trick> Select(RoundState state, IList<Trick> generatedTricks, bool isOpeningTrick)
             {
                 var highestSingle = generatedTricks
                     .Where(t => t.Type == Haggis.Domain.Enums.TrickType.SINGLE)
@@ -30,7 +30,7 @@ namespace HaggisTests
             var piotr = new HaggisPlayer("Piotr") { Hand = Cards("3Y") };
             var slawek = new HaggisPlayer("Sławek") { Hand = Cards("2G", "4G") };
             var robert = new HaggisPlayer("Robert") { Hand = Cards("2O", "2B") };
-            var state = new HaggisGameState(new List<IHaggisPlayer> { piotr, slawek, robert });
+            var state = new RoundState(new List<IHaggisPlayer> { piotr, slawek, robert });
             var service = new MonteCarloMoveGenerationService();
 
             var actions = service.GetPossibleActionsForCurrentPlayer(state);
@@ -47,7 +47,7 @@ namespace HaggisTests
             var piotr = new HaggisPlayer("Piotr") { Hand = Cards("2Y", "3Y") };
             var slawek = new HaggisPlayer("Sławek") { Hand = Cards("2G", "4G") };
             var robert = new HaggisPlayer("Robert") { Hand = Cards("2O", "2B") };
-            var state = new HaggisGameState(new List<IHaggisPlayer> { piotr, slawek, robert });
+            var state = new RoundState(new List<IHaggisPlayer> { piotr, slawek, robert });
             state.ApplyAction(FromTrick("3Y_SINGLE", piotr));
 
             var service = new MonteCarloMoveGenerationService(new SelectAllMonteCarloActionsStrategy());
@@ -64,7 +64,7 @@ namespace HaggisTests
             var piotr = new HaggisPlayer("Piotr") { Hand = Cards("2Y", "3Y") };
             var slawek = new HaggisPlayer("Sławek") { Hand = Cards("4G") };
             var robert = new HaggisPlayer("Robert") { Hand = Cards("2O", "2B") };
-            var state = new HaggisGameState(new List<IHaggisPlayer> { piotr, slawek, robert });
+            var state = new RoundState(new List<IHaggisPlayer> { piotr, slawek, robert });
             state.ApplyAction(FromTrick("2Y_SINGLE", piotr));
 
             var service = new MonteCarloMoveGenerationService();
@@ -83,7 +83,7 @@ namespace HaggisTests
             var piotr = new HaggisPlayer("Piotr") { Hand = Cards("2Y", "3Y") };
             var slawek = new HaggisPlayer("Sławek") { Hand = Cards("2G", "4G") };
             var robert = new HaggisPlayer("Robert") { Hand = Cards("2O", "2B") };
-            var state = new HaggisGameState(new List<IHaggisPlayer> { piotr, slawek, robert });
+            var state = new RoundState(new List<IHaggisPlayer> { piotr, slawek, robert });
 
             var service = new MonteCarloMoveGenerationService(
                 new SelectAllMonteCarloActionsStrategy(),

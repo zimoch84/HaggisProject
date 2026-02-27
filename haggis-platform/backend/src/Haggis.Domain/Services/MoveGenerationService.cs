@@ -17,7 +17,7 @@ namespace Haggis.Domain.Services
             return BuildPossibleContinuationTricks(player, lastTrick);
         }
 
-        public IList<HaggisAction> GetPossibleActionsForCurrentPlayer(HaggisGameState state)
+        public IList<HaggisAction> GetPossibleActionsForCurrentPlayer(RoundState state)
         {
             if (state.RoundOver())
             {

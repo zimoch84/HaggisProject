@@ -16,7 +16,7 @@ namespace Haggis.AI.Strategies
             StartingTrickFilterStrategy = startingTrickFilterStrategy ?? new FilterNoneStrategy();
         }
 
-        public HaggisAction GetPlayingAction(HaggisGameState gameState)
+        public HaggisAction GetPlayingAction(RoundState gameState)
         {
             if (gameState.CurrentTrickPlay.LastAction != null)
             {

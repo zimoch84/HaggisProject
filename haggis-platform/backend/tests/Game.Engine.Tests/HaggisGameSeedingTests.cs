@@ -99,6 +99,22 @@ namespace HaggisTests
             Assert.That(secondRound.RoundNumber, Is.EqualTo(2));
         }
 
+        [Test]
+        public void NewRound_ShouldUseDifferentRoundSeedAndDealDifferentHandsBetweenRounds()
+        {
+            var players = CreatePlayers();
+            var game = new HaggisGame(players);
+            game.SetSeed(12345);
+
+            game.NewRound();
+            var firstRoundHands = players.Select(ToHandSignature).ToArray();
+
+            game.NewRound();
+            var secondRoundHands = players.Select(ToHandSignature).ToArray();
+
+            Assert.That(secondRoundHands, Is.Not.EqualTo(firstRoundHands));
+        }
+
         private static List<IHaggisPlayer> CreatePlayers()
         {
             return new List<IHaggisPlayer>

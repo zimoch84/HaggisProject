@@ -4,6 +4,6 @@ namespace Haggis.Domain.Interfaces
 {
     public interface ITrickResolutionService
     {
-        void Resolve(HaggisGameState state);
+        void Resolve(RoundState state);
     }
 }

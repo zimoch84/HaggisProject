@@ -18,7 +18,7 @@ namespace Haggis.AI.Strategies
             TakeLessValueTrickFirst = takeLessValueTrickFirst;
         }
 
-        public HaggisAction GetPlayingAction(HaggisGameState gameState)
+        public HaggisAction GetPlayingAction(RoundState gameState)
         {
             var actions = gameState.PossibleActions;
             var tricks = actions.Where(a => !a.IsPass)

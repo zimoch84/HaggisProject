@@ -15,7 +15,7 @@ namespace HaggisTests
         HaggisPlayer Slawek;
         HaggisPlayer Robert;
 
-        HaggisGameState GameState;
+        RoundState GameState;
 
         IList<HaggisAction> Actions => GameState.PossibleActions;
 
@@ -31,7 +31,7 @@ namespace HaggisTests
             Slawek.Hand = Cards("2G", "4G");
             Robert.Hand = Cards("2O", "2B");
 
-            GameState = new HaggisGameState(new List<IHaggisPlayer> { Piotr, Slawek, Robert });
+            GameState = new RoundState(new List<IHaggisPlayer> { Piotr, Slawek, Robert });
 
         }
         [Test]
@@ -151,7 +151,7 @@ namespace HaggisTests
         public void Clone_ShouldClonedInsanceDoesntAffectCopiedOne()
         {
             var avalaibleActions = GameState.PossibleActions;
-            var gameStateClone = (HaggisGameState)GameState.Clone();
+            var gameStateClone = (RoundState)GameState.Clone();
             var avalaibleClonedActions = gameStateClone.PossibleActions;
 
             Assert.That(avalaibleClonedActions, Is.EqualTo(avalaibleActions));
@@ -174,7 +174,7 @@ namespace HaggisTests
                 GameState.ApplyAction(GameState.PossibleActions[0]);
             }
             var history = GameState.ActionArchive;
-            var gameStateClone = (HaggisGameState)GameState.Clone();
+            var gameStateClone = (RoundState)GameState.Clone();
             var clonedHistory = gameStateClone.ActionArchive;
 
             var historyEnumerator = history.GetEnumerator();

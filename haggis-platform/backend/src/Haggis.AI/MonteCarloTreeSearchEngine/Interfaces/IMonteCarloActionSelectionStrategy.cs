@@ -1,10 +1,10 @@
 using Haggis.Domain.Model;
 using System.Collections.Generic;
 
-namespace Haggis.Domain.Interfaces
+namespace MonteCarlo
 {
     public interface IMonteCarloActionSelectionStrategy
     {
-        IList<HaggisAction> Select(HaggisGameState state, IList<HaggisAction> generatedActions);
+        IList<HaggisAction> Select(RoundState state, IList<HaggisAction> generatedActions);
     }
 }

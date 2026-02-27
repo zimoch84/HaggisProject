@@ -10,11 +10,11 @@ public class UIPlayersPanel : PanelRegionBase
         IsVisible = true;
     }
 
-    override public void ApplyTextBuffer(HaggisGameState state)
+    override public void ApplyTextBuffer(RoundState state)
     {
         TextBuffer.Clear();
 
-        // Definicja 3 kolorów dla graczy (bêd¹ siê cyklicznie powtarzaæ)
+        // Definicja 3 kolorï¿½w dla graczy (bï¿½dï¿½ siï¿½ cyklicznie powtarzaï¿½)
         var playerColors = new[] { ConsoleColor.Cyan, ConsoleColor.Yellow, ConsoleColor.Magenta };
         int playerIndex = 0;
 
@@ -24,13 +24,13 @@ public class UIPlayersPanel : PanelRegionBase
             int discardCount = p.Discard?.Count ?? 0;
             bool isCurrent = state.CurrentPlayer != null && p.GUID == state.CurrentPlayer.GUID;
 
-            // Jeœli gracz jest aktualny, wyró¿nij na zielono, w przeciwnym razie u¿yj jednego z 3 kolorów
+            // Jeï¿½li gracz jest aktualny, wyrï¿½nij na zielono, w przeciwnym razie uï¿½yj jednego z 3 kolorï¿½w
             var colorForPlayer = isCurrent ? ConsoleColor.Green : playerColors[playerIndex % playerColors.Length];
 
             TextBuffer.WriteLine($"{p.Name}: {handCount} kart, {discardCount} odrzuconych", colorForPlayer);
 
-            // Sekcja: Rêka
-            var handLabel = "  Rêka: ";
+            // Sekcja: Rï¿½ka
+            var handLabel = "  Rï¿½ka: ";
             var handPad = new string(' ', handLabel.Length);
             var handLines = WrapTokens(CardTokens(p.Hand?.ToList() ?? new List<Card>()));
             foreach (var lineText in handLines)
@@ -54,7 +54,7 @@ public class UIPlayersPanel : PanelRegionBase
     }
 
     // Prywatne pomocnicze metody:
-    // Zwraca tokeny reprezentuj¹ce karty; jeœli brak kart, zwraca token "(brak)".
+    // Zwraca tokeny reprezentujï¿½ce karty; jeï¿½li brak kart, zwraca token "(brak)".
     private IEnumerable<string> CardTokens(List<Card> cards)
     {
         if (cards == null || cards.Count == 0)
@@ -63,7 +63,7 @@ public class UIPlayersPanel : PanelRegionBase
         return cards.Select(c => c?.ToString() ?? "(?)");
     }
 
-    // Zawija tokeny w linie tak, aby d³ugoœæ ka¿dej linii nie przekroczy³a szerokoœci panelu.
+    // Zawija tokeny w linie tak, aby dï¿½ugoï¿½ï¿½ kaï¿½dej linii nie przekroczyï¿½a szerokoï¿½ci panelu.
     private IEnumerable<string> WrapTokens(IEnumerable<string> tokens)
     {
         var result = new List<string>();
@@ -73,7 +73,7 @@ public class UIPlayersPanel : PanelRegionBase
             return result;
         }
 
-        // Rezerwa szerokoœci: zostawiamy kilka znaków marginesu (np. 4)
+        // Rezerwa szerokoï¿½ci: zostawiamy kilka znakï¿½w marginesu (np. 4)
         int maxLineWidth = Math.Max(10, this.Width - 4);
 
         var sb = new StringBuilder();
@@ -82,19 +82,19 @@ public class UIPlayersPanel : PanelRegionBase
             var t = token ?? string.Empty;
             if (sb.Length == 0)
             {
-                // Je¿eli pojedynczy token jest d³u¿szy ni¿ maxLineWidth, dopasuj go bez ³amania
+                // Jeï¿½eli pojedynczy token jest dï¿½uï¿½szy niï¿½ maxLineWidth, dopasuj go bez ï¿½amania
                 sb.Append(t);
             }
             else
             {
-                // SprawdŸ, czy dodaj¹c token (z separatorem ' ') nie przekroczymy limitu
+                // Sprawdï¿½, czy dodajï¿½c token (z separatorem ' ') nie przekroczymy limitu
                 if (sb.Length + 1 + t.Length <= maxLineWidth)
                 {
                     sb.Append(' ').Append(t);
                 }
                 else
                 {
-                    // Zakoñcz bie¿¹c¹ liniê i rozpocznij now¹ od tokena
+                    // Zakoï¿½cz bieï¿½ï¿½cï¿½ liniï¿½ i rozpocznij nowï¿½ od tokena
                     result.Add(sb.ToString());
                     sb.Clear();
                     sb.Append(t);
