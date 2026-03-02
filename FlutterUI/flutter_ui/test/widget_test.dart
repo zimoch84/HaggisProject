@@ -1,19 +1,12 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:flutter_ui/main.dart';
+import 'package:flutter_ui/app/haggis_command_app.dart';
 
 void main() {
-  testWidgets('Renders chat screen', (WidgetTester tester) async {
-    await tester.pumpWidget(const HaggisApp());
-    expect(find.text('Round: 5  •  Turn: Piotr'), findsOneWidget);
-    expect(find.text('Stworz gre'), findsOneWidget);
+  testWidgets('Renders command console', (WidgetTester tester) async {
+    await tester.pumpWidget(const HaggisCommandApp());
+
+    expect(find.text('Haggis AsyncAPI Command Sender'), findsOneWidget);
+    expect(find.text('Host'), findsOneWidget);
   });
 }
-

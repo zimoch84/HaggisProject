@@ -1,0 +1,4 @@
+enum CommandScope {
+  global,
+  game,
+}

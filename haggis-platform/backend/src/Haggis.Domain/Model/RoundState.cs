@@ -46,7 +46,7 @@ namespace Haggis.Domain.Model
         public IReadOnlyList<Card> HaggisCards { get; private set; }
 
         [JsonIgnore]
-        public IReadOnlyList<Guid> FinishingOrder { get; private set; }
+        public IList<Guid> FinishingOrder { get; private set; }
 
         private RoundState(
             List<IHaggisPlayer> players,
