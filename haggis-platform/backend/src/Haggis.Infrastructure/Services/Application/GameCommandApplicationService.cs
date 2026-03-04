@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Haggis.Infrastructure.Services.Interfaces;
-using Haggis.Infrastructure.Services.GameRooms;
 using Haggis.Infrastructure.Services.Models;
 
 namespace Haggis.Infrastructure.Services.Application;

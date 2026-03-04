@@ -1,7 +1,7 @@
 using Haggis.Infrastructure.Services.Interfaces;
 using Haggis.Infrastructure.Services.Models;
 
-namespace Haggis.Infrastructure.Services.Infrastructure.Sessions;
+namespace Haggis.Infrastructure.Services.Infrastructure;
 
 public sealed class GameSession : IGameSession
 {

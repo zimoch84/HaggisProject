@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Haggis.Infrastructure.Services.Interfaces;
 
-namespace Haggis.Infrastructure.Services.Infrastructure.Sessions;
+namespace Haggis.Infrastructure.Services.Infrastructure;
 
 public sealed class GameSessionStore : IGameSessionStore
 {

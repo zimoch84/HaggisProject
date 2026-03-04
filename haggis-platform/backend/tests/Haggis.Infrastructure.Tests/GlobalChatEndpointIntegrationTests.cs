@@ -2,11 +2,10 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using Haggis.Infrastructure.Dtos.Chat;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using NUnit.Framework;
-using Haggis.Infrastructure.Services;
-using Haggis.Infrastructure.Dtos.Chat;
 
 namespace Haggis.Infrastructure.Tests;
 
@@ -110,7 +109,7 @@ public class GlobalChatEndpointIntegrationTests
         Assert.That(bootstrapA.History, Is.Empty);
 
         await SendTextAsync(socketA, "{\"operation\":\"chat\",\"payload\":{\"playerId\":\"alice\",\"text\":\"history test\"}}", CancellationToken.None);
-        _ = await ReceiveTextAsync(socketA, CancellationToken.None); // self broadcast
+        _ = await ReceiveTextAsync(socketA, CancellationToken.None);
 
         using var socketB = await wsClientB.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), CancellationToken.None);
         var bootstrapB = await ReceiveBootstrapAsync(socketB);
@@ -171,7 +170,3 @@ public class GlobalChatEndpointIntegrationTests
         return bootstrap;
     }
 }
-
-
-
-

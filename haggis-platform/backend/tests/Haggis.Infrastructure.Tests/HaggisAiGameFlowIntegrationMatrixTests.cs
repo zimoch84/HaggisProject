@@ -4,8 +4,7 @@ using Haggis.Domain.Model;
 using Haggis.Infrastructure.Services.Application;
 using Haggis.Infrastructure.Services.Engine;
 using Haggis.Infrastructure.Services.Engine.Haggis;
-using Haggis.Infrastructure.Services.GameRooms;
-using Haggis.Infrastructure.Services.Infrastructure.Sessions;
+using Haggis.Infrastructure.Services.Infrastructure;
 using Haggis.Infrastructure.Services.Models;
 using NUnit.Framework;
 

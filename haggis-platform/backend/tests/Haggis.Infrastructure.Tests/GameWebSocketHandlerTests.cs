@@ -5,10 +5,9 @@ using System.Text.Json;
 using Haggis.Infrastructure.Services.Application;
 using Haggis.Infrastructure.Services.Engine;
 using Haggis.Infrastructure.Services.Engine.Haggis;
-using Haggis.Infrastructure.Services.GameRooms;
-using Haggis.Infrastructure.Services.Hubs;
-using Haggis.Infrastructure.Services.Infrastructure.Sessions;
-using Haggis.Infrastructure.Services;
+using Haggis.Infrastructure.Services.Infrastructure;
+using Haggis.Infrastructure.Services.Interfaces;
+using Haggis.Infrastructure.Services.WebSocketHandlers;
 using NUnit.Framework;
 
 namespace Haggis.Infrastructure.Tests;
@@ -90,6 +89,55 @@ public class GameWebSocketHubTests
         Assert.That(receiverGameB.GetSentTextMessages().Where(IsCommandApplied).Count(), Is.EqualTo(0));
     }
 
+    [Test]
+    public async Task HandleClientAsync_RemovesDisconnectedPlayerAfterNetworkLoss_AndKeepsBroadcastingToRemainingPlayer()
+    {
+        var disconnectedPlayerSocket = FakeWebSocket.FromClientMessages(
+            FakeWebSocket.Text("{\"operation\":\"join\",\"payload\":{\"playerId\":\"p1\"}}"),
+            FakeWebSocket.NetworkLoss(delayMs: 50));
+
+        var remainingPlayerSocket = FakeWebSocket.FromClientMessages(
+            FakeWebSocket.Text("{\"operation\":\"join\",\"payload\":{\"playerId\":\"p2\"}}"),
+            FakeWebSocket.Text("{\"operation\":\"command\",\"payload\":{\"command\":{\"type\":\"Initialize\",\"playerId\":\"p2\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":123}}}}", delayMs: 150),
+            FakeWebSocket.Close(delayMs: 50));
+
+        var registry = new PlayerSocketRegistry();
+        var hub = CreateHub(registry);
+
+        var disconnectedTask = hub.HandleClientAsync("game-network-loss", disconnectedPlayerSocket, CancellationToken.None);
+        var remainingTask = hub.HandleClientAsync("game-network-loss", remainingPlayerSocket, CancellationToken.None);
+
+        await Task.WhenAll(disconnectedTask, remainingTask);
+
+        Assert.That(registry.GetOnlinePlayerConnectionCounts().ContainsKey("p1"), Is.False);
+        Assert.That(registry.GetOnlinePlayerConnectionCounts().ContainsKey("p2"), Is.False);
+        Assert.That(disconnectedPlayerSocket.GetSentTextMessages().Where(IsCommandApplied).Count(), Is.EqualTo(0));
+        Assert.That(remainingPlayerSocket.GetSentTextMessages().Where(IsCommandApplied).Count(), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task HandleClientAsync_ReconnectForSamePlayer_RemovesStaleClientConnection()
+    {
+        var staleSocket = FakeWebSocket.FromClientMessages(
+            FakeWebSocket.Text("{\"operation\":\"join\",\"payload\":{\"playerId\":\"p1\"}}"),
+            FakeWebSocket.Close(delayMs: 400));
+
+        var reconnectedSocket = FakeWebSocket.FromClientMessages(
+            FakeWebSocket.Text("{\"operation\":\"join\",\"payload\":{\"playerId\":\"p1\"}}", delayMs: 50),
+            FakeWebSocket.Text("{\"operation\":\"command\",\"payload\":{\"command\":{\"type\":\"Initialize\",\"playerId\":\"p1\",\"payload\":{\"players\":[\"p1\",\"p2\",\"p3\"],\"seed\":321}}}}", delayMs: 100),
+            FakeWebSocket.Close(delayMs: 50));
+
+        var hub = CreateHub();
+
+        var staleTask = hub.HandleClientAsync("game-reconnect", staleSocket, CancellationToken.None);
+        var reconnectedTask = hub.HandleClientAsync("game-reconnect", reconnectedSocket, CancellationToken.None);
+
+        await Task.WhenAll(staleTask, reconnectedTask);
+
+        Assert.That(staleSocket.GetSentTextMessages().Where(IsCommandApplied).Count(), Is.EqualTo(0));
+        Assert.That(reconnectedSocket.GetSentTextMessages().Where(IsCommandApplied).Count(), Is.EqualTo(1));
+    }
+
     private static bool IsCommandApplied(string payload)
     {
         using var doc = JsonDocument.Parse(payload);
@@ -97,7 +145,7 @@ public class GameWebSocketHubTests
                string.Equals(type.GetString(), "CommandApplied", StringComparison.Ordinal);
     }
 
-    private static GameWebSocketHub CreateHub()
+    private static GameWebSocketHandler CreateHub(IPlayerSocketRegistry? registry = null)
     {
         var gameLoop = new HaggisServerGameLoop(
             new HaggisAiMoveStrategy(),
@@ -106,8 +154,9 @@ public class GameWebSocketHubTests
         var store = new GameSessionStore(engine);
         var roomStore = new GameRoomStore();
         var appService = new GameCommandApplicationService(store, roomStore);
-        var registry = new PlayerSocketRegistry();
-        return new GameWebSocketHub(appService, registry, roomStore);
+        var effectiveRegistry = registry ?? new PlayerSocketRegistry();
+        var connectionManager = new GameConnectionManager(effectiveRegistry);
+        return new GameWebSocketHandler(appService, connectionManager, roomStore);
     }
 
     private sealed class FakeWebSocket : WebSocket
@@ -138,6 +187,11 @@ public class GameWebSocketHubTests
         public static IncomingFrame Close(int delayMs = 0)
         {
             return new IncomingFrame(WebSocketMessageType.Close, Array.Empty<byte>(), true, delayMs);
+        }
+
+        public static IncomingFrame NetworkLoss(int delayMs = 0)
+        {
+            return new IncomingFrame(WebSocketMessageType.Binary, Array.Empty<byte>(), true, delayMs, FailWithNetworkLoss: true);
         }
 
         public IReadOnlyList<string> GetSentTextMessages()
@@ -194,6 +248,12 @@ public class GameWebSocketHubTests
                 await Task.Delay(frame.DelayMs, cancellationToken);
             }
 
+            if (frame.FailWithNetworkLoss)
+            {
+                _state = WebSocketState.Aborted;
+                throw new WebSocketException("Simulated network loss.");
+            }
+
             if (frame.MessageType == WebSocketMessageType.Close)
             {
                 _state = WebSocketState.CloseReceived;
@@ -221,6 +281,11 @@ public class GameWebSocketHubTests
             return Task.CompletedTask;
         }
 
-        public readonly record struct IncomingFrame(WebSocketMessageType MessageType, byte[] Payload, bool EndOfMessage, int DelayMs);
+        public readonly record struct IncomingFrame(
+            WebSocketMessageType MessageType,
+            byte[] Payload,
+            bool EndOfMessage,
+            int DelayMs,
+            bool FailWithNetworkLoss = false);
     }
 }
