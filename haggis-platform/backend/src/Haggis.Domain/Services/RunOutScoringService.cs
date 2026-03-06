@@ -15,7 +15,10 @@ namespace Haggis.Domain.Services
             if (target == null || !target.Finished)
                 return;
 
-            state.RegisterPlayerFinished(target);
+            if (!state.FinishingOrder.Contains(target.GUID))
+            {
+                state.FinishingOrder.Add(target.GUID);
+            }
 
             if (target.OpponentRemainingCardsOnFinish >= 0)
             {

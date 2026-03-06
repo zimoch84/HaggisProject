@@ -34,7 +34,8 @@ public sealed class HaggisGameEngine : IGameEngine
             var finalState = AdvanceGameUntilHumanTurnOrGameOver(gameId, haggisState!, appliedMoves);
             var gameOver = GameLoop.IsGameOver(gameId);
             var displayedScores = GameLoop.GetDisplayedScores(gameId, finalState);
-            nextData = BuildHaggisStateData(finalState, displayedScores, gameOver, command, appliedMove, appliedMoves);
+            var configuredSeed = GameLoop.GetConfiguredSeed(gameId);
+            nextData = BuildHaggisStateData(finalState, displayedScores, gameOver, configuredSeed, command, appliedMove, appliedMoves);
         }
         else
         {
@@ -92,6 +93,7 @@ public sealed class HaggisGameEngine : IGameEngine
         RoundState state,
         IReadOnlyDictionary<string, int> displayedScores,
         bool gameOver,
+        int? configuredSeed,
         GameCommand command,
         HaggisAction? appliedMove,
         IReadOnlyList<HaggisAction> appliedMoves)
@@ -102,6 +104,8 @@ public sealed class HaggisGameEngine : IGameEngine
         var data = new
         {
             game = "haggis",
+            seed = configuredSeed,
+            playerCount = state.Players.Count,
             winScore = gameOverScore,
             roundNumber = state.RoundNumber,
             moveIteration = state.MoveIteration,

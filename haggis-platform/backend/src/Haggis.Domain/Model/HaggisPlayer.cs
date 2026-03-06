@@ -10,9 +10,7 @@ namespace Haggis.Domain.Model
 {
     public class HaggisPlayer : IHaggisPlayer
     {
-        private bool Starts { get; set; }
-        protected Guid GuidState { get; set; }
-
+        public Guid GUID { get; set; }
         public string Name { get; set; }
 
         [JsonIgnore]
@@ -27,10 +25,10 @@ namespace Haggis.Domain.Model
         public HaggisPlayer(string name)
         {
             Name = name;
-            GuidState = Guid.NewGuid();
+            GUID = Guid.NewGuid();
             Hand = new List<Card>();
             Discard = new List<Card>();
-            OpponentRemainingCardsOnFinish = -1;
+            OpponentRemainingCardsOnFinish = 0;
         }
 
         public HaggisPlayer(string name, List<Card> hand, List<Card> discard)
@@ -38,10 +36,9 @@ namespace Haggis.Domain.Model
             Name = name;
             Hand = hand.DeepCopy().ToList();
             Discard = discard.DeepCopy().ToList();
-            OpponentRemainingCardsOnFinish = -1;
+            OpponentRemainingCardsOnFinish = 0;
         }
 
-        public Guid GUID => GuidState;
         public bool Finished => !Hand.Any();
 
         public int CardCount()
@@ -81,9 +78,8 @@ namespace Haggis.Domain.Model
         public object Clone()
         {
             var clonedPlayer = new HaggisPlayer(Name, Hand, Discard)
-            {
-                Starts = Starts,
-                GuidState = GuidState,
+            {               
+                GUID = GUID,
                 Score = Score,
                 OpponentRemainingCardsOnFinish = OpponentRemainingCardsOnFinish
             };

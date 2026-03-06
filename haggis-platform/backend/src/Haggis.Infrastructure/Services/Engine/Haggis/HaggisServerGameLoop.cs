@@ -15,6 +15,14 @@ namespace Haggis.Infrastructure.Services.Engine.Haggis;
 public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, HaggisAction, GameCommand>
 {
     private static readonly JsonElement EmptyPayload = JsonDocument.Parse("{}").RootElement.Clone();
+    private const int MinSupportedPlayers = 2;
+    private const int MaxSupportedPlayers = 3;
+    private const int MonteCarloMediumSimulations = 300;
+    private const long MonteCarloMediumTimeBudgetMs = 25L;
+    private const int MonteCarloHardSimulations = 800;
+    private const long MonteCarloHardTimeBudgetMs = 100L;
+    private const int MonteCarloExpertSimulations = 1500;
+    private const long MonteCarloExpertTimeBudgetMs = 200L;
     private readonly ConcurrentDictionary<string, HaggisGame> _games = new();
 
     private IAiMoveStrategy<RoundState, HaggisAction> AiMoveStrategy { get; }
@@ -118,6 +126,16 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         return totals;
     }
 
+    public int? GetConfiguredSeed(string gameId)
+    {
+        if (!_games.TryGetValue(gameId, out var game))
+        {
+            return null;
+        }
+
+        return game.BaseSeed;
+    }
+
     protected override bool IsStartCommand(GameCommand command) =>
         command.Type.Equals("Initialize", StringComparison.OrdinalIgnoreCase) ||
         command.Type.Equals("Init", StringComparison.OrdinalIgnoreCase) ||
@@ -131,9 +149,16 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
     protected override RoundState CreateInitialState(string gameId, GameCommand command)
     {
         var players = ReadPlayers(command.Payload);
-        if (players.Count < 2)
+        if (players.Count < MinSupportedPlayers || players.Count > MaxSupportedPlayers)
         {
-            throw new InvalidOperationException("Haggis requires at least 2 players in payload.players.");
+            throw new InvalidOperationException("Haggis supports only 2 or 3 players.");
+        }
+
+        var declaredPlayerCount = ReadDeclaredPlayerCount(command.Payload);
+        if (declaredPlayerCount.HasValue && players.Count != declaredPlayerCount.Value)
+        {
+            throw new InvalidOperationException(
+                $"Declared playerCount '{declaredPlayerCount.Value}' does not match payload.players count '{players.Count}'.");
         }
 
         var scoringStrategy = ResolveScoringStrategy(command.Payload);
@@ -236,6 +261,17 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         return players;
     }
 
+    private static int? ReadDeclaredPlayerCount(JsonElement payload)
+    {
+        var playerCount = TryReadInt(payload, "playerCount");
+        if (playerCount is MinSupportedPlayers or MaxSupportedPlayers)
+        {
+            return playerCount;
+        }
+
+        return null;
+    }
+
     private static IHaggisPlayer? CreatePlayer(JsonElement playerElement)
     {
         if (playerElement.ValueKind == JsonValueKind.String)
@@ -270,10 +306,21 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
     {
         if (!TryGetObject(playerElement, "ai", out var aiElement))
         {
-            return new MonteCarloStrategy(300, 25L);
+            return new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs);
+        }
+
+        var difficulty = TryReadInt(aiElement, "difficulty");
+        if (difficulty.HasValue)
+        {
+            return ResolveDifficultyStrategy(difficulty.Value);
         }
 
         var strategyName = TryReadString(aiElement, "strategy");
+        if (string.Equals(strategyName, "random", StringComparison.OrdinalIgnoreCase))
+        {
+            return new RandomPlayStrategy();
+        }
+
         if (string.Equals(strategyName, "heuristic", StringComparison.OrdinalIgnoreCase))
         {
             var useWildsInContinuations = TryReadBoolean(aiElement, "useWildsInContinuations") ??
@@ -287,9 +334,24 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
                 new ContinuationTrickStrategy(useWildsInContinuations, takeLessValueTrickFirst));
         }
 
-        var simulations = TryReadInt(aiElement, "simulations") ?? 300;
-        var timeBudgetMs = TryReadLong(aiElement, "timeBudgetMs") ?? 25L;
+        var simulations = TryReadInt(aiElement, "simulations") ?? MonteCarloMediumSimulations;
+        var timeBudgetMs = TryReadLong(aiElement, "timeBudgetMs") ?? MonteCarloMediumTimeBudgetMs;
         return new MonteCarloStrategy(simulations, timeBudgetMs);
+    }
+
+    private static IPlayStrategy ResolveDifficultyStrategy(int difficulty)
+    {
+        return difficulty switch
+        {
+            1 => new RandomPlayStrategy(),
+            2 => new HeuristicPlayStrategy(
+                new StartingTrickStrategy(new FilterNoneStrategy()),
+                new ContinuationTrickStrategy(false, true)),
+            3 => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs),
+            4 => new MonteCarloStrategy(MonteCarloHardSimulations, MonteCarloHardTimeBudgetMs),
+            5 => new MonteCarloStrategy(MonteCarloExpertSimulations, MonteCarloExpertTimeBudgetMs),
+            _ => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs)
+        };
     }
 
     private static IStartingTrickFilterStrategy ResolveStartingTrickFilterStrategy(JsonElement aiElement, bool useWildsInContinuations)

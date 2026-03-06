@@ -46,7 +46,7 @@ namespace Haggis.Domain.Model
         public IReadOnlyList<Card> HaggisCards { get; private set; }
 
         [JsonIgnore]
-        public IReadOnlyList<Guid> FinishingOrder { get; private set; }
+        public IList<Guid> FinishingOrder { get; private set; }
 
         private RoundState(
             List<IHaggisPlayer> players,
@@ -114,16 +114,6 @@ namespace Haggis.Domain.Model
         public void ApplyAction(HaggisAction action)
         {
             ActionApplicationService.Apply(this, action);
-        }
-
-        public void RegisterPlayerFinished(IHaggisPlayer player)
-        {
-            if (player == null || !player.Finished || FinishingOrder.Contains(player.GUID))
-            {
-                return;
-            }
-
-            FinishingOrder.Add(player.GUID);
         }
 
         public RoundState Clone()

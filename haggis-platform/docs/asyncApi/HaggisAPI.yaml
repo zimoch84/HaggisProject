@@ -42,6 +42,7 @@ channels:
           - $ref: "#/components/messages/GameCreateOperationMessage"
           - $ref: "#/components/messages/GameChatOperationMessage"
           - $ref: "#/components/messages/GameCommandOperationMessage"
+          - $ref: "#/components/messages/GameSnapshotOperationMessage"
     subscribe:
       operationId: receiveGameOperation
       message:
@@ -77,6 +78,9 @@ components:
     GameCommandOperationMessage:
       payload:
         $ref: "#/components/schemas/GameCommandOperation"
+    GameSnapshotOperationMessage:
+      payload:
+        $ref: "#/components/schemas/GameSnapshotOperation"
     GameOperationEnvelopeMessage:
       payload:
         $ref: "#/components/schemas/GameOperationEnvelope"
@@ -87,6 +91,9 @@ components:
       required: [operation, data]
       additionalProperties: true
       properties:
+        messageKind:
+          type: string
+          enum: [response, event]
         operation:
           type: string
           enum: [bootstrap, chat, listroom, createroom, privatechat, unknown]
@@ -145,9 +152,12 @@ components:
       required: [operation, data]
       additionalProperties: true
       properties:
+        messageKind:
+          type: string
+          enum: [response, event]
         operation:
           type: string
-          enum: [join, create, chat, command, unknown]
+          enum: [join, create, chat, command, snapshot, unknown]
         data:
           type: object
           additionalProperties: true
@@ -195,6 +205,17 @@ components:
           enum: [command]
         payload:
           $ref: "#/components/schemas/CommandPayload"
+
+    GameSnapshotOperation:
+      type: object
+      required: [operation, payload]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum: [snapshot]
+        payload:
+          $ref: "#/components/schemas/SnapshotPayload"
 
     SendChatMessageRequest:
       type: object
@@ -257,8 +278,84 @@ components:
           type: string
           minLength: 1
         payload:
-          type: object
-          additionalProperties: true
+          $ref: "#/components/schemas/HaggisCreateOptions"
+
+    HaggisCreateOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        playerCount:
+          type: integer
+          enum: [2, 3]
+          description: Planned game size. Must match payload.players length when players is provided.
+        players:
+          type: array
+          minItems: 2
+          maxItems: 3
+          uniqueItems: true
+          description: >
+            Optional in websocket create flow when room already has players.
+            Required effectively by engine if room enrichment cannot provide at least 2 players.
+          items:
+            oneOf:
+              - type: string
+                minLength: 1
+              - $ref: "#/components/schemas/HaggisCreatePlayer"
+        seed:
+          type: integer
+          format: int32
+          description: Optional deterministic shuffle seed. If omitted, backend selects seed automatically.
+        options:
+          $ref: "#/components/schemas/HaggisCreateGameOptions"
+
+    HaggisCreatePlayer:
+      type: object
+      required: [playerId]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [human, ai]
+        ai:
+          $ref: "#/components/schemas/HaggisAiOptions"
+
+    HaggisAiOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        difficulty:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: >
+            1=random move, 2=heuristic, 3=montecarlo, 4=montecarlo (higher time budget),
+            5=montecarlo (highest time budget).
+
+    HaggisCreateGameOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        winScore:
+          type: integer
+          minimum: 1
+        scoring:
+          $ref: "#/components/schemas/HaggisScoringOptions"
+
+    HaggisScoringOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        strategy:
+          type: string
+          enum: [StandardScoring, EveryCardOnePoint]
+        runOutMultiplier:
+          type: integer
+        gameOverScore:
+          type: integer
+          minimum: 1
 
     CommandPayload:
       type: object
@@ -267,8 +364,15 @@ components:
       properties:
         command:
           $ref: "#/components/schemas/GameCommand"
-        state:
-          $ref: "#/components/schemas/GameStateSnapshot"
+
+    SnapshotPayload:
+      type: object
+      required: [playerId]
+      additionalProperties: false
+      properties:
+        playerId:
+          type: string
+          minLength: 1
 
     GameRoomResponse:
       type: object
@@ -295,18 +399,44 @@ components:
           description: Realtime game endpoint path (`/ws/games/{gameId}`).
 
     GameCommand:
+      oneOf:
+        - $ref: "#/components/schemas/PlayCommand"
+        - $ref: "#/components/schemas/PassCommand"
+
+    PlayCommand:
       type: object
       required: [type, playerId, payload]
       additionalProperties: false
       properties:
         type:
           type: string
+          enum: [Play]
         playerId:
           type: string
           minLength: 1
         payload:
-          type: object
-          additionalProperties: true
+          $ref: "#/components/schemas/HaggisTrickActionPayload"
+
+    PassCommand:
+      type: object
+      required: [type, playerId]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum: [Pass]
+        playerId:
+          type: string
+          minLength: 1
+
+    HaggisTrickActionPayload:
+      type: object
+      required: [trick]
+      additionalProperties: false
+      properties:
+        trick:
+          type: string
+          minLength: 1
 
     GameChatMessage:
       type: object

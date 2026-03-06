@@ -13,6 +13,7 @@ namespace Haggis.Domain.Model
         private List<IHaggisPlayer> Players { get; }
         private int Seed { get; set; }
         public int CurrentRoundNumber { get; private set; }
+        public int BaseSeed => Seed;
 
         public ScoringTable ScoringTable { get; }
         public IHaggisScoringStrategy ScoringStrategy { get; private set; }

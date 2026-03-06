@@ -1,7 +1,7 @@
 namespace Haggis.Infrastructure.Services.Models;
 
 public sealed record GameEventMessage(
-    string Type,
+    string Type,  //powinien byc enum
     long? OrderPointer,
     string GameId,
     string? Error,
@@ -9,4 +9,5 @@ public sealed record GameEventMessage(
     GameStateSnapshot? State,
     DateTimeOffset CreatedAt,
     GameChatMessage? Chat = null,
-    string? CurrentPlayerId = null);
+    string? CurrentPlayerId = null,
+    string MessageKind = "response");

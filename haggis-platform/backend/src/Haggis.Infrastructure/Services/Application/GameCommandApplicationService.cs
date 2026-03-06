@@ -31,7 +31,8 @@ public sealed class GameCommandApplicationService : IGameCommandApplicationServi
                 Command: effectiveMessage.Command,
                 State: applyResult.State,
                 CreatedAt: DateTimeOffset.UtcNow,
-                CurrentPlayerId: TryExtractCurrentPlayerId(applyResult.State));
+                CurrentPlayerId: TryExtractCurrentPlayerId(applyResult.State),
+                MessageKind: "response");
         }
         catch (InvalidOperationException ex)
         {
@@ -42,8 +43,24 @@ public sealed class GameCommandApplicationService : IGameCommandApplicationServi
                 Error: ex.Message,
                 Command: effectiveMessage.Command,
                 State: null,
-                CreatedAt: DateTimeOffset.UtcNow);
+                CreatedAt: DateTimeOffset.UtcNow,
+                MessageKind: "response");
         }
+    }
+
+    public GameEventMessage GetSnapshot(string gameId)
+    {
+        var session = _sessionStore.GetOrCreate(gameId);
+        return new GameEventMessage(
+            Type: "GameSnapshot",
+            OrderPointer: session.OrderPointer,
+            GameId: gameId,
+            Error: null,
+            Command: null,
+            State: session.CurrentState,
+            CreatedAt: DateTimeOffset.UtcNow,
+            CurrentPlayerId: TryExtractCurrentPlayerId(session.CurrentState),
+            MessageKind: "response");
     }
 
     private GameClientMessage EnrichInitializeWithRoomPlayers(string gameId, GameClientMessage message)

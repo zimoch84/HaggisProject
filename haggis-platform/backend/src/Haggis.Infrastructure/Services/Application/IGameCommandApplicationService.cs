@@ -5,4 +5,5 @@ namespace Haggis.Infrastructure.Services.Application;
 public interface IGameCommandApplicationService
 {
     GameEventMessage Handle(string gameId, GameClientMessage message);
+    GameEventMessage GetSnapshot(string gameId);
 }
