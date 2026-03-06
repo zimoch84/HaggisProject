@@ -9,21 +9,27 @@ public sealed class GameCommandApplicationService : IGameCommandApplicationServi
 {
     private readonly IGameSessionStore _sessionStore;
     private readonly IGameRoomStore _roomStore;
+    private readonly IGameCommandAuditLogger _auditLogger;
 
-    public GameCommandApplicationService(IGameSessionStore sessionStore, IGameRoomStore roomStore)
+    public GameCommandApplicationService(
+        IGameSessionStore sessionStore,
+        IGameRoomStore roomStore,
+        IGameCommandAuditLogger? auditLogger = null)
     {
         _sessionStore = sessionStore;
         _roomStore = roomStore;
+        _auditLogger = auditLogger ?? NullGameCommandAuditLogger.Instance;
     }
 
     public GameEventMessage Handle(string gameId, GameClientMessage message)
     {
         var effectiveMessage = EnrichInitializeWithRoomPlayers(gameId, message);
+        LogAcceptedCommand(gameId, effectiveMessage);
         var session = _sessionStore.GetOrCreate(gameId);
         try
         {
             var applyResult = session.Apply(effectiveMessage);
-            return new GameEventMessage(
+            var response = new GameEventMessage(
                 Type: "CommandApplied",
                 OrderPointer: applyResult.OrderPointer,
                 GameId: gameId,
@@ -33,10 +39,12 @@ public sealed class GameCommandApplicationService : IGameCommandApplicationServi
                 CreatedAt: DateTimeOffset.UtcNow,
                 CurrentPlayerId: TryExtractCurrentPlayerId(applyResult.State),
                 MessageKind: "response");
+            LogCommandResult(effectiveMessage, response);
+            return response;
         }
         catch (InvalidOperationException ex)
         {
-            return new GameEventMessage(
+            var response = new GameEventMessage(
                 Type: "CommandRejected",
                 OrderPointer: null,
                 GameId: gameId,
@@ -45,6 +53,8 @@ public sealed class GameCommandApplicationService : IGameCommandApplicationServi
                 State: null,
                 CreatedAt: DateTimeOffset.UtcNow,
                 MessageKind: "response");
+            LogCommandResult(effectiveMessage, response);
+            return response;
         }
     }
 
@@ -109,5 +119,42 @@ public sealed class GameCommandApplicationService : IGameCommandApplicationServi
 
         var currentPlayerId = currentPlayerElement.GetString();
         return string.IsNullOrWhiteSpace(currentPlayerId) ? null : currentPlayerId.Trim();
+    }
+
+    private void LogAcceptedCommand(string gameId, GameClientMessage message)
+    {
+        _auditLogger.Log(new GameCommandAuditEntry(
+            TimestampUtc: DateTimeOffset.UtcNow,
+            Stage: "accepted",
+            GameId: gameId,
+            CommandType: message.Command.Type,
+            PlayerId: message.Command.PlayerId,
+            Payload: message.Command.Payload.GetRawText(),
+            ResultType: null,
+            OrderPointer: null,
+            Error: null));
+    }
+
+    private void LogCommandResult(GameClientMessage message, GameEventMessage response)
+    {
+        _auditLogger.Log(new GameCommandAuditEntry(
+            TimestampUtc: DateTimeOffset.UtcNow,
+            Stage: "result",
+            GameId: response.GameId,
+            CommandType: message.Command.Type,
+            PlayerId: message.Command.PlayerId,
+            Payload: message.Command.Payload.GetRawText(),
+            ResultType: response.Type,
+            OrderPointer: response.OrderPointer,
+            Error: response.Error));
+    }
+
+    private sealed class NullGameCommandAuditLogger : IGameCommandAuditLogger
+    {
+        public static NullGameCommandAuditLogger Instance { get; } = new();
+
+        public void Log(GameCommandAuditEntry entry)
+        {
+        }
     }
 }

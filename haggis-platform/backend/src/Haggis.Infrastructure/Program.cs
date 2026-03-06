@@ -15,6 +15,7 @@ builder.Services.AddSingleton<IMoveRuleValidator<RoundState, HaggisAction, GameC
 builder.Services.AddSingleton<HaggisServerGameLoop>();
 builder.Services.AddSingleton<IGameEngine, HaggisGameEngine>();
 builder.Services.AddSingleton<IGameSessionStore, GameSessionStore>();
+builder.Services.AddSingleton<IGameCommandAuditLogger, FileGameCommandAuditLogger>();
 builder.Services.AddSingleton<IGameCommandApplicationService, GameCommandApplicationService>();
 builder.Services.AddSingleton<GameWebSocketHandler>();
 builder.Services.AddSingleton<IGameConnectionManager, GameConnectionManager>();
