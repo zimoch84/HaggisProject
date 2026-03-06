@@ -2,7 +2,7 @@ using Haggis.Infrastructure.Services.Models;
 
 namespace Haggis.Infrastructure.Services.WebSocketHandlers.GameWebSocketHandlingStrategies;
 
-internal sealed class ChatOperationStrategy : IGameOperationStrategy
+internal sealed class ChatOperationStrategy : IGameOperationStrategy<GameWebSocketChatOperationDto>
 {
     private readonly GameWebSocketHandler _handler;
 
@@ -11,13 +11,14 @@ internal sealed class ChatOperationStrategy : IGameOperationStrategy
         _handler = handler;
     }
 
-    public async Task HandleAsync(GameWebSocketHandler.OperationContext context, GameWebSocketOperationDto operation, CancellationToken cancellationToken)
+    public async Task HandleAsync(GameWebSocketHandler.OperationContext context, GameWebSocketChatOperationDto operation, CancellationToken cancellationToken)
     {
-        if (!GameWebSocketHandler.TryParseChatMessage(operation, out var chatMessage))
-        {
-            await GameWebSocketHandler.SendOperationErrorAsync(context.Socket, "chat", context.GameId, "Invalid chat payload.", cancellationToken);
-            return;
-        }
+        var payloadDto = operation.Payload!;
+        var playerId = payloadDto.PlayerId.Trim();
+        var text = payloadDto.Text.Trim();
+        var chatMessage = new GameChatClientMessage(
+            Type: "Chat",
+            Chat: new GameChatMessage(PlayerId: playerId, Text: text));
 
         if (!_handler.IsPlayerAllowedForGame(context.GameId, chatMessage.Chat.PlayerId))
         {
@@ -28,7 +29,8 @@ internal sealed class ChatOperationStrategy : IGameOperationStrategy
                 Error: "Player is not joined to this room.",
                 Command: null,
                 State: null,
-                CreatedAt: DateTimeOffset.UtcNow);
+                CreatedAt: DateTimeOffset.UtcNow,
+                MessageKind: "response");
             await GameWebSocketHandler.SendToClientAsync(context.Socket, "chat", rejected, cancellationToken);
             return;
         }
@@ -44,8 +46,9 @@ internal sealed class ChatOperationStrategy : IGameOperationStrategy
             State: null,
             CreatedAt: DateTimeOffset.UtcNow,
             Chat: new GameChatMessage(
-                PlayerId: chatMessage.Chat.PlayerId.Trim(),
-                Text: chatMessage.Chat.Text.Trim()));
+                PlayerId: playerId,
+                Text: text),
+            MessageKind: "event");
 
         await _handler.BroadcastAsync(context.GameId, "chat", outgoing, cancellationToken);
     }

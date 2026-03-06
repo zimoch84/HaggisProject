@@ -6,5 +6,6 @@ internal enum GameWebSocketOperationType
     Create,
     Chat,
     Command,
+    Snapshot,
     Unknown
 }

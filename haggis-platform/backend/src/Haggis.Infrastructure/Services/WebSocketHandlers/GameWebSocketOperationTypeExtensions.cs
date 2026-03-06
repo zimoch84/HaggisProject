@@ -10,11 +10,12 @@ internal static class GameWebSocketOperationTypeExtensions
             "create" => GameWebSocketOperationType.Create,
             "chat" => GameWebSocketOperationType.Chat,
             "command" => GameWebSocketOperationType.Command,
+            "snapshot" => GameWebSocketOperationType.Snapshot,
             "unknown" => GameWebSocketOperationType.Unknown,
             _ => default
         };
 
-        return value.Trim().ToLowerInvariant() is "join" or "create" or "chat" or "command" or "unknown";
+        return value.Trim().ToLowerInvariant() is "join" or "create" or "chat" or "command" or "snapshot" or "unknown";
     }
 
     public static string ToWireValue(this GameWebSocketOperationType operationType)
@@ -25,6 +26,7 @@ internal static class GameWebSocketOperationTypeExtensions
             GameWebSocketOperationType.Create => "create",
             GameWebSocketOperationType.Chat => "chat",
             GameWebSocketOperationType.Command => "command",
+            GameWebSocketOperationType.Snapshot => "snapshot",
             GameWebSocketOperationType.Unknown => "unknown",
             _ => "unknown"
         };

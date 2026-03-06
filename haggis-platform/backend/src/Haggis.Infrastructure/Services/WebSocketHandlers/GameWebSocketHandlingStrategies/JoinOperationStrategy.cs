@@ -2,7 +2,7 @@ using Haggis.Infrastructure.Services.Models;
 
 namespace Haggis.Infrastructure.Services.WebSocketHandlers.GameWebSocketHandlingStrategies;
 
-internal sealed class JoinOperationStrategy : IGameOperationStrategy
+internal sealed class JoinOperationStrategy : IGameOperationStrategy<GameWebSocketJoinOperationDto>
 {
     private readonly GameWebSocketHandler _handler;
 
@@ -11,13 +11,10 @@ internal sealed class JoinOperationStrategy : IGameOperationStrategy
         _handler = handler;
     }
 
-    public async Task HandleAsync(GameWebSocketHandler.OperationContext context, GameWebSocketOperationDto operation, CancellationToken cancellationToken)
+    public async Task HandleAsync(GameWebSocketHandler.OperationContext context, GameWebSocketJoinOperationDto operation, CancellationToken cancellationToken)
     {
-        if (!GameWebSocketHandler.TryParseJoinPayload(operation, out var playerId))
-        {
-            await GameWebSocketHandler.SendOperationErrorAsync(context.Socket, "join", context.GameId, "Invalid join payload.", cancellationToken);
-            return;
-        }
+        var payloadDto = operation.Payload!;
+        var playerId = payloadDto.PlayerId.Trim();
 
         GameRoom? joinedRoom;
         if (!_handler.RoomStore.TryJoinRoom(context.GameId, playerId, out joinedRoom) || joinedRoom is null)

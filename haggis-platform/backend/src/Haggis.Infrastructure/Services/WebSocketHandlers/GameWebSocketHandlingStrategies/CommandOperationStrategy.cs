@@ -2,7 +2,7 @@ using Haggis.Infrastructure.Services.Models;
 
 namespace Haggis.Infrastructure.Services.WebSocketHandlers.GameWebSocketHandlingStrategies;
 
-internal sealed class CommandOperationStrategy : IGameOperationStrategy
+internal sealed class CommandOperationStrategy : IGameOperationStrategy<GameWebSocketCommandOperationDto>
 {
     private readonly GameWebSocketHandler _handler;
 
@@ -11,13 +11,16 @@ internal sealed class CommandOperationStrategy : IGameOperationStrategy
         _handler = handler;
     }
 
-    public async Task HandleAsync(GameWebSocketHandler.OperationContext context, GameWebSocketOperationDto operation, CancellationToken cancellationToken)
+    public async Task HandleAsync(GameWebSocketHandler.OperationContext context, GameWebSocketCommandOperationDto operation, CancellationToken cancellationToken)
     {
-        if (!GameWebSocketHandler.TryParseCommandMessage(operation, out var commandMessage))
-        {
-            await GameWebSocketHandler.SendOperationErrorAsync(context.Socket, "command", context.GameId, "Invalid command payload.", cancellationToken);
-            return;
-        }
+        var commandDto = operation.Payload!.Command!;
+        var commandMessage = new GameClientMessage(
+            Type: "Command",
+            Command: new GameCommand(
+                Type: commandDto.Type.Trim(),
+                PlayerId: commandDto.PlayerId.Trim(),
+                Payload: (commandDto.Payload ?? new GameWebSocketCommandPayloadDto()).ToGameCommandPayload()),
+            State: operation.Payload.State);
 
         if (!_handler.IsPlayerAllowedForGame(context.GameId, commandMessage.Command.PlayerId))
         {
@@ -28,7 +31,8 @@ internal sealed class CommandOperationStrategy : IGameOperationStrategy
                 Error: "Player is not joined to this room.",
                 Command: commandMessage.Command,
                 State: null,
-                CreatedAt: DateTimeOffset.UtcNow);
+                CreatedAt: DateTimeOffset.UtcNow,
+                MessageKind: "response");
             await GameWebSocketHandler.SendToClientAsync(context.Socket, "command", rejected, cancellationToken);
             return;
         }
@@ -42,6 +46,10 @@ internal sealed class CommandOperationStrategy : IGameOperationStrategy
             return;
         }
 
-        await _handler.BroadcastAsync(context.GameId, "command", outgoing, cancellationToken);
+        var response = outgoing with { MessageKind = "response" };
+        await GameWebSocketHandler.SendToClientAsync(context.Socket, "command", response, cancellationToken);
+
+        var eventMessage = outgoing with { MessageKind = "event" };
+        await _handler.BroadcastExceptAsync(context.GameId, context.Socket, "command", eventMessage, cancellationToken);
     }
 }

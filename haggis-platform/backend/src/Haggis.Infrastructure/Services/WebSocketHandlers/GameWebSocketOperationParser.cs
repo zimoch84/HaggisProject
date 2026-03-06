@@ -1,9 +1,14 @@
 using System.Text.Json;
-
 namespace Haggis.Infrastructure.Services.WebSocketHandlers;
 
 internal sealed class GameWebSocketOperationParser
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        RespectNullableAnnotations = true
+    };
+
     public bool TryParse(string text, out GameWebSocketOperationDto? operation)
     {
         operation = null;
@@ -29,21 +34,26 @@ internal sealed class GameWebSocketOperationParser
                 ? parsedOperationType
                 : GameWebSocketOperationType.Unknown;
 
-            var payload = root.TryGetProperty("payload", out var payloadElement)
-                ? payloadElement.Clone()
-                : default;
-
-            operation = new GameWebSocketOperationDto
+            operation = operationType switch
             {
-                RawOperation = normalizedOperation,
-                Operation = operationType,
-                Payload = payload
+                GameWebSocketOperationType.Command => DeserializeOperation<GameWebSocketCommandOperationDto>(text),
+                GameWebSocketOperationType.Join => DeserializeOperation<GameWebSocketJoinOperationDto>(text),
+                GameWebSocketOperationType.Create => DeserializeOperation<GameWebSocketCreateOperationDto>(text),
+                GameWebSocketOperationType.Chat => DeserializeOperation<GameWebSocketChatOperationDto>(text),
+                GameWebSocketOperationType.Snapshot => DeserializeOperation<GameWebSocketSnapshotOperationDto>(text),
+                _ => new GameWebSocketUnknownOperationDto(normalizedOperation)
             };
-            return true;
+            return operation is not null;
         }
         catch (JsonException)
         {
             return false;
         }
+    }
+
+    private static TOperation? DeserializeOperation<TOperation>(string text)
+        where TOperation : GameWebSocketOperationDto
+    {
+        return JsonSerializer.Deserialize<TOperation>(text, SerializerOptions);
     }
 }

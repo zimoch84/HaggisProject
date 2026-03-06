@@ -11,43 +11,35 @@ namespace Haggis.Infrastructure.Services.WebSocketHandlers;
 
 public sealed class GameWebSocketHandler
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
-    private static readonly JsonElement EmptyObjectPayload = JsonDocument.Parse("{}").RootElement.Clone();
     private static readonly GameWebSocketOperationParser OperationParser = new();
 
-    private readonly IGameCommandApplicationService _applicationService;
-    private readonly IGameConnectionManager _connectionManager;
-    private readonly IGameRoomStore _roomStore;
-    private readonly IReadOnlyDictionary<GameWebSocketOperationType, IGameOperationStrategy> _operationStrategies;
-
-    internal IGameCommandApplicationService ApplicationService => _applicationService;
-    internal IGameConnectionManager ConnectionManager => _connectionManager;
-    internal IGameRoomStore RoomStore => _roomStore;
+    internal IGameCommandApplicationService ApplicationService { get; }
+    internal IGameConnectionManager ConnectionManager { get; }
+    internal IGameRoomStore RoomStore { get; }
+    private IGameOperationStrategy<GameWebSocketCommandOperationDto> CommandStrategy { get; }
+    private IGameOperationStrategy<GameWebSocketJoinOperationDto> JoinStrategy { get; }
+    private IGameOperationStrategy<GameWebSocketCreateOperationDto> CreateStrategy { get; }
+    private IGameOperationStrategy<GameWebSocketChatOperationDto> ChatStrategy { get; }
+    private IGameOperationStrategy<GameWebSocketSnapshotOperationDto> SnapshotStrategy { get; }
 
     public GameWebSocketHandler(
         IGameCommandApplicationService applicationService,
         IGameConnectionManager connectionManager,
         IGameRoomStore roomStore)
     {
-        _applicationService = applicationService;
-        _connectionManager = connectionManager;
-        _roomStore = roomStore;
-        _operationStrategies = new Dictionary<GameWebSocketOperationType, IGameOperationStrategy>
-        {
-            [GameWebSocketOperationType.Command] = new CommandOperationStrategy(this),
-            [GameWebSocketOperationType.Join] = new JoinOperationStrategy(this),
-            [GameWebSocketOperationType.Create] = new CreateOperationStrategy(this),
-            [GameWebSocketOperationType.Chat] = new ChatOperationStrategy(this)
-        };
+        ApplicationService = applicationService;
+        ConnectionManager = connectionManager;
+        RoomStore = roomStore;
+        CommandStrategy = new CommandOperationStrategy(this);
+        JoinStrategy = new JoinOperationStrategy(this);
+        CreateStrategy = new CreateOperationStrategy(this);
+        ChatStrategy = new ChatOperationStrategy(this);
+        SnapshotStrategy = new SnapshotOperationStrategy(this);
     }
 
     public async Task HandleClientAsync(string gameId, WebSocket socket, CancellationToken cancellationToken)
     {
-        var registration = _connectionManager.Register(gameId, socket);
+        var registration = ConnectionManager.Register(gameId, socket);  //clientId i ConnectionId
 
         try
         {
@@ -65,29 +57,54 @@ public sealed class GameWebSocketHandler
                         socket,
                         "unknown",
                         gameId,
-                        "Missing or unsupported operation. Use join, create, chat, command.",
+                        "Missing or unsupported operation. Use join, create, chat, command, snapshot.",
                         cancellationToken);
                     continue;
                 }
 
                 var operationContext = new OperationContext(gameId, socket, registration.ClientId);
-                if (_operationStrategies.TryGetValue(operation.Operation, out var strategy))
+                if (operation is GameWebSocketCommandOperationDto commandOperation)
                 {
-                    await strategy.HandleAsync(operationContext, operation, cancellationToken);
+                    await CommandStrategy.HandleAsync(operationContext, commandOperation, cancellationToken);
                     continue;
                 }
 
+                if (operation is GameWebSocketJoinOperationDto joinOperation)
+                {
+                    await JoinStrategy.HandleAsync(operationContext, joinOperation, cancellationToken);
+                    continue;
+                }
+
+                if (operation is GameWebSocketCreateOperationDto createOperation)
+                {
+                    await CreateStrategy.HandleAsync(operationContext, createOperation, cancellationToken);
+                    continue;
+                }
+
+                if (operation is GameWebSocketChatOperationDto chatOperation)
+                {
+                    await ChatStrategy.HandleAsync(operationContext, chatOperation, cancellationToken);
+                    continue;
+                }
+
+                if (operation is GameWebSocketSnapshotOperationDto snapshotOperation)
+                {
+                    await SnapshotStrategy.HandleAsync(operationContext, snapshotOperation, cancellationToken);
+                    continue;
+                }
+
+                var rawOperation = (operation as GameWebSocketUnknownOperationDto)?.RawOperation ?? "unknown";
                 await SendOperationErrorAsync(
                     socket,
-                    operation.RawOperation,
+                    rawOperation,
                     gameId,
-                    $"Unsupported operation '{operation.RawOperation}'.",
+                    $"Unsupported operation '{rawOperation}'.",
                     cancellationToken);
             }
         }
         finally
         {
-            _connectionManager.Unregister(gameId, registration.ClientId);
+            ConnectionManager.Unregister(gameId, registration.ClientId);
             if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
                 try
@@ -115,6 +132,7 @@ public sealed class GameWebSocketHandler
         var payload = new
         {
             type = "RoomJoined",
+            messageKind = "event",
             gameId,
             playerId = joinedPlayerId,
             room = ToRoomResponse(room),
@@ -126,7 +144,7 @@ public sealed class GameWebSocketHandler
 
     internal bool IsPlayerAllowedForGame(string gameId, string playerId)
     {
-        if (!_roomStore.TryGetRoom(gameId, out var room) || room is null)
+        if (!RoomStore.TryGetRoom(gameId, out var room) || room is null)
         {
             return false;
         }
@@ -156,15 +174,16 @@ public sealed class GameWebSocketHandler
                     Command: null,
                     State: null,
                     CreatedAt: DateTimeOffset.UtcNow,
-                    Chat: new GameChatMessage(PlayerId: "server", Text: normalizedMessage)),
+                    Chat: new GameChatMessage(PlayerId: "server", Text: normalizedMessage),
+                    MessageKind: "event"),
                 cancellationToken);
             return;
         }
 
-        var activeGameIds = _roomStore.ListRooms()
+        var activeGameIds = RoomStore.ListRooms()
             .Select(x => x.GameId)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Where(x => _connectionManager.GetSockets(x).Count > 0)
+            .Where(x => ConnectionManager.GetSockets(x).Count > 0)
             .ToArray();
 
         foreach (var activeGameId in activeGameIds)
@@ -180,7 +199,8 @@ public sealed class GameWebSocketHandler
                     Command: null,
                     State: null,
                     CreatedAt: DateTimeOffset.UtcNow,
-                    Chat: new GameChatMessage(PlayerId: "server", Text: normalizedMessage)),
+                    Chat: new GameChatMessage(PlayerId: "server", Text: normalizedMessage),
+                    MessageKind: "event"),
                 cancellationToken);
         }
     }
@@ -190,9 +210,30 @@ public sealed class GameWebSocketHandler
         var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
         var segment = new ArraySegment<byte>(bytes);
 
-        foreach (var recipientSocket in _connectionManager.GetSockets(gameId))
+        foreach (var recipientSocket in ConnectionManager.GetSockets(gameId))
         {
             if (recipientSocket.State != WebSocketState.Open)
+            {
+                continue;
+            }
+
+            await recipientSocket.SendAsync(segment, WebSocketMessageType.Text, true, cancellationToken);
+        }
+    }
+
+    internal async Task BroadcastExceptAsync(
+        string gameId,
+        WebSocket excludedSocket,
+        string operation,
+        object message,
+        CancellationToken cancellationToken)
+    {
+        var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
+        var segment = new ArraySegment<byte>(bytes);
+
+        foreach (var recipientSocket in ConnectionManager.GetSockets(gameId))
+        {
+            if (ReferenceEquals(recipientSocket, excludedSocket) || recipientSocket.State != WebSocketState.Open)
             {
                 continue;
             }
@@ -222,135 +263,13 @@ public sealed class GameWebSocketHandler
         var message = new
         {
             type = "OperationRejected",
+            messageKind = "response",
             gameId,
             error,
             createdAt = DateTimeOffset.UtcNow
         };
 
         return SendToClientAsync(socket, operation, message, cancellationToken);
-    }
-
-    internal static bool TryParseCommandMessage(GameWebSocketOperationDto operation, out GameClientMessage message)
-    {
-        message = default!;
-        try
-        {
-            if (TryDeserializeOperationPayload(operation, out CommandPayload? operationPayload) && operationPayload?.Command is not null)
-            {
-                if (string.IsNullOrWhiteSpace(operationPayload.Command.Type) ||
-                    string.IsNullOrWhiteSpace(operationPayload.Command.PlayerId))
-                {
-                    return false;
-                }
-
-                message = new GameClientMessage("Command", operationPayload.Command, operationPayload.State);
-                return true;
-            }
-
-            return false;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
-
-    internal static bool TryParseChatMessage(GameWebSocketOperationDto operation, out GameChatClientMessage message)
-    {
-        message = default!;
-        try
-        {
-            if (TryDeserializeOperationPayload(operation, out ChatPayload? operationPayload) && operationPayload is not null)
-            {
-                if (string.IsNullOrWhiteSpace(operationPayload.PlayerId) || string.IsNullOrWhiteSpace(operationPayload.Text))
-                {
-                    return false;
-                }
-
-                message = new GameChatClientMessage(
-                    Type: "Chat",
-                    Chat: new GameChatMessage(operationPayload.PlayerId.Trim(), operationPayload.Text.Trim()));
-                return true;
-            }
-
-            return false;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
-
-    internal static bool TryParseJoinPayload(GameWebSocketOperationDto operation, out string playerId)
-    {
-        playerId = string.Empty;
-        try
-        {
-            if (TryDeserializeOperationPayload(operation, out JoinPayload? operationPayload) && operationPayload is not null)
-            {
-                if (string.IsNullOrWhiteSpace(operationPayload.PlayerId))
-                {
-                    return false;
-                }
-
-                playerId = operationPayload.PlayerId.Trim();
-                return true;
-            }
-
-            return false;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
-
-    internal static bool TryParseCreatePayload(GameWebSocketOperationDto operation, out string playerId, out JsonElement payload)
-    {
-        playerId = string.Empty;
-        payload = EmptyObjectPayload;
-        try
-        {
-            if (TryDeserializeOperationPayload(operation, out CreatePayload? operationPayload) && operationPayload is not null)
-            {
-                if (string.IsNullOrWhiteSpace(operationPayload.PlayerId))
-                {
-                    return false;
-                }
-
-                playerId = operationPayload.PlayerId.Trim();
-                payload = operationPayload.Payload.ValueKind is JsonValueKind.Undefined
-                    ? EmptyObjectPayload
-                    : operationPayload.Payload.Clone();
-                return true;
-            }
-
-            return false;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
-
-    private static bool TryDeserializeOperationPayload<TPayload>(GameWebSocketOperationDto operation, out TPayload? payload)
-    {
-        payload = default;
-
-        try
-        {
-            if (operation.Payload.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
-            {
-                return false;
-            }
-
-            payload = JsonSerializer.Deserialize<TPayload>(operation.Payload.GetRawText(), SerializerOptions);
-            return payload is not null;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
     }
 
     private static GameRoomResponse ToRoomResponse(GameRoom room)
@@ -408,9 +327,5 @@ public sealed class GameWebSocketHandler
         }
     }
 
-    private sealed record JoinPayload(string PlayerId);
-    private sealed record CreatePayload(string PlayerId, JsonElement Payload);
-    private sealed record ChatPayload(string PlayerId, string Text);
-    private sealed record CommandPayload(GameCommand Command, GameStateSnapshot? State);
     internal sealed record OperationContext(string GameId, WebSocket Socket, Guid ClientId);
 }

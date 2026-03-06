@@ -2,7 +2,7 @@ using Haggis.Infrastructure.Services.Models;
 
 namespace Haggis.Infrastructure.Services.WebSocketHandlers.GameWebSocketHandlingStrategies;
 
-internal sealed class CreateOperationStrategy : IGameOperationStrategy
+internal sealed class CreateOperationStrategy : IGameOperationStrategy<GameWebSocketCreateOperationDto>
 {
     private readonly GameWebSocketHandler _handler;
 
@@ -11,13 +11,10 @@ internal sealed class CreateOperationStrategy : IGameOperationStrategy
         _handler = handler;
     }
 
-    public async Task HandleAsync(GameWebSocketHandler.OperationContext context, GameWebSocketOperationDto operation, CancellationToken cancellationToken)
+    public async Task HandleAsync(GameWebSocketHandler.OperationContext context, GameWebSocketCreateOperationDto operation, CancellationToken cancellationToken)
     {
-        if (!GameWebSocketHandler.TryParseCreatePayload(operation, out var playerId, out var payload))
-        {
-            await GameWebSocketHandler.SendOperationErrorAsync(context.Socket, "create", context.GameId, "Invalid create payload.", cancellationToken);
-            return;
-        }
+        var payloadDto = operation.Payload!;
+        var playerId = payloadDto.PlayerId.Trim();
 
         GameRoom? room;
         if (!_handler.RoomStore.TryJoinRoom(context.GameId, playerId, out room) || room is null)
@@ -32,7 +29,7 @@ internal sealed class CreateOperationStrategy : IGameOperationStrategy
             Command: new GameCommand(
                 Type: "Initialize",
                 PlayerId: playerId,
-                Payload: payload),
+                Payload: (payloadDto.Payload ?? new GameWebSocketCreateOptionsDto()).ToGameCommandPayload()),
             State: null);
 
         var outgoing = _handler.ApplicationService.Handle(context.GameId, initializeMessage);
@@ -42,6 +39,10 @@ internal sealed class CreateOperationStrategy : IGameOperationStrategy
             return;
         }
 
-        await _handler.BroadcastAsync(context.GameId, "create", outgoing, cancellationToken);
+        var response = outgoing with { MessageKind = "response" };
+        await GameWebSocketHandler.SendToClientAsync(context.Socket, "create", response, cancellationToken);
+
+        var eventMessage = outgoing with { MessageKind = "event" };
+        await _handler.BroadcastExceptAsync(context.GameId, context.Socket, "create", eventMessage, cancellationToken);
     }
 }
