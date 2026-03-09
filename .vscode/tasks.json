@@ -2,12 +2,12 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build HaggisRuntime",
+      "label": "build Haggis.ConsoleUI",
       "type": "process",
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/haggis-platform/backend/src/Game.Engine/HaggisRuntime/HaggisRuntime.csproj"
+        "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI/HaggisRuntime.csproj"
       ],
       "problemMatcher": "$msCompile"
     },

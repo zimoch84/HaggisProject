@@ -1,6 +1,80 @@
 {
   "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "Haggis Server + ConsoleUI",
+      "configurations": [
+        "Haggis.Infrastructure WebSocket (.NET)",
+        "Haggis.ConsoleUI Remote (.NET)"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Haggis Server + Piotr + Bartek",
+      "configurations": [
+        "Haggis.Infrastructure WebSocket (.NET)",
+        "Haggis.ConsoleUI Remote Piotr (.NET)",
+        "Haggis.ConsoleUI Remote Bartek (.NET)"
+      ],
+      "stopAll": true
+    }
+  ],
   "configurations": [
+    {
+      "name": "Haggis.ConsoleUI (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.ConsoleUI",
+      "program": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI/bin/Debug/net8.0/HaggisRuntime.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI",
+      "stopAtEntry": false,
+      "console": "externalTerminal"
+    },
+    {
+      "name": "Haggis.ConsoleUI Remote (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.ConsoleUI",
+      "program": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI/bin/Debug/net8.0/HaggisRuntime.dll",
+      "args": [
+        "remote",
+        "http://localhost:5555"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI",
+      "stopAtEntry": false,
+      "console": "externalTerminal"
+    },
+    {
+      "name": "Haggis.ConsoleUI Remote Piotr (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.ConsoleUI",
+      "program": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI/bin/Debug/net8.0/HaggisRuntime.dll",
+      "args": [
+        "remote",
+        "http://localhost:5555",
+        "--user=piotr"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI",
+      "stopAtEntry": false,
+      "console": "externalTerminal"
+    },
+    {
+      "name": "Haggis.ConsoleUI Remote Bartek (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.ConsoleUI",
+      "program": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI/bin/Debug/net8.0/HaggisRuntime.dll",
+      "args": [
+        "remote",
+        "http://localhost:5555",
+        "--user=bartek"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI",
+      "stopAtEntry": false,
+      "console": "externalTerminal"
+    },
     {
       "name": "Haggis.Infrastructure WebSocket (.NET)",
       "type": "coreclr",
