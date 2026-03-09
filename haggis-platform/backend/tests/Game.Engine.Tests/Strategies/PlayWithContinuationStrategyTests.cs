@@ -18,7 +18,7 @@ namespace HaggisTests.Strategies
         IHaggisPlayer Piotr = new HaggisPlayer("Piotr");
         IHaggisPlayer Slawek = new HaggisPlayer("Sławek");
         IHaggisPlayer Robert = new HaggisPlayer("Robert");
-        HaggisGameState gameState;
+        RoundState gameState;
 
 
         [SetUp]
@@ -27,7 +27,7 @@ namespace HaggisTests.Strategies
             Piotr.Hand = new List<String> { "2Y", "3Y", "4B", "4O", "4G", "5B", "5O", "6O", "7Y","7O","7G", "J" }.ToCards();
             Slawek.Hand = new List<String> { "2G", "4G" }.ToCards();
             Robert.Hand = new List<String> { "3O", "3B" }.ToCards();
-            gameState = new HaggisGameState(new List<IHaggisPlayer> { Piotr, Slawek, Robert });
+            gameState = new RoundState(new List<IHaggisPlayer> { Piotr, Slawek, Robert });
 
         }
         [Test]
@@ -50,7 +50,7 @@ namespace HaggisTests.Strategies
             Slawek.Hand = new List<String> { "2G", "4G" }.ToCards();
             Robert.Hand = new List<String> { "3O", "3B" }.ToCards();
 
-            gameState = new HaggisGameState(new List<IHaggisPlayer> { Piotr, Slawek, Robert });
+            gameState = new RoundState(new List<IHaggisPlayer> { Piotr, Slawek, Robert });
 
             var strategy = new ContinuationStrategy(false, true);
 
@@ -69,7 +69,7 @@ namespace HaggisTests.Strategies
             Slawek.Hand = new List<String> { "2G", "4G" }.ToCards();
             Robert.Hand = new List<String> { "3O", "3B" }.ToCards();
 
-            gameState = new HaggisGameState(new List<IHaggisPlayer> { Slawek, Piotr, Robert });
+            gameState = new RoundState(new List<IHaggisPlayer> { Slawek, Piotr, Robert });
 
             var strategy = new ContinuationStrategy(false, true);
 
@@ -89,20 +89,16 @@ namespace HaggisTests.Strategies
 
            
 
-            piotr.PlayStrategy = new ContinuationStrategy(false, true);
-            slawek.PlayStrategy = new ContinuationStrategy(false, true);
-            robert.PlayStrategy = new ContinuationStrategy(false, true);
-
-            piotr.StartingTrickFilterStrategy = new FilterContinuations(8, false);
-            slawek.StartingTrickFilterStrategy = new FilterContinuations(8, false);
-            robert.StartingTrickFilterStrategy = new FilterContinuations(8, false);
+            piotr.PlayStrategy = new HeuristicPlayStrategy(new FilterContinuations(8, false), new ContinuationTrickStrategy(false, true));
+            slawek.PlayStrategy = new HeuristicPlayStrategy(new FilterContinuations(8, false), new ContinuationTrickStrategy(false, true));
+            robert.PlayStrategy = new HeuristicPlayStrategy(new FilterContinuations(8, false), new ContinuationTrickStrategy(false, true));
 
 
             piotr.Hand = new List<string> { "2Y", "3Y", "4B", "5B", "J" }.ToCards();
             slawek.Hand = new List<string> { "2G", "4G", "6O", "Q" }.ToCards();
             robert.Hand = new List<string> { "3O", "3B", "7R", "K" }.ToCards();
 
-            var gameState = new HaggisGameState(new List<IHaggisPlayer> { piotr, slawek, robert });
+            var gameState = new RoundState(new List<IHaggisPlayer> { piotr, slawek, robert });
             var safeguard = 0;
 
             while (!gameState.RoundOver())

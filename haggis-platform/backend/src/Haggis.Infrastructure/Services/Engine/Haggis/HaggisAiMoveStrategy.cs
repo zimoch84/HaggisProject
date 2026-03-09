@@ -1,12 +1,12 @@
-﻿using Haggis.Application.Engine.Loop;
+using Haggis.Infrastructure.Services.Engine.Loop;
 using Haggis.Domain.Model;
 using Haggis.AI.Model;
 
 namespace Haggis.Infrastructure.Services.Engine.Haggis;
 
-public sealed class HaggisAiMoveStrategy : IAiMoveStrategy<HaggisGameState, HaggisAction>
+public sealed class HaggisAiMoveStrategy : IAiMoveStrategy<RoundState, HaggisAction>
 {
-    public HaggisAction ChooseMove(HaggisGameState state, IReadOnlyList<HaggisAction> legalMoves)
+    public HaggisAction ChooseMove(RoundState state, IReadOnlyList<HaggisAction> legalMoves)
     {
         if (state.CurrentPlayer is AIPlayer aiPlayer)
         {

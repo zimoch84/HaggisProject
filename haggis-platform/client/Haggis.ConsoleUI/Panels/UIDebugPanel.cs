@@ -27,7 +27,7 @@ public class UIDebugPanel : PanelRegionBase
 
     }
 
-    public override void ApplyTextBuffer(HaggisGameState state)
+    public override void ApplyTextBuffer(RoundState state)
     {
     }
 }

@@ -9,7 +9,7 @@ namespace Haggis.Domain.Model
 {
     /**
      *
-     * @author Piotr Grudzieñ
+     * @author Piotr GrudzieÅ„
      */
 
     public class Trick : IComparable, ICloneable, IEquatable<Trick>

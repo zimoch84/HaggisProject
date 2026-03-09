@@ -1,133 +1,78 @@
-using Haggis.Domain.Enums;
-using Haggis.Domain.Extentions;
-using static Haggis.Domain.Enums.Rank;
-using static Haggis.Domain.Enums.Suit;
 using System;
 using System.Collections.Generic;
-using Haggis.Domain.Interfaces;
 using System.Linq;
+using Haggis.Domain.Interfaces;
+using Haggis.Domain.Services;
 
 namespace Haggis.Domain.Model
 {
     public partial class HaggisGame
     {
-        public static int HAND_RUNS_OUT_MULTIPLAYER = 5;
-        static Random r;
-        private List<Card> _cards { get; }
-        private readonly List<IHaggisPlayer> _players;
-        private readonly IHaggisScoringStrategy _scoringStrategy;
+        private ScoringTableService ScoringTableService { get; }
+        private HaggisDeckDealer DeckDealer { get; set; }
+        private List<IHaggisPlayer> Players { get; }
+        private int Seed { get; set; }
+        public int CurrentRoundNumber { get; private set; }
+        public int BaseSeed => Seed;
 
-        private int _winScore = 250;
-        public IHaggisScoringStrategy ScoringStrategy => _scoringStrategy;
+        public ScoringTable ScoringTable { get; }
+        public IHaggisScoringStrategy ScoringStrategy { get; private set; }
+        public RoundScoringResult PreviousRoundResult => ScoringTable.GetLastRoundScore();
 
-        public HaggisGame(List<IHaggisPlayer> players, IHaggisScoringStrategy scoringStrategy = null)
+        public HaggisGame(
+            List<IHaggisPlayer> players,
+            IHaggisScoringStrategy scoringStrategy = null,
+            ScoringTableService scoringTableService = null)
         {
-            _players = players;
-            _scoringStrategy = scoringStrategy ?? new ClassicHaggisScoringStrategy();
-            _cards = new List<Card>();
-            _cards = AllCards();
-            SetSeed(Environment.TickCount);
+            Players = (players ?? new List<IHaggisPlayer>()).ToList();
+            ScoringStrategy = scoringStrategy ?? new ClassicHaggisScoringStrategy();
+            ScoringTableService = scoringTableService ?? new ScoringTableService();
+            Seed = Environment.TickCount;
+            CurrentRoundNumber = 0;
+            ScoringTable = new ScoringTable();
         }
 
         public void SetSeed(int seed)
         {
-            r = new Random(seed);
-            _cards.Shuffle();
+            Seed = seed;
         }
 
-        public void SetWinScore(int score)
+        public string GetPreviousRoundWinnerName()
         {
-            _winScore = score;
+            return PreviousRoundResult?.WinnerPlayerName;
         }
 
-        public List<Card> AllCards()
+        public void RegisterRoundScoringResult(RoundState state)
         {
+            if (state is null || !state.RoundOver())
+            {
+                return;
+            }
 
-            List<Card> allCards = new List<Card>();
-
-            allCards.Add(new Card(TWO, RED));
-            allCards.Add(new Card(THREE, RED));
-            allCards.Add(new Card(FOUR, RED));
-            allCards.Add(new Card(FIVE, RED));
-            allCards.Add(new Card(SIX, RED));
-            allCards.Add(new Card(SEVEN, RED));
-            allCards.Add(new Card(EIGHT, RED));
-            allCards.Add(new Card(NINE, RED));
-            allCards.Add(new Card(TEN, RED));
-
-            allCards.Add(new Card(TWO, GREEN));
-            allCards.Add(new Card(THREE, GREEN));
-            allCards.Add(new Card(FOUR, GREEN));
-            allCards.Add(new Card(FIVE, GREEN));
-            allCards.Add(new Card(SIX, GREEN));
-            allCards.Add(new Card(SEVEN, GREEN));
-            allCards.Add(new Card(EIGHT, GREEN));
-            allCards.Add(new Card(NINE, GREEN));
-            allCards.Add(new Card(TEN, GREEN));
-
-            allCards.Add(new Card(TWO, ORANGE));
-            allCards.Add(new Card(THREE, ORANGE));
-            allCards.Add(new Card(FOUR, ORANGE));
-            allCards.Add(new Card(FIVE, ORANGE));
-            allCards.Add(new Card(SIX, ORANGE));
-            allCards.Add(new Card(SEVEN, ORANGE));
-            allCards.Add(new Card(EIGHT, ORANGE));
-            allCards.Add(new Card(NINE, ORANGE));
-            allCards.Add(new Card(TEN, ORANGE));
-
-            allCards.Add(new Card(TWO, YELLOW));
-            allCards.Add(new Card(THREE, YELLOW));
-            allCards.Add(new Card(FOUR, YELLOW));
-            allCards.Add(new Card(FIVE, YELLOW));
-            allCards.Add(new Card(SIX, YELLOW));
-            allCards.Add(new Card(SEVEN, YELLOW));
-            allCards.Add(new Card(EIGHT, YELLOW));
-            allCards.Add(new Card(NINE, YELLOW));
-            allCards.Add(new Card(TEN, YELLOW));
-
-            allCards.Add(new Card(TWO, BLACK));
-            allCards.Add(new Card(THREE, BLACK));
-            allCards.Add(new Card(FOUR, BLACK));
-            allCards.Add(new Card(FIVE, BLACK));
-            allCards.Add(new Card(SIX, BLACK));
-            allCards.Add(new Card(SEVEN, BLACK));
-            allCards.Add(new Card(EIGHT, BLACK));
-            allCards.Add(new Card(NINE, BLACK));
-            allCards.Add(new Card(TEN, BLACK));
-
-            return allCards;
-        }
-
-        public List<Card> DealTopXCards(int x)
-        {
-            var dealCards = _cards.GetRange(0, x);
-            _cards.RemoveRange(0, x);
-            dealCards.Add(Rank.JACK.ToCard());
-            dealCards.Add(Rank.QUEEN.ToCard());
-            dealCards.Add(Rank.KING.ToCard());
-
-            return dealCards;
-        }
-
-        private List<Card> DealSetupCards()
-        {
-            var dealCards = _cards.GetRange(0, 14);
-            _cards.RemoveRange(0, 14);
-            dealCards.Add(Rank.JACK.ToCard());
-            dealCards.Add(Rank.QUEEN.ToCard());
-            dealCards.Add(Rank.KING.ToCard());
-            return dealCards;
-        
-        }
-
-        public void NewRound()
-        {
-          _players.ToList().ForEach(p => p.Hand = DealSetupCards());
+            ScoringTable.AddRoundScore(ScoringTableService.BuildRoundScoringResult(state));
         }
 
         public bool GameOver()
         {
-            return _players.Any(p => p.Score >= _winScore);
+            return Players.Any(player => ScoringTable.TotalScore(player) >= ScoringStrategy.GameOverScore);
+        }
+
+        public RoundState NewRound()
+        {
+            CurrentRoundNumber++;
+            var roundSeed = unchecked(Seed + CurrentRoundNumber * 7919);
+            DeckDealer = new HaggisDeckDealer(roundSeed);
+            Players.ForEach(player =>
+            {
+                player.Discard.Clear();
+                player.Score = 0;
+                player.OpponentRemainingCardsOnFinish = -1;
+                player.Hand = DeckDealer.DealSetupCards();
+            });
+
+            var orderedPlayers = ScoringTableService.BuildRoundPlayersOrder(Players, ScoringTable).ToList();
+            var haggisCards = DeckDealer.GetHaggisCards().ToList();
+            return new RoundState(orderedPlayers, ScoringStrategy, CurrentRoundNumber, moveIteration: 0, haggisCards: haggisCards);
         }
     }
 }

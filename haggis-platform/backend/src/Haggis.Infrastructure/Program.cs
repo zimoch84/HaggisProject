@@ -1,24 +1,24 @@
-using Haggis.Application.Engine.Loop;
 using System.Net.WebSockets;
 using Haggis.Infrastructure.Services.Application;
 using Haggis.Infrastructure.Services.Engine;
 using Haggis.Infrastructure.Services.Engine.Haggis;
-using Haggis.Infrastructure.Services.GameRooms;
-using Haggis.Infrastructure.Services.Hubs;
+using Haggis.Infrastructure.Services.Engine.Loop;
 using Haggis.Infrastructure.Services.Interfaces;
-using Haggis.Infrastructure.Services;
+using Haggis.Infrastructure.Services.Infrastructure;
 using Haggis.Infrastructure.Services.Models;
-using Haggis.Infrastructure.Services.Infrastructure.Sessions;
+using Haggis.Infrastructure.Services.WebSocketHandlers;
 using Haggis.Domain.Model;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSingleton<IAiMoveStrategy<HaggisGameState, HaggisAction>, HaggisAiMoveStrategy>();
-builder.Services.AddSingleton<IMoveRuleValidator<HaggisGameState, HaggisAction, GameCommand>, HaggisMoveRuleValidator>();
+builder.Services.AddSingleton<IAiMoveStrategy<RoundState, HaggisAction>, HaggisAiMoveStrategy>();
+builder.Services.AddSingleton<IMoveRuleValidator<RoundState, HaggisAction, GameCommand>, HaggisMoveRuleValidator>();
 builder.Services.AddSingleton<HaggisServerGameLoop>();
 builder.Services.AddSingleton<IGameEngine, HaggisGameEngine>();
 builder.Services.AddSingleton<IGameSessionStore, GameSessionStore>();
+builder.Services.AddSingleton<IGameCommandAuditLogger, FileGameCommandAuditLogger>();
 builder.Services.AddSingleton<IGameCommandApplicationService, GameCommandApplicationService>();
-builder.Services.AddSingleton<GameWebSocketHub>();
+builder.Services.AddSingleton<GameWebSocketHandler>();
+builder.Services.AddSingleton<IGameConnectionManager, GameConnectionManager>();
 builder.Services.AddSingleton<IGameRoomStore, GameRoomStore>();
 builder.Services.AddSingleton<IGlobalChatHistoryStore, InMemoryGlobalChatHistoryStore>();
 builder.Services.AddSingleton<GlobalChatHub>();
@@ -37,7 +37,7 @@ app.MapGet("/", () => "Haggis.Infrastructure is running.");
 app.Map("/ws/global/chat", (HttpContext context, ChatWebSocketHandler handler) =>
     handler.HandleGlobalChatAsync(context));
 
-app.Map("/ws/games/{gameId}", async (HttpContext context, GameWebSocketHub hub, string gameId) =>
+app.Map("/ws/games/{gameId}", async (HttpContext context, GameWebSocketHandler hub, string gameId) =>
 {
     if (!context.WebSockets.IsWebSocketRequest)
     {

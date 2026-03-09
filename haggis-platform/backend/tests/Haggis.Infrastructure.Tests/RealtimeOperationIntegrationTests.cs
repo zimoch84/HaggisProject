@@ -344,6 +344,51 @@ public class RealtimeOperationIntegrationTests
         Assert.That(GetRequiredPropertyIgnoreCase(doc.RootElement, "error").GetString(), Does.Contain("Unsupported operation"));
     }
 
+    [Test]
+    public async Task GameOperation_Snapshot_ReturnsCurrentStateAsResponse()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var cancellationToken = timeoutCts.Token;
+        const string gameId = "snapshot-op";
+
+        var wsClient = factory.Server.CreateWebSocketClient();
+        using var socket = await wsClient.ConnectAsync(new Uri($"ws://localhost/ws/games/{gameId}"), cancellationToken);
+
+        await SendJsonAsync(socket, new { operation = "join", payload = new { playerId = "alice" } }, cancellationToken);
+        _ = await ReceiveByTypeAsync(socket, "RoomJoined", cancellationToken);
+
+        await SendJsonAsync(socket, new
+        {
+            operation = "create",
+            payload = new
+            {
+                playerId = "alice",
+                payload = new
+                {
+                    players = new[] { "alice", "bob" },
+                    playerCount = 2,
+                    seed = 123
+                }
+            }
+        }, cancellationToken);
+        _ = await ReceiveByTypeAsync(socket, "CommandApplied", cancellationToken);
+
+        await SendJsonAsync(socket, new
+        {
+            operation = "snapshot",
+            payload = new
+            {
+                playerId = "alice"
+            }
+        }, cancellationToken);
+
+        var snapshot = await ReceiveByTypeAsync(socket, "GameSnapshot", cancellationToken);
+        Assert.That(GetRequiredPropertyIgnoreCase(snapshot, "messageKind").GetString(), Is.EqualTo("response"));
+        Assert.That(GetRequiredPropertyIgnoreCase(snapshot, "State").ValueKind, Is.EqualTo(JsonValueKind.Object));
+        Assert.That(GetRequiredPropertyIgnoreCase(GetRequiredPropertyIgnoreCase(snapshot, "State"), "Data").ValueKind, Is.EqualTo(JsonValueKind.Object));
+    }
+
     private static async Task SendJsonAsync(WebSocket socket, object payload, CancellationToken cancellationToken)
     {
         var text = JsonSerializer.Serialize(payload);

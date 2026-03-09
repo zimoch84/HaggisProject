@@ -9,7 +9,7 @@ public class UITrickPanel : PanelRegionBase
         IsVisible = true;
     }
 
-    override public void ApplyTextBuffer(HaggisGameState state)
+    override public void ApplyTextBuffer(RoundState state)
     {
         TextBuffer.Clear();
         foreach (var action in state.CurrentTrickPlay.Actions)
@@ -23,7 +23,7 @@ public class UITrickPanel : PanelRegionBase
         }
     }
 
-    private ConsoleColor GetPlayerColor(IHaggisPlayer player, HaggisGameState state)
+    private ConsoleColor GetPlayerColor(IHaggisPlayer player, RoundState state)
     {
         var palette = new[]
         {

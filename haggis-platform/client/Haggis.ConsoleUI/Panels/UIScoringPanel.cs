@@ -8,7 +8,7 @@ public class UIScoringPanel : PanelRegionBase
         IsVisible = false;
     }
 
-    override public void ApplyTextBuffer(HaggisGameState state)
+    override public void ApplyTextBuffer(RoundState state)
     {
 
         try
@@ -20,7 +20,7 @@ public class UIScoringPanel : PanelRegionBase
 
             IsVisible = true;
 
-            // zawartoœæ: lista graczy i wyniki (w TextBuffer zapisujemy zawartoœæ wnêtrza regionu)
+            // zawartoï¿½ï¿½: lista graczy i wyniki (w TextBuffer zapisujemy zawartoï¿½ï¿½ wnï¿½trza regionu)
             int maxLines = TextBuffer.Height;
             var players = state?.Players ?? Enumerable.Empty<IHaggisPlayer>();
             int line = 0;
@@ -43,7 +43,7 @@ public class UIScoringPanel : PanelRegionBase
                 line++;
             }
 
-            // jeœli brak graczy to info
+            // jeï¿½li brak graczy to info
             if (!players.Any())
             {
                 TextBuffer.WriteLine("Brak graczy".PadRight(Math.Max(0, TextBuffer.Width)));
@@ -52,7 +52,7 @@ public class UIScoringPanel : PanelRegionBase
         }
         catch
         {
-            // bezpieczne ignorowanie b³êdów rysowania
+            // bezpieczne ignorowanie bï¿½ï¿½dï¿½w rysowania
         }
     }
 }

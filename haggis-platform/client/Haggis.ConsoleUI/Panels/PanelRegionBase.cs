@@ -35,20 +35,20 @@ public abstract class PanelRegionBase
         int relX = System.Math.Max(0, x);
         int relY = System.Math.Max(0, y);
 
-        // Jeœli start poza regionem - nic do zrobienia
+        // Jeï¿½li start poza regionem - nic do zrobienia
         if (relY >= Height || relX >= Width)
             return;
 
         int absX = X + relX;
         int absY = Y + relY;
 
-        // Przytnij tekst, by nie wychodzi³ poza praw¹ krawêdŸ regionu
+        // Przytnij tekst, by nie wychodziï¿½ poza prawï¿½ krawï¿½dï¿½ regionu
         int maxLen = Width - relX;
         string outText = text.Length <= maxLen ? text : text.Substring(0, maxLen);
 
         try
         {
-            // Dodatkowe zabezpieczenie przed ujemnymi globalnymi wspó³rzêdnymi
+            // Dodatkowe zabezpieczenie przed ujemnymi globalnymi wspï¿½rzï¿½dnymi
             if (absX < 0 || absY < 0)
                 return;
 
@@ -57,8 +57,8 @@ public abstract class PanelRegionBase
         }
         catch
         {
-            // Celowo ignorujemy wyj¹tki zwi¹zane z pozycjonowaniem kursora lub IO,
-            // aby metoda pozosta³a "bezpieczna" i nie przerywa³a dzia³ania programu.
+            // Celowo ignorujemy wyjï¿½tki zwiï¿½zane z pozycjonowaniem kursora lub IO,
+            // aby metoda pozostaï¿½a "bezpieczna" i nie przerywaï¿½a dziaï¿½ania programu.
         }
     }
 
@@ -72,9 +72,9 @@ public abstract class PanelRegionBase
         topSb.Append('-');
         if (Width > 2)
         {
-            for (int i = 0; i < Width - 2; i++) topSb.Append('¦');
+            for (int i = 0; i < Width - 2; i++) topSb.Append('ï¿½');
         }
-        if (Width > 1) topSb.Append('¬');
+        if (Width > 1) topSb.Append('ï¿½');
 
         SafeWrite(0, 0, topSb.ToString());
 
@@ -83,7 +83,7 @@ public abstract class PanelRegionBase
         bottomSb.Append('L');
         if (Width > 2)
         {
-            for (int i = 0; i < Width - 2; i++) bottomSb.Append('¦');
+            for (int i = 0; i < Width - 2; i++) bottomSb.Append('ï¿½');
         }
         if (Width > 1) bottomSb.Append('-');
 
@@ -96,13 +96,13 @@ public abstract class PanelRegionBase
             SafeWrite(Width - 1, y, "-");
         }
 
-        // Wstaw nag³ówek (jeœli istnieje) w górn¹ krawêdŸ, wyœrodkowany pomiêdzy naro¿nikami
+        // Wstaw nagï¿½ï¿½wek (jeï¿½li istnieje) w gï¿½rnï¿½ krawï¿½dï¿½, wyï¿½rodkowany pomiï¿½dzy naroï¿½nikami
         if (!string.IsNullOrEmpty(_header))
         {
             int innerWidth = Width - 2;
             if (innerWidth > 0)
             {
-                // Dodaj spacje dooko³a headera dla lepszego wygl¹du
+                // Dodaj spacje dookoï¿½a headera dla lepszego wyglï¿½du
                 string hdr = " " + _header + " ";
                 if (hdr.Length > innerWidth)
                     hdr = hdr.Substring(0, innerWidth);
@@ -119,12 +119,12 @@ public abstract class PanelRegionBase
 
         var prevColor = Console.ForegroundColor;
 
-        // Rysujemy zawartoœæ TextBuffer przesuniêt¹ o 1x,1y aby nie nadpisywaæ ramki/nag³ówka
+        // Rysujemy zawartoï¿½ï¿½ TextBuffer przesuniï¿½tï¿½ o 1x,1y aby nie nadpisywaï¿½ ramki/nagï¿½ï¿½wka
         int maxRow = TextBuffer.Height;
         for (int y = 0; y < maxRow; y++)
         {
-            int absY = Y + 1 + y; // przesuniêcie w dó³ o 1 (poza górn¹ ramkê)
-            // Jeœli poza doln¹ granic¹ lub ujemne - pomiñ
+            int absY = Y + 1 + y; // przesuniï¿½cie w dï¿½ o 1 (poza gï¿½rnï¿½ ramkï¿½)
+            // Jeï¿½li poza dolnï¿½ granicï¿½ lub ujemne - pomiï¿½
             if (absY < 0 || absY > Bottom - 1)
                 continue;
 
@@ -133,7 +133,7 @@ public abstract class PanelRegionBase
             foreach (var seg in segments)
             {
                 if (string.IsNullOrEmpty(seg.Text)) continue;
-                int absX = X + 1 + seg.X; // przesuniêcie w prawo o 1 (poza lew¹ ramkê)
+                int absX = X + 1 + seg.X; // przesuniï¿½cie w prawo o 1 (poza lewï¿½ ramkï¿½)
                 if (absX < 0 || absX > Right - 1) continue;
 
                 try
@@ -144,7 +144,7 @@ public abstract class PanelRegionBase
                 }
                 catch
                 {
-                    // ignorujemy b³êdy pozycji kursora/IO
+                    // ignorujemy bï¿½ï¿½dy pozycji kursora/IO
                 }
             }
         }
@@ -152,7 +152,7 @@ public abstract class PanelRegionBase
         Console.ForegroundColor = prevColor;
     }
 
-    public void DrawState(HaggisGameState state)
+    public void DrawState(RoundState state)
     {
         ApplyTextBuffer(state);
         if (IsVisible)
@@ -161,6 +161,6 @@ public abstract class PanelRegionBase
         }
     }
 
-    public abstract void ApplyTextBuffer(HaggisGameState state);
+    public abstract void ApplyTextBuffer(RoundState state);
 
 }

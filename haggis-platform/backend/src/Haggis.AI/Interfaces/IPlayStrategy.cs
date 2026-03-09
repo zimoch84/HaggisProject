@@ -4,6 +4,6 @@ namespace Haggis.AI.Interfaces
 {
     public interface IPlayStrategy
     {
-        HaggisAction GetPlayingAction(HaggisGameState gameState);
+        HaggisAction GetPlayingAction(RoundState gameState);
     }
 }

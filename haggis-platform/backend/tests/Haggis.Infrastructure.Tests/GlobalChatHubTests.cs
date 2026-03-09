@@ -2,9 +2,10 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using NUnit.Framework;
 using Haggis.Infrastructure.Dtos.Chat;
-using Haggis.Infrastructure.Services;
+using Haggis.Infrastructure.Services.Infrastructure;
+using Haggis.Infrastructure.Services.WebSocketHandlers;
+using NUnit.Framework;
 
 namespace Haggis.Infrastructure.Tests;
 

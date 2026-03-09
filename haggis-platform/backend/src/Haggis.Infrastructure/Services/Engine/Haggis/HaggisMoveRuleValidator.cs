@@ -1,13 +1,14 @@
-using Haggis.Application.Engine.Loop;
+using Haggis.Infrastructure.Services.Engine.Loop;
+using Haggis.AI.Model;
 using Haggis.Infrastructure.Services.Models;
 using Haggis.Domain.Model;
 
 namespace Haggis.Infrastructure.Services.Engine.Haggis;
 
-public sealed class HaggisMoveRuleValidator : IMoveRuleValidator<HaggisGameState, HaggisAction, GameCommand>
+public sealed class HaggisMoveRuleValidator : IMoveRuleValidator<RoundState, HaggisAction, GameCommand>
 {
     public MoveValidationResult Validate(
-        HaggisGameState state,
+        RoundState state,
         GameCommand command,
         HaggisAction move,
         IReadOnlyList<HaggisAction> legalMoves)
@@ -27,7 +28,7 @@ public sealed class HaggisMoveRuleValidator : IMoveRuleValidator<HaggisGameState
                 return MoveValidationResult.Failure($"It is not '{command.PlayerId}' turn.");
             }
         }
-        else if (!state.CurrentPlayer.IsAI)
+        else if (state.CurrentPlayer is not AIPlayer)
         {
             return MoveValidationResult.Failure("PlayerId is required for non-AI turn.");
         }
@@ -41,3 +42,4 @@ public sealed class HaggisMoveRuleValidator : IMoveRuleValidator<HaggisGameState
         return MoveValidationResult.Success();
     }
 }
+

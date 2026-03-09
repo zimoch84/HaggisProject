@@ -1,6 +1,7 @@
-using Haggis.Domain.Enums;
+﻿using Haggis.Domain.Enums;
 using Haggis.Domain.Extentions;
 using Haggis.Domain.Model;
+using Haggis.Domain.Services;
 using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +12,7 @@ namespace HaggisTests
     [TestFixture]
     internal class TrickTests
     {
+        private readonly MoveGenerationService _moveGenerationService = new MoveGenerationService();
 
         [TestCase(PAIR, 1, 10)]
         [TestCase(PAIR, 2, 20)]
@@ -38,7 +40,11 @@ namespace HaggisTests
         {
             var player = new HaggisPlayer("AS");
             player.Hand = GenerateFiveTheSameCardsFrom2(numberOfCards);
-            var possibleTricks = player.AllPossibleTricks(trickType);
+            var possibleTricks = _moveGenerationService.GetPossibleOpeningTricks(player);
+            if (trickType.HasValue)
+            {
+                possibleTricks = possibleTricks.Where(t => t.Type == trickType.Value).ToList();
+            }
             CheckTricks(possibleTricks);
 
             Assert.That(possibleTricks, Has.Exactly(expectedCount).Items);
@@ -61,7 +67,7 @@ namespace HaggisTests
             player.Hand = GenerateFiveTheSameCardsFrom2(numberOfCards);
 
             var trick = trickString.ToTrick();
-            var possibleTricks = player.SuggestedTricks(trick);
+            var possibleTricks = _moveGenerationService.GetPossibleContinuationTricks(player, trick);
 
             CheckTricks(possibleTricks);
 
@@ -252,3 +258,4 @@ namespace HaggisTests
         }
     }
 }
+

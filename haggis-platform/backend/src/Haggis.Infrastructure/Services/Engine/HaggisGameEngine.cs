@@ -1,6 +1,7 @@
 using System.Text.Json;
-using Haggis.Infrastructure.Services.Engine.Haggis;
+using Haggis.AI.Model;
 using Haggis.Domain.Model;
+using Haggis.Infrastructure.Services.Engine.Haggis;
 using Haggis.Infrastructure.Services.Interfaces;
 using Haggis.Infrastructure.Services.Models;
 
@@ -8,11 +9,11 @@ namespace Haggis.Infrastructure.Services.Engine;
 
 public sealed class HaggisGameEngine : IGameEngine
 {
-    private readonly HaggisServerGameLoop _gameLoop;
+    private HaggisServerGameLoop GameLoop { get; }
 
     public HaggisGameEngine(HaggisServerGameLoop gameLoop)
     {
-        _gameLoop = gameLoop;
+        GameLoop = gameLoop;
     }
 
     public GameStateSnapshot CreateInitialState(string gameId)
@@ -22,9 +23,24 @@ public sealed class HaggisGameEngine : IGameEngine
 
     public GameStateSnapshot SimulateNext(string gameId, GameStateSnapshot state, GameCommand command)
     {
-        var nextData = _gameLoop.TryExecute(gameId, command, out var haggisState, out var appliedMove)
-            ? BuildHaggisStateData(haggisState!, command, appliedMove)
-            : ResolveNextData(state, command);
+        JsonElement nextData;
+        if (GameLoop.TryExecute(gameId, command, out var haggisState, out var appliedMove))
+        {
+            var appliedMoves = new List<HaggisAction>();
+            if (appliedMove is not null)
+            {
+                appliedMoves.Add(appliedMove);
+            }
+            var finalState = AdvanceGameUntilHumanTurnOrGameOver(gameId, haggisState!, appliedMoves);
+            var gameOver = GameLoop.IsGameOver(gameId);
+            var displayedScores = GameLoop.GetDisplayedScores(gameId, finalState);
+            var configuredSeed = GameLoop.GetConfiguredSeed(gameId);
+            nextData = BuildHaggisStateData(finalState, displayedScores, gameOver, configuredSeed, command, appliedMove, appliedMoves);
+        }
+        else
+        {
+            nextData = ResolveNextData(state, command);
+        }
 
         return state with
         {
@@ -34,20 +50,76 @@ public sealed class HaggisGameEngine : IGameEngine
         };
     }
 
-    private static JsonElement BuildHaggisStateData(HaggisGameState state, GameCommand command, HaggisAction? appliedMove)
+    private RoundState AdvanceGameUntilHumanTurnOrGameOver(
+        string gameId,
+        RoundState state,
+        List<HaggisAction> appliedMoves)
     {
+        var safetyCounter = 0;
+        while (safetyCounter++ < 5000)
+        {
+            if (state.RoundOver())
+            {
+                if (!GameLoop.TryCreateNextRound(gameId, state, out var nextRoundState) || nextRoundState is null)
+                {
+                    return state;
+                }
+
+                state = nextRoundState;
+                continue;
+            }
+
+            if (state.CurrentPlayer is not AIPlayer)
+            {
+                return state;
+            }
+
+            if (!GameLoop.TryExecuteAiStep(gameId, out var aiState, out var aiAppliedMove) || aiState is null)
+            {
+                return state;
+            }
+
+            if (aiAppliedMove is not null)
+            {
+                appliedMoves.Add(aiAppliedMove);
+            }
+            state = aiState;
+        }
+
+        throw new InvalidOperationException("AI progression safety threshold was reached.");
+    }
+
+    private static JsonElement BuildHaggisStateData(
+        RoundState state,
+        IReadOnlyDictionary<string, int> displayedScores,
+        bool gameOver,
+        int? configuredSeed,
+        GameCommand command,
+        HaggisAction? appliedMove,
+        IReadOnlyList<HaggisAction> appliedMoves)
+    {
+        var gameOverScore = state.ScoringStrategy.GameOverScore;
+        var roundOver = state.RoundOver();
+
         var data = new
         {
             game = "haggis",
+            seed = configuredSeed,
+            playerCount = state.Players.Count,
+            winScore = gameOverScore,
+            roundNumber = state.RoundNumber,
+            moveIteration = state.MoveIteration,
             currentPlayerId = state.CurrentPlayer.Name,
-            roundOver = state.RoundOver(),
+            roundOver,
+            gameOver,
             players = state.Players.Select(player => new
             {
                 id = player.Name,
-                score = player.Score,
+                score = displayedScores.TryGetValue(player.Name, out var totalScore) ? totalScore : player.Score,
                 handCount = player.Hand.Count,
                 hand = player.Hand.Select(card => card.ToString()),
-                finished = player.Finished
+                finished = player.Finished,
+                isAi = player is AIPlayer
             }),
             trick = state.CurrentTrickPlay.Actions.Select(action => new
             {
@@ -55,7 +127,7 @@ public sealed class HaggisGameEngine : IGameEngine
                 isPass = action.IsPass,
                 desc = action.Desc
             }),
-            possibleActions = state.Actions.Select(action => new
+            possibleActions = state.PossibleActions.Select(action => new
             {
                 type = action.IsPass ? "Pass" : "Play",
                 action = action.Desc
@@ -68,6 +140,12 @@ public sealed class HaggisGameEngine : IGameEngine
                     isPass = appliedMove.IsPass,
                     action = appliedMove.Desc
                 },
+            appliedMoves = appliedMoves.Select(move => new
+            {
+                playerId = move.PlayerName,
+                isPass = move.IsPass,
+                action = move.Desc
+            }),
             lastCommand = new
             {
                 type = command.Type,

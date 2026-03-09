@@ -1,6 +1,7 @@
 using Haggis.Domain.Enums;
 using Haggis.Domain.Model;
 using NUnit.Framework;
+using System.Collections.Generic;
 
 namespace HaggisTests
 {
@@ -68,6 +69,21 @@ namespace HaggisTests
 
             Assert.That(classic.RunOutMultiplier, Is.EqualTo(7));
             Assert.That(everyCard.RunOutMultiplier, Is.EqualTo(9));
+        }
+
+        [Test]
+        public void Strategies_ShouldExposeConfiguredGameOverScore()
+        {
+            var classic = new ClassicHaggisScoringStrategy(gameOverScore: 300);
+            var everyCard = new EveryCardOnePointScoringStrategy(gameOverScore: 200);
+            var configurable = new ConfigurableHaggisScoringStrategy(
+                cardPointsByRank: new Dictionary<Rank, int>(),
+                runOutMultiplier: 5,
+                gameOverScore: 180);
+
+            Assert.That(classic.GameOverScore, Is.EqualTo(300));
+            Assert.That(everyCard.GameOverScore, Is.EqualTo(200));
+            Assert.That(configurable.GameOverScore, Is.EqualTo(180));
         }
     }
 }
