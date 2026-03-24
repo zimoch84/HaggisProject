@@ -2,6 +2,8 @@ using System.Text.Json;
 
 public sealed class RemoteGameLoop
 {
+    private static readonly TimeSpan SnapshotRetryInterval = TimeSpan.FromMilliseconds(750);
+
     private readonly RemoteGameOptions _options;
     private readonly RemoteGameWebSocketClient _client;
     private readonly GameScreen _screen;
@@ -9,8 +11,9 @@ public sealed class RemoteGameLoop
     private RemoteGameState? _state;
     private List<string> _roomPlayers = new();
     private string _status = "Connecting...";
-    private bool _createSent;
     private long? _promptedVersion;
+    private DateTimeOffset _lastSnapshotRequestAt = DateTimeOffset.MinValue;
+    private bool _snapshotRequestedAfterRoomUpdate;
 
     public RemoteGameLoop(RemoteGameOptions options, GameScreen screen)
     {
@@ -24,11 +27,11 @@ public sealed class RemoteGameLoop
         await using (_client)
         {
             await _client.ConnectAsync(_options, cancellationToken);
+            await using var listener = new JsonEventListener(_client.ReceiveAsync);
             await _client.SendJoinAsync(_options.PlayerId, cancellationToken);
+            await RequestSnapshotAsync(cancellationToken);
             _status = $"Connected to {_options.GameId} as {_options.PlayerId}.";
             Render();
-
-            await using var listener = new JsonEventListener(_client.ReceiveAsync);
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -46,7 +49,6 @@ public sealed class RemoteGameLoop
                         _options.GameId,
                         _status,
                         _roomPlayers,
-                        _options.AutoStart,
                         () => Task.FromResult(DrainMessages(listener)),
                         cancellationToken);
 
@@ -64,8 +66,8 @@ public sealed class RemoteGameLoop
                             continue;
                         }
 
-                        await _client.SendCreateAsync(_options.PlayerId, _options.Seed, cancellationToken);
-                        _createSent = true;
+                        await _client.SendCreateAsync(_options.PlayerId, _options.Seed, GetRequestedPlayerCount(), cancellationToken);
+                        await RequestSnapshotAsync(cancellationToken);
                         _status = "Start command sent.";
                         Render();
                         continue;
@@ -80,12 +82,9 @@ public sealed class RemoteGameLoop
                     continue;
                 }
 
-                if (ShouldAutoStart())
+                if (ShouldRefreshSnapshot())
                 {
-                    await _client.SendCreateAsync(_options.PlayerId, _options.Seed, cancellationToken);
-                    _createSent = true;
-                    _status = "Start command sent.";
-                    Render();
+                    await RequestSnapshotAsync(cancellationToken);
                 }
 
                 if (ShouldPromptForAction())
@@ -96,7 +95,6 @@ public sealed class RemoteGameLoop
                         _options.GameId,
                         _status,
                         _roomPlayers,
-                        _options.AutoStart,
                         () => Task.FromResult(DrainMessages(listener)),
                         cancellationToken);
                     _promptedVersion = _state!.Version;
@@ -113,6 +111,8 @@ public sealed class RemoteGameLoop
         return RemoteGameLoopResult.Closed;
     }
 
+
+    //TODO - dać listenera globalnie
     private bool DrainMessages(JsonEventListener listener)
     {
         var updated = false;
@@ -130,28 +130,31 @@ public sealed class RemoteGameLoop
 
     private void HandleMessage(JsonElement message)
     {
-        var type = ReadString(message, "type");
+        var dto = RemoteGameMessageParser.Parse(message);
+        var type = dto?.Type ?? string.Empty;
         switch (type)
         {
             case "RoomJoined":
-                HandleRoomJoined(message);
+                HandleRoomJoined(dto);
+                return;
+            case "GameSnapshot":
+                HandleSnapshot(dto);
                 return;
             case "CommandApplied":
-                HandleCommandApplied(message);
+                HandleCommandApplied(dto);
+                return;
+            case "SnapshotRejected":
+                _status = $"Snapshot rejected: {dto?.Error ?? string.Empty}";
                 return;
             case "CommandRejected":
             case "OperationRejected":
             case "ChatRejected":
-                _status = $"Server rejected request: {ReadString(message, "error")}";
-                if (type == "CommandRejected" && ReadNestedString(message, "command", "type").Equals("Initialize", StringComparison.OrdinalIgnoreCase))
-                {
-                    _createSent = false;
-                }
+                _status = $"Server rejected request: {dto?.Error ?? string.Empty}";
                 return;
             case "ChatPosted":
             case "ServerAnnouncement":
-                var author = ReadNestedString(message, "chat", "playerId");
-                var text = ReadNestedString(message, "chat", "text");
+                var author = dto?.Chat?.PlayerId ?? string.Empty;
+                var text = dto?.Chat?.Text ?? string.Empty;
                 _status = $"Chat {author}: {text}";
                 return;
             default:
@@ -160,37 +163,68 @@ public sealed class RemoteGameLoop
         }
     }
 
-    private void HandleRoomJoined(JsonElement message)
+    private void HandleRoomJoined(RemoteGameInboundMessageDto? message)
     {
-        if (TryGetPropertyIgnoreCase(message, "room", out var room) &&
-            TryGetPropertyIgnoreCase(room, "players", out var players) &&
-            players.ValueKind == JsonValueKind.Array)
-        {
-            _roomPlayers = players.EnumerateArray()
-                .Where(x => x.ValueKind == JsonValueKind.String)
-                .Select(x => x.GetString() ?? string.Empty)
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .ToList();
-        }
+        _roomPlayers = message?.Room?.Players?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x ?? string.Empty)
+            .ToList() ?? new List<string>();
 
-        var joinedPlayer = ReadString(message, "playerId");
+        _snapshotRequestedAfterRoomUpdate = false;
+        var joinedPlayer = message?.PlayerId ?? string.Empty;
         _status = $"Player joined: {joinedPlayer}";
     }
 
-    private void HandleCommandApplied(JsonElement message)
+    private void HandleCommandApplied(RemoteGameInboundMessageDto? message)
     {
-        if (TryGetPropertyIgnoreCase(message, "state", out var snapshot) && snapshot.ValueKind == JsonValueKind.Object)
+        if (message?.State is not null)
         {
-            _state = RemoteGameState.FromSnapshot(snapshot);
+            _state = RemoteGameStateParser.ParseSnapshot(message.State);
         }
 
-        var appliedBy = ReadNestedString(message, "command", "playerId");
-        var commandType = ReadNestedString(message, "command", "type");
+        var appliedBy = message?.Command?.PlayerId ?? string.Empty;
+        var commandType = message?.Command?.Type ?? string.Empty;
         _status = $"Applied: {commandType} by {appliedBy}";
     }
 
-    private bool ShouldAutoStart() =>
-        _options.AutoStart && !_createSent && _state is null && _roomPlayers.Count >= 2;
+    private void HandleSnapshot(RemoteGameInboundMessageDto? message)
+    {
+        if (message?.State is not null)
+        {
+            _state = RemoteGameStateParser.ParseSnapshot(message.State);
+            _status = _state.Players.Count > 0
+                ? $"Snapshot loaded. Current player: {_state.CurrentPlayerId}"
+                : "Snapshot loaded. Game not initialized yet.";
+            return;
+        }
+
+        _status = "Snapshot received without state.";
+    }
+
+    private int? GetRequestedPlayerCount()
+    {
+        return _roomPlayers.Count is 2 or 3
+            ? _roomPlayers.Count
+            : null;
+    }
+
+    private bool ShouldRefreshSnapshot()
+    {
+        if (_state is null)
+        {
+            return DateTimeOffset.UtcNow - _lastSnapshotRequestAt >= SnapshotRetryInterval;
+        }
+
+        if (_roomPlayers.Count > 0 &&
+            _state.Players.Count != _roomPlayers.Count &&
+            !_snapshotRequestedAfterRoomUpdate &&
+            DateTimeOffset.UtcNow - _lastSnapshotRequestAt >= SnapshotRetryInterval)
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     private bool ShouldPromptForAction() =>
         _state is not null &&
@@ -198,49 +232,15 @@ public sealed class RemoteGameLoop
         _state.PossibleActions.Count > 0 &&
         _promptedVersion != _state.Version;
 
+    private async Task RequestSnapshotAsync(CancellationToken cancellationToken)
+    {
+        _lastSnapshotRequestAt = DateTimeOffset.UtcNow;
+        _snapshotRequestedAfterRoomUpdate = _state is not null;
+        await _client.SendSnapshotAsync(_options.PlayerId, cancellationToken);
+    }
+
     private void Render()
     {
-        _screen.Render(_state, _options.PlayerId, _options.GameId, _status, _roomPlayers, _options.AutoStart);
-    }
-
-    private static string ReadString(JsonElement element, string propertyName)
-    {
-        if (TryGetPropertyIgnoreCase(element, propertyName, out var property) && property.ValueKind == JsonValueKind.String)
-        {
-            return property.GetString() ?? string.Empty;
-        }
-
-        return string.Empty;
-    }
-
-    private static string ReadNestedString(JsonElement element, string parentProperty, string childProperty)
-    {
-        if (TryGetPropertyIgnoreCase(element, parentProperty, out var parent) &&
-            parent.ValueKind == JsonValueKind.Object &&
-            TryGetPropertyIgnoreCase(parent, childProperty, out var child) &&
-            child.ValueKind == JsonValueKind.String)
-        {
-            return child.GetString() ?? string.Empty;
-        }
-
-        return string.Empty;
-    }
-
-    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
-    {
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var property in element.EnumerateObject())
-            {
-                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
-                {
-                    value = property.Value;
-                    return true;
-                }
-            }
-        }
-
-        value = default;
-        return false;
+        _screen.Render(_state, _options.PlayerId, _options.GameId, _status, _roomPlayers);
     }
 }

@@ -1,0 +1,328 @@
+version: 1
+name: haggis-websocket-contract
+summary: Typed wire contract for global chat and game room WebSocket communication.
+endpoints:
+  globalChat:
+    path: /ws/global/chat
+    description: Global lobby chat, room listing, room creation and private chat.
+  gameRoom:
+    path: /ws/games/{gameId}
+    description: Game room operations, snapshots, commands and room chat.
+clientMessages:
+  globalChat:
+    chat:
+      schema:
+        operation: chat
+        payload:
+          playerId: string
+          text: string
+      required:
+        - operation
+        - payload.playerId
+        - payload.text
+      example:
+        operation: chat
+        payload:
+          playerId: alice
+          text: hej wszystkim
+    listroom:
+      schema:
+        operation: listroom
+        payload: {}
+      required:
+        - operation
+        - payload
+      example:
+        operation: listroom
+        payload: {}
+    createroom:
+      schema:
+        operation: createroom
+        payload:
+          playerId: string
+          gameType: string
+          roomName: string
+          roomId: string?
+      required:
+        - operation
+        - payload.playerId
+      example:
+        operation: createroom
+        payload:
+          playerId: alice
+          gameType: haggis
+          roomName: Alice room
+          roomId: room-alpha
+    privatechat:
+      schema:
+        operation: privatechat
+        payload:
+          playerId: string
+          targetPlayerId: string
+          roomName: string?
+          roomId: string?
+      required:
+        - operation
+        - payload.playerId
+        - payload.targetPlayerId
+      example:
+        operation: privatechat
+        payload:
+          playerId: alice
+          targetPlayerId: bob
+          roomName: Alice i Bob
+          roomId: room-private-1
+  gameRoom:
+    join:
+      schema:
+        operation: join
+        payload:
+          playerId: string
+      required:
+        - operation
+        - payload.playerId
+    snapshot:
+      schema:
+        operation: snapshot
+        payload:
+          playerId: string
+      required:
+        - operation
+        - payload.playerId
+    create:
+      schema:
+        operation: create
+        payload:
+          playerId: string
+          payload:
+            seed: int?
+            playerCount: int?
+            additionalProperties: true
+      required:
+        - operation
+        - payload.playerId
+      example:
+        operation: create
+        payload:
+          playerId: alice
+          payload:
+            players:
+              - alice
+              - bob
+              - carol
+            seed: 123
+    command:
+      schema:
+        operation: command
+        payload:
+          command:
+            type: string
+            playerId: string
+            payload:
+              action: string?
+              trick: string?
+              pass: bool?
+              seed: int?
+              playerCount: int?
+              additionalProperties: true
+          state:
+            version: long
+            updatedAt: datetime
+            data: object
+      required:
+        - operation
+        - payload.command.type
+        - payload.command.playerId
+      examples:
+        play:
+          operation: command
+          payload:
+            command:
+              type: Play
+              playerId: alice
+              payload:
+                action: Single: 7
+        pass:
+          operation: command
+          payload:
+            command:
+              type: Pass
+              playerId: alice
+              payload: {}
+        initialize:
+          operation: command
+          payload:
+            command:
+              type: Initialize
+              playerId: alice
+              payload:
+                players:
+                  - alice
+                  - bob
+                  - carol
+                seed: 123
+    chat:
+      schema:
+        operation: chat
+        payload:
+          playerId: string
+          text: string
+      required:
+        - operation
+        - payload.playerId
+        - payload.text
+serverMessages:
+  globalChat:
+    GlobalChatBootstrap:
+      schema:
+        type: GlobalChatBootstrap
+        channels:
+          - channelId: string
+            channelType: string
+            roomId: string?
+            roomName: string?
+            gameType: string?
+        history:
+          - messageId: string
+            playerId: string
+            text: string
+            createdAt: datetime
+        createdAt: datetime
+    ProblemDetails:
+      schema:
+        title: string
+        status: int
+        type: string?
+        detail: string?
+        instance: string?
+        errors: object?
+    ChatMessage:
+      schema:
+        messageId: string
+        playerId: string
+        text: string
+        createdAt: datetime
+    listroom:
+      schema:
+        operation: listroom
+        data:
+          rooms:
+            - &roomShape
+              roomId: string
+              gameId: string
+              gameType: string
+              roomName: string
+              createdAt: datetime
+              players:
+                - string
+              gameEndpoint: string
+          createdAt: datetime
+    createroom:
+      schema:
+        operation: createroom
+        data:
+          room: *roomShape
+          gameEndpoint: string
+          createdAt: datetime
+    privatechat:
+      schema:
+        operation: privatechat
+        data:
+          room: *roomShape
+          gameEndpoint: string
+          createdAt: datetime
+    OperationRejected:
+      schema:
+        operation: string
+        data:
+          type: OperationRejected
+          error: string
+          createdAt: datetime
+  gameRoom:
+    RoomJoined:
+      schema:
+        type: RoomJoined
+        messageKind: event
+        gameId: string
+        playerId: string
+        room: *roomShape
+        createdAt: datetime
+    GameSnapshot:
+      schema: &gameEventShape
+        type: string
+        orderPointer: long?
+        gameId: string
+        currentPlayerId: string?
+        error: string?
+        command:
+          type: string
+          playerId: string
+          payload:
+            action: string?
+            trick: string?
+            pass: bool?
+            seed: int?
+            playerCount: int?
+            additionalProperties: true
+        state: &snapshotShape
+          version: long
+          updatedAt: datetime
+          data:
+            game: string?
+            seed: int?
+            playerCount: int?
+            winScore: int?
+            roundNumber: int?
+            moveIteration: long?
+            currentPlayerId: string?
+            roundOver: bool?
+            gameOver: bool?
+            players:
+              - id: string
+                score: int
+                handCount: int
+                finished: bool
+                isAi: bool?
+                hand:
+                  - string
+            trick:
+              - playerId: string
+                isPass: bool
+                desc: string
+            possibleActions:
+              - type: string
+                action: string
+            appliedMove:
+              playerId: string
+              isPass: bool
+              action: string
+            appliedMoves:
+              - playerId: string
+                isPass: bool
+                action: string
+            lastCommand:
+              type: string
+              playerId: string
+              payload: object?
+        createdAt: datetime
+        chat:
+          playerId: string
+          text: string
+        messageKind: string
+    CommandApplied:
+      schema: *gameEventShape
+    CommandRejected:
+      schema: *gameEventShape
+    ChatPosted:
+      schema: *gameEventShape
+    ChatRejected:
+      schema: *gameEventShape
+    ServerAnnouncement:
+      schema: *gameEventShape
+    OperationRejected:
+      schema:
+        type: OperationRejected
+        messageKind: response
+        gameId: string
+        error: string
+        createdAt: datetime
