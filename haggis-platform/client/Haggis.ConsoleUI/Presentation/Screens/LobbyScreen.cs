@@ -1,3 +1,9 @@
+using Haggis.ConsoleUI.Presentation.Panels;
+using Haggis.ConsoleUI.Presentation.Panels.Inputs;
+using Haggis.ConsoleUI.Presentation.ViewModels.Lobby;
+
+namespace Haggis.ConsoleUI.Presentation.Screens;
+
 public sealed class LobbyScreen : PanelScreenBase
 {
     private readonly UITextPanel _gamesPanel;
@@ -38,7 +44,8 @@ public sealed class LobbyScreen : PanelScreenBase
         _playerId = playerId;
         _state = state;
         InputPanel.Clear();
-        return await ReadCommandCoreAsync(pumpMessagesAsync, cancellationToken, new LobbyScreenAction.Quit());
+        LobbyScreenAction cancelAction = new LobbyScreenAction.Quit();
+        return await ReadCommandCoreAsync(pumpMessagesAsync, cancellationToken, cancelAction);
     }
 
     protected override void PreparePanels()

@@ -1,3 +1,7 @@
+using Haggis.ConsoleUI.Presentation.Panels;
+
+namespace Haggis.ConsoleUI.Presentation.Screens;
+
 public abstract class PanelScreenBase
 {
     private readonly List<PanelRegionBase> _panels = new();

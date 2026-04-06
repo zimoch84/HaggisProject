@@ -1,3 +1,5 @@
+namespace Haggis.ConsoleUI.Presentation.ViewModels.Game;
+
 public sealed class GameState
 {
     public RemoteGameSnapshotDto? Snapshot { get; set; }

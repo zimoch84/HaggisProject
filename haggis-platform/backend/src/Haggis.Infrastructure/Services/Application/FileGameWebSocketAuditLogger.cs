@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace Haggis.Infrastructure.Services.Application;
 
-public sealed class FileGameCommandAuditLogger : IGameCommandAuditLogger
+public sealed class FileGameWebSocketAuditLogger : IGameWebSocketAuditLogger
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -12,16 +12,16 @@ public sealed class FileGameCommandAuditLogger : IGameCommandAuditLogger
     private readonly object _sync = new();
     private readonly string _logFilePath;
 
-    public FileGameCommandAuditLogger(IHostEnvironment hostEnvironment, IConfiguration configuration)
+    public FileGameWebSocketAuditLogger(IHostEnvironment hostEnvironment, IConfiguration configuration)
     {
-        var configuredPath = configuration["GameCommandAudit:Path"];
+        var configuredPath = configuration["GameWebSocketAudit:Path"];
         _logFilePath = Path.IsPathRooted(configuredPath)
             ? configuredPath
             : Path.Combine(
                 hostEnvironment.ContentRootPath,
-                string.IsNullOrWhiteSpace(configuredPath) ? "logs\\game-commands.log" : configuredPath);
+                string.IsNullOrWhiteSpace(configuredPath) ? "logs\\game-websocket-outbound.log" : configuredPath);
 
-        if (configuration.GetValue("GameCommandAudit:ClearOnStartup", true))
+        if (configuration.GetValue("GameWebSocketAudit:ClearOnStartup", true))
         {
             var directory = Path.GetDirectoryName(_logFilePath);
             if (!string.IsNullOrWhiteSpace(directory))
@@ -33,7 +33,7 @@ public sealed class FileGameCommandAuditLogger : IGameCommandAuditLogger
         }
     }
 
-    public void Log(GameCommandAuditEntry entry)
+    public void Log(GameWebSocketAuditEntry entry)
     {
         var directory = Path.GetDirectoryName(_logFilePath);
         if (!string.IsNullOrWhiteSpace(directory))

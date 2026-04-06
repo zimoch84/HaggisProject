@@ -1,3 +1,5 @@
+namespace Haggis.ConsoleUI.Presentation.ViewModels.Lobby;
+
 public sealed class LobbyRoom
 {
     public string RoomId { get; init; } = string.Empty;

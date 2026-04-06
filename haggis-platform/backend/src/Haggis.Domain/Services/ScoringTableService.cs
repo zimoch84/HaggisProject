@@ -17,7 +17,7 @@ namespace Haggis.Domain.Services
 
             var roundPointsByPlayer = BuildRoundPointsByPlayer(state);
             var playersByScore = state.Players
-                .OrderByDescending(player => roundPointsByPlayer[player.GUID])
+                .OrderByDescending(player => roundPointsByPlayer[player.GUID].RoundPoints)
                 .ThenBy(player => player.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             var finishingOrderPlayerNames = BuildFinishingOrderPlayerNames(state);
@@ -25,13 +25,15 @@ namespace Haggis.Domain.Services
             var rankedScores = new List<PlayerRoundScore>();
             foreach (var player in playersByScore)
             {
-                var roundPoints = roundPointsByPlayer[player.GUID];
-                player.Score = roundPoints;
+                var roundScore = roundPointsByPlayer[player.GUID];
+                player.Score = roundScore.RoundPoints;
 
                 rankedScores.Add(new PlayerRoundScore
                 {
                     PlayerName = player.Name,
-                    RoundPoints = roundPoints
+                    HaggisPoints = roundScore.HaggisPoints,
+                    TricksPoints = roundScore.TricksPoints,
+                    OpponentsRemainingCardsPoints = roundScore.OpponentsRemainingCardsPoints
                 });
             }
 
@@ -44,21 +46,29 @@ namespace Haggis.Domain.Services
             };
         }
 
-        private static Dictionary<Guid, int> BuildRoundPointsByPlayer(RoundState state)
+        private static Dictionary<Guid, PlayerRoundScore> BuildRoundPointsByPlayer(RoundState state)
         {
-            var points = state.Players.ToDictionary(player => player.GUID, _ => 0);
+            var points = state.Players.ToDictionary(
+                player => player.GUID,
+                _ => new PlayerRoundScore());
             var haggisPoints = state.HaggisCards?.Sum(card => state.ScoringStrategy.GetCardPoints(card)) ?? 0;
             var firstFinishedGuid = state.FinishingOrder.FirstOrDefault();
 
             foreach (var player in state.Players)
             {
-                var discardPoints = player.Discard.Sum(card => state.ScoringStrategy.GetCardPoints(card));
+                var tricksPoints = player.Discard.Sum(card => state.ScoringStrategy.GetCardPoints(card));
                 var runOutPoints = player.OpponentRemainingCardsOnFinish < 0
                     ? 0
                     : player.OpponentRemainingCardsOnFinish * state.ScoringStrategy.RunOutMultiplier;
                 var bonusHaggisPoints = firstFinishedGuid == player.GUID ? haggisPoints : 0;
 
-                points[player.GUID] = discardPoints + runOutPoints + bonusHaggisPoints;
+                points[player.GUID] = new PlayerRoundScore
+                {
+                    PlayerName = player.Name,
+                    HaggisPoints = bonusHaggisPoints,
+                    TricksPoints = tricksPoints,
+                    OpponentsRemainingCardsPoints = runOutPoints
+                };
             }
 
             return points;

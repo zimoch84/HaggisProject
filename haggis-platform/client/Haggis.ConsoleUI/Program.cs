@@ -1,3 +1,5 @@
+using Haggis.ConsoleUI.Application.AppFlow;
+
 InitConsole.Apply();
 
 using var cancellationSource = new CancellationTokenSource();

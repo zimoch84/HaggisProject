@@ -12,10 +12,12 @@ namespace Haggis.Infrastructure.Services.WebSocketHandlers;
 public sealed class GameWebSocketHandler
 {
     private static readonly GameWebSocketOperationParser OperationParser = new();
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     internal IGameCommandApplicationService ApplicationService { get; }
     internal IGameConnectionManager ConnectionManager { get; }
     internal IGameRoomStore RoomStore { get; }
+    private IGameWebSocketAuditLogger WebSocketAuditLogger { get; }
     private IGameOperationStrategy<GameWebSocketCommandOperationDto> CommandStrategy { get; }
     private IGameOperationStrategy<GameWebSocketJoinOperationDto> JoinStrategy { get; }
     private IGameOperationStrategy<GameWebSocketCreateOperationDto> CreateStrategy { get; }
@@ -25,11 +27,13 @@ public sealed class GameWebSocketHandler
     public GameWebSocketHandler(
         IGameCommandApplicationService applicationService,
         IGameConnectionManager connectionManager,
-        IGameRoomStore roomStore)
+        IGameRoomStore roomStore,
+        IGameWebSocketAuditLogger webSocketAuditLogger)
     {
         ApplicationService = applicationService;
         ConnectionManager = connectionManager;
         RoomStore = roomStore;
+        WebSocketAuditLogger = webSocketAuditLogger;
         CommandStrategy = new CommandOperationStrategy(this);
         JoinStrategy = new JoinOperationStrategy(this);
         CreateStrategy = new CreateOperationStrategy(this);
@@ -53,6 +57,7 @@ public sealed class GameWebSocketHandler
 
                 if (!OperationParser.TryParse(text, out var operation) || operation is null)
                 {
+                    LogInbound(gameId, "unknown", null, text);
                     await SendOperationErrorAsync(
                         socket,
                         "unknown",
@@ -61,6 +66,8 @@ public sealed class GameWebSocketHandler
                         cancellationToken);
                     continue;
                 }
+
+                LogInbound(gameId, ResolveOperationName(operation), TryExtractPlayerId(operation), text);
 
                 var operationContext = new OperationContext(gameId, socket, registration.ClientId);
                 if (operation is GameWebSocketCommandOperationDto commandOperation)
@@ -207,8 +214,10 @@ public sealed class GameWebSocketHandler
 
     internal async Task BroadcastAsync(string gameId, string operation, object message, CancellationToken cancellationToken)
     {
-        var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
+        var payload = JsonSerializer.Serialize(message, SerializerOptions);
+        var bytes = Encoding.UTF8.GetBytes(payload);
         var segment = new ArraySegment<byte>(bytes);
+        var recipientCount = 0;
 
         foreach (var recipientSocket in ConnectionManager.GetSockets(gameId))
         {
@@ -218,7 +227,10 @@ public sealed class GameWebSocketHandler
             }
 
             await recipientSocket.SendAsync(segment, WebSocketMessageType.Text, true, cancellationToken);
+            recipientCount++;
         }
+
+        LogOutbound("broadcast", gameId, operation, recipientCount, payload);
     }
 
     internal async Task BroadcastExceptAsync(
@@ -228,8 +240,10 @@ public sealed class GameWebSocketHandler
         object message,
         CancellationToken cancellationToken)
     {
-        var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
+        var payload = JsonSerializer.Serialize(message, SerializerOptions);
+        var bytes = Encoding.UTF8.GetBytes(payload);
         var segment = new ArraySegment<byte>(bytes);
+        var recipientCount = 0;
 
         foreach (var recipientSocket in ConnectionManager.GetSockets(gameId))
         {
@@ -239,21 +253,31 @@ public sealed class GameWebSocketHandler
             }
 
             await recipientSocket.SendAsync(segment, WebSocketMessageType.Text, true, cancellationToken);
+            recipientCount++;
         }
+
+        LogOutbound("broadcast-except", gameId, operation, recipientCount, payload);
     }
 
-    internal static async Task SendToClientAsync(WebSocket socket, string operation, object message, CancellationToken cancellationToken)
+    internal async Task SendToClientAsync(
+        WebSocket socket,
+        string operation,
+        string gameId,
+        object message,
+        CancellationToken cancellationToken)
     {
         if (socket.State != WebSocketState.Open)
         {
             return;
         }
 
-        var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
+        var payload = JsonSerializer.Serialize(message, SerializerOptions);
+        var bytes = Encoding.UTF8.GetBytes(payload);
         await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken);
+        LogOutbound("direct", gameId, operation, 1, payload);
     }
 
-    internal static Task SendOperationErrorAsync(
+    internal Task SendOperationErrorAsync(
         WebSocket socket,
         string operation,
         string gameId,
@@ -269,7 +293,69 @@ public sealed class GameWebSocketHandler
             createdAt = DateTimeOffset.UtcNow
         };
 
-        return SendToClientAsync(socket, operation, message, cancellationToken);
+        return SendToClientAsync(socket, operation, gameId, message, cancellationToken);
+    }
+
+    private void LogOutbound(string delivery, string gameId, string operation, int recipientCount, string payload)
+    {
+        WebSocketAuditLogger.Log(new GameWebSocketAuditEntry(
+            TimestampUtc: DateTimeOffset.UtcNow,
+            Direction: "outbound",
+            Delivery: delivery,
+            GameId: gameId,
+            Operation: operation,
+            PlayerId: null,
+            RecipientCount: recipientCount,
+            Payload: payload));
+    }
+
+    private void LogInbound(string gameId, string operation, string? playerId, string payload)
+    {
+        WebSocketAuditLogger.Log(new GameWebSocketAuditEntry(
+            TimestampUtc: DateTimeOffset.UtcNow,
+            Direction: "inbound",
+            Delivery: "direct",
+            GameId: gameId,
+            Operation: operation,
+            PlayerId: playerId,
+            RecipientCount: 1,
+            Payload: payload));
+    }
+
+    private static string ResolveOperationName(GameWebSocketOperationDto operation)
+    {
+        return operation.OperationType switch
+        {
+            GameWebSocketOperationType.Join => "join",
+            GameWebSocketOperationType.Create => "create",
+            GameWebSocketOperationType.Chat => "chat",
+            GameWebSocketOperationType.Command => "command",
+            GameWebSocketOperationType.Snapshot => "snapshot",
+            _ => "unknown"
+        };
+    }
+
+    private static string? TryExtractPlayerId(GameWebSocketOperationDto operation)
+    {
+        return operation switch
+        {
+            GameWebSocketJoinOperationDto join => NormalizePlayerId(join.Payload?.PlayerId),
+            GameWebSocketCreateOperationDto create => NormalizePlayerId(create.Payload?.PlayerId),
+            GameWebSocketSnapshotOperationDto snapshot => NormalizePlayerId(snapshot.Payload?.PlayerId),
+            GameWebSocketChatOperationDto chat => NormalizePlayerId(chat.Payload?.PlayerId),
+            GameWebSocketCommandOperationDto command => NormalizePlayerId(command.Payload?.Command?.PlayerId),
+            _ => null
+        };
+    }
+
+    private static string? NormalizePlayerId(string? playerId)
+    {
+        if (string.IsNullOrWhiteSpace(playerId))
+        {
+            return null;
+        }
+
+        return playerId.Trim();
     }
 
     private static GameRoomResponse ToRoomResponse(GameRoom room)

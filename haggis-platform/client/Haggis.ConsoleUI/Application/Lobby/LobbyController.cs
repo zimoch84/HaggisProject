@@ -1,4 +1,8 @@
 using System.Text.Json;
+using Haggis.ConsoleUI.Presentation.Screens;
+using Haggis.ConsoleUI.Presentation.ViewModels.Lobby;
+
+namespace Haggis.ConsoleUI.Application.Lobby;
 
 public sealed class LobbyController
 {

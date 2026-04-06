@@ -40,13 +40,13 @@ public class TextBuffer
         _cursorY = 0;
     }
 
-    // Przesuniêcie zawartoœci bufora w górê o zadany amont wierszy
+    // PrzesuniÄ™cie zawartoÅ›ci bufora w gÃ³rÄ™ o zadany amont wierszy
     private void ScrollUp(int lines)
     {
         if (lines <= 0) return;
 
         int move = Math.Min(lines, _height);
-        // Przesuñ wiersze w górê
+        // PrzesuÅ„ wiersze w gÃ³rÄ™
         for (int y = 0; y < _height - move; y++)
         {
             for (int x = 0; x < _width; x++)
@@ -55,7 +55,7 @@ public class TextBuffer
             }
         }
 
-        // Wyczyœæ dolne 'move' wierszy
+        // WyczyÅ›Ä‡ dolne 'move' wierszy
         for (int y = _height - move; y < _height; y++)
         {
             for (int x = 0; x < _width; x++)
@@ -69,8 +69,8 @@ public class TextBuffer
         if (_cursorY < 0) _cursorY = 0;
     }
 
-    // Zapisuje tekst zaczynaj¹c od aktualnej pozycji kursora.
-    // Podobne zachowanie do Console.Write: obs³uga '\n' i '\r'.
+    // Zapisuje tekst zaczynajÄ…c od aktualnej pozycji kursora.
+    // Podobne zachowanie do Console.Write: obsÅ‚uga '\n' i '\r'.
     public void Write(string text, ConsoleColor? color = null)
     {
         if (text is null) return;
@@ -78,20 +78,20 @@ public class TextBuffer
         {
             char c = text[i];
 
-            if (_cursorY > _height)
+            if (_cursorY >= _height)
             {
-                int excess = _cursorY - _height;
+                int excess = _cursorY - _height + 1;
                 ScrollUp(excess);
             }
 
-            if (_cursorX > _width)
+            if (_cursorX >= _width)
             {
-                // zawijanie do nastêpnego wiersza
+                // zawijanie do nastÄ™pnego wiersza
                 _cursorX = 0;
                 _cursorY++;
-                if (_cursorY > _height)
+                if (_cursorY >= _height)
                 {
-                    int excess = _cursorY - _height;
+                    int excess = _cursorY - _height + 1;
                     ScrollUp(excess);
                 }
             }
@@ -113,9 +113,9 @@ public class TextBuffer
 
         _cursorX = 0;
         _cursorY++;
-        if (_cursorY > _height)
+        if (_cursorY >= _height)
         {
-            int excess = _cursorY - _height;
+            int excess = _cursorY - _height + 1;
             ScrollUp(excess);
         }
     }

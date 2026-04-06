@@ -1,3 +1,10 @@
+using Haggis.ConsoleUI.Application.Game;
+using Haggis.ConsoleUI.Application.Lobby;
+using Haggis.ConsoleUI.Presentation.Screens;
+using Haggis.ConsoleUI.Presentation.ViewModels.Lobby;
+
+namespace Haggis.ConsoleUI.Application.AppFlow;
+
 public enum AppFlowState
 {
     Login,

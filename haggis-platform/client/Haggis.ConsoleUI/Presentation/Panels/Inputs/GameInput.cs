@@ -1,3 +1,7 @@
+using Haggis.ConsoleUI.Presentation.Panels.InputActions;
+
+namespace Haggis.ConsoleUI.Presentation.Panels.Inputs;
+
 public sealed class GameInput : PanelRegionInputBase
 {
     public GameInput(string header, int x, int y, int width, int height)
@@ -5,5 +9,13 @@ public sealed class GameInput : PanelRegionInputBase
     {
     }
 
-    public override IInputAction ParseCommand(string command) => new GameInputAction.Submit(command);
+    public override IInputAction ParseCommand(string command)
+    {
+        return command switch
+        {
+            FunctionKeyF1Token => new GameInputAction.ShowScoreHistory(),
+            FunctionKeyF2Token => new GameInputAction.ShowLastRoundSummary(),
+            _ => new GameInputAction.Submit(command)
+        };
+    }
 }

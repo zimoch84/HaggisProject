@@ -1,6 +1,8 @@
 using Haggis.AI.Strategies;
 using Haggis.AI.Model;
 
+namespace Haggis.ConsoleUI.Presentation.Panels;
+
 public class UIDebugPanel : PanelRegionBase
 {
     public UIDebugPanel(string header, int x, int y, int width, int height) : base(header, x, y, width, height)

@@ -1,3 +1,5 @@
+namespace Haggis.ConsoleUI.Presentation.ViewModels.Lobby;
+
 public sealed class LobbyState
 {
     public List<LobbyRoom> Rooms { get; } = new();

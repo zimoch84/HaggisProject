@@ -1,6 +1,8 @@
 using Haggis.Domain.Model;
 using Haggis.AI.Model;
 
+namespace Haggis.ConsoleUI.Presentation.Panels;
+
 public class UIPossibleActionPanel : PanelRegionBase, IRoundStatePanel
 {
     private RoundState? _state;

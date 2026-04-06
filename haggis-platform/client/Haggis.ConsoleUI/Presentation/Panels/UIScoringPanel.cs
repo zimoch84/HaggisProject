@@ -1,6 +1,8 @@
 using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
 
+namespace Haggis.ConsoleUI.Presentation.Panels;
+
 public class UIScoringPanel : PanelRegionBase, IRoundStatePanel
 {
     private RoundState? _state;

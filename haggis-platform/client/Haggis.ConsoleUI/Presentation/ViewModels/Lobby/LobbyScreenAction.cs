@@ -1,3 +1,7 @@
+using Haggis.ConsoleUI.Presentation.Panels;
+
+namespace Haggis.ConsoleUI.Presentation.ViewModels.Lobby;
+
 public abstract record LobbyScreenAction : IInputAction
 {
     public sealed record Refresh : LobbyScreenAction;

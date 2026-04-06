@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 
+namespace Haggis.ConsoleUI.Presentation.Panels;
+
 public abstract class PanelRegionBase
 {
     public int X { get; }

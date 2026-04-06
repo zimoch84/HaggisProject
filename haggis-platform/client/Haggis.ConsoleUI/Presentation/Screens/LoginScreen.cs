@@ -1,3 +1,9 @@
+using Haggis.ConsoleUI.Presentation.Panels;
+using Haggis.ConsoleUI.Presentation.Panels.InputActions;
+using Haggis.ConsoleUI.Presentation.Panels.Inputs;
+
+namespace Haggis.ConsoleUI.Presentation.Screens;
+
 public sealed class LoginScreen : PanelScreenBase
 {
     private readonly UITextPanel _loginPanel;

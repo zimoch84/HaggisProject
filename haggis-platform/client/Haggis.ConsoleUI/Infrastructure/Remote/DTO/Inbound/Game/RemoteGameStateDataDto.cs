@@ -14,5 +14,6 @@ public sealed class RemoteGameStateDataDto
     public List<RemotePossibleActionDto>? PossibleActions { get; init; }
     public RemoteAppliedMoveDto? AppliedMove { get; init; }
     public List<RemoteAppliedMoveDto>? AppliedMoves { get; init; }
+    public RemotePreviousRoundDto? PreviousRound { get; init; }
     public RemoteGameLastCommandDto? LastCommand { get; init; }
 }

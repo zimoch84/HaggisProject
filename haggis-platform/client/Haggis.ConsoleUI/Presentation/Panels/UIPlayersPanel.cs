@@ -1,6 +1,8 @@
 using Haggis.Domain.Model;
 using System.Text;
 
+namespace Haggis.ConsoleUI.Presentation.Panels;
+
 public class UIPlayersPanel : PanelRegionBase, IRoundStatePanel
 {
     private RoundState? _state;

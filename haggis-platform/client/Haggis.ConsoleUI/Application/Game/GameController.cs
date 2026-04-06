@@ -1,4 +1,9 @@
 using System.Text.Json;
+using Haggis.ConsoleUI.Presentation.Panels.InputActions;
+using Haggis.ConsoleUI.Presentation.Screens;
+using Haggis.ConsoleUI.Presentation.ViewModels.Game;
+
+namespace Haggis.ConsoleUI.Application.Game;
 
 public sealed class GameController
 {
@@ -7,6 +12,8 @@ public sealed class GameController
     private readonly RemoteGameOptions _options;
     private readonly RemoteGameWebSocketClient _client;
     private readonly GameScreen _screen;
+    private readonly RoundOverScreen _roundOverScreen = new();
+    private readonly ScoreHistoryScreen _scoreHistoryScreen = new();
     private readonly GameState _gameState = new();
 
     private RemoteGameSnapshotDto? _state;
@@ -15,6 +22,8 @@ public sealed class GameController
     private long? _promptedVersion;
     private DateTimeOffset _lastSnapshotRequestAt = DateTimeOffset.MinValue;
     private bool _snapshotRequestedAfterRoomUpdate;
+    private RoundOverState? _pendingRoundSummary;
+    private readonly List<RoundOverState> _completedRounds = new();
 
     public GameController(RemoteGameOptions options, GameScreen screen)
     {
@@ -44,6 +53,31 @@ public sealed class GameController
                     Render();
                 }
 
+                if (ShouldRefreshSnapshot())
+                {
+                    await RequestSnapshotAsync(cancellationToken);
+                }
+
+                if (_pendingRoundSummary is not null)
+                {
+                    var roundSummary = _pendingRoundSummary;
+                    _pendingRoundSummary = null;
+                    await _roundOverScreen.ShowAsync(
+                        roundSummary,
+                        () => Task.FromResult(DrainMessages(listener)),
+                        cancellationToken);
+                    Render();
+                    continue;
+                }
+
+                if (_screen.TryReadShortcut(out var shortcut) &&
+                    shortcut is GameInputAction.ShowScoreHistory or GameInputAction.ShowLastRoundSummary)
+                {
+                    await HandleShortcutAsync(shortcut, listener, cancellationToken);
+                    Render();
+                    continue;
+                }
+
                 if (!IsGameInitialized())
                 {
                     var command = await _screen.ReadCommandAsync(
@@ -51,13 +85,29 @@ public sealed class GameController
                         () => Task.FromResult(DrainMessages(listener)),
                         cancellationToken);
 
-                    if (string.Equals(command, "/back", StringComparison.OrdinalIgnoreCase))
+                    if (command is GameInputAction.ShowScoreHistory or GameInputAction.ShowLastRoundSummary)
+                    {
+                        await HandleShortcutAsync(command, listener, cancellationToken);
+                        Render();
+                        continue;
+                    }
+
+                    var submittedCommand = (command as GameInputAction.Submit)?.Value.Trim() ?? string.Empty;
+
+                    if (string.Equals(submittedCommand, "/back", StringComparison.OrdinalIgnoreCase))
                     {
                         return RemoteGameLoopResult.BackToLobby;
                     }
 
-                    if (string.Equals(command, "/start", StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(submittedCommand, "/start", StringComparison.OrdinalIgnoreCase))
                     {
+                        if (!IsHostPlayer())
+                        {
+                            _status = "Only the host can start the game.";
+                            Render();
+                            continue;
+                        }
+
                         if (_roomPlayers.Count < 2)
                         {
                             _status = "Need at least 2 players to start the game.";
@@ -72,7 +122,7 @@ public sealed class GameController
                         continue;
                     }
 
-                    if (!string.IsNullOrWhiteSpace(command))
+                    if (!string.IsNullOrWhiteSpace(submittedCommand))
                     {
                         _status = "Available commands: /start, /back";
                         Render();
@@ -81,21 +131,28 @@ public sealed class GameController
                     continue;
                 }
 
-                if (ShouldRefreshSnapshot())
-                {
-                    await RequestSnapshotAsync(cancellationToken);
-                }
-
                 if (ShouldPromptForAction())
                 {
                     var currentState = _state!;
-                    var action = await _screen.ReadInputAsync(
+                    var actionResult = await _screen.ReadInputAsync(
                         BuildGameState(),
                         () => Task.FromResult(DrainMessages(listener)),
                         cancellationToken);
+                    if (actionResult is GameInputAction.ShowScoreHistory or GameInputAction.ShowLastRoundSummary)
+                    {
+                        await HandleShortcutAsync(actionResult, listener, cancellationToken);
+                        Render();
+                        continue;
+                    }
+
+                    if (actionResult is not GameInputAction.SelectedAction selectedAction)
+                    {
+                        continue;
+                    }
+
                     _promptedVersion = currentState.Version ?? 0;
-                    await _client.SendActionAsync(_options.PlayerId, action, cancellationToken);
-                    _status = $"Sent: {action.Type ?? string.Empty} {action.Action ?? string.Empty}".TrimEnd();
+                    await _client.SendActionAsync(_options.PlayerId, selectedAction.Action, cancellationToken);
+                    _status = $"Sent: {selectedAction.Action.Type ?? string.Empty} {selectedAction.Action.DisplayAction}".TrimEnd();
                     Render();
                     continue;
                 }
@@ -167,32 +224,40 @@ public sealed class GameController
         _snapshotRequestedAfterRoomUpdate = false;
         var joinedPlayer = message?.PlayerId ?? string.Empty;
         _status = $"Player joined: {joinedPlayer}";
+        SyncGameState();
     }
 
     private void HandleCommandApplied(RemoteGameInboundMessageDto? message)
     {
+        var previousState = _state;
         if (message?.State is not null)
         {
             _state = message.State;
+            TryBuildRoundSummary(previousState, _state);
         }
 
         var appliedBy = message?.Command?.PlayerId ?? string.Empty;
         var commandType = message?.Command?.Type ?? string.Empty;
         _status = $"Applied: {commandType} by {appliedBy}";
+        SyncGameState();
     }
 
     private void HandleSnapshot(RemoteGameInboundMessageDto? message)
     {
+        var previousState = _state;
         if (message?.State is not null)
         {
             _state = message.State;
+            TryBuildRoundSummary(previousState, _state);
             _status = (_state.Data?.Players?.Count ?? 0) > 0
                 ? $"Snapshot loaded. Current player: {_state.Data?.CurrentPlayerId ?? string.Empty}"
                 : "Snapshot loaded. Game not initialized yet.";
+            SyncGameState();
             return;
         }
 
         _status = "Snapshot received without state.";
+        SyncGameState();
     }
 
     private int? GetRequestedPlayerCount()
@@ -221,6 +286,11 @@ public sealed class GameController
     private bool ShouldRefreshSnapshot()
     {
         if (_state is null)
+        {
+            return DateTimeOffset.UtcNow - _lastSnapshotRequestAt >= SnapshotRetryInterval;
+        }
+
+        if (!IsGameInitialized())
         {
             return DateTimeOffset.UtcNow - _lastSnapshotRequestAt >= SnapshotRetryInterval;
         }
@@ -256,9 +326,183 @@ public sealed class GameController
 
     private GameState BuildGameState()
     {
+        SyncGameState();
+        return _gameState;
+    }
+
+    private void SyncGameState()
+    {
         _gameState.Snapshot = _state;
         _gameState.Status = _status;
         _gameState.RoomPlayers = _roomPlayers;
-        return _gameState;
+    }
+
+    private void TryBuildRoundSummary(RemoteGameSnapshotDto? previousState, RemoteGameSnapshotDto? currentState)
+    {
+        var previousRound = previousState?.Data?.RoundNumber;
+        var currentRound = currentState?.Data?.RoundNumber;
+        if (!previousRound.HasValue || !currentRound.HasValue || currentRound.Value <= previousRound.Value)
+        {
+            return;
+        }
+
+        var players = BuildRoundSummaryPlayers(currentState);
+
+        var lastSequenceLines = Array.Empty<string>();
+        if (previousState?.Data?.AppliedMoves is { Count: > 0 } appliedMoves)
+        {
+            lastSequenceLines = appliedMoves
+                .Select(move => $"{move.PlayerId ?? string.Empty}: {move.Action ?? string.Empty}")
+                .ToArray();
+        }
+
+        var roundSummary = new RoundOverState
+        {
+            GameId = _options.GameId,
+            RoundNumber = previousRound.Value,
+            NextRoundNumber = currentRound.Value,
+            Status = $"Round {previousRound.Value} finished. Round {currentRound.Value} started.",
+            WinnerPlayerId = currentState?.Data?.PreviousRound?.WinnerPlayerName ?? string.Empty,
+            Players = players
+                .OrderByDescending(player => player.TotalPoints)
+                .ThenBy(player => player.PlayerId, StringComparer.OrdinalIgnoreCase)
+                .ToArray(),
+            HaggisCards = currentState?.Data?.PreviousRound?.HaggisCards?
+                .Where(card => !string.IsNullOrWhiteSpace(card))
+                .Select(card => card ?? string.Empty)
+                .ToArray() ?? Array.Empty<string>(),
+            LastSequenceLines = lastSequenceLines
+        };
+        _completedRounds.Add(roundSummary);
+        _pendingRoundSummary = roundSummary;
+    }
+
+    private List<RoundOverPlayerSummary> BuildRoundSummaryPlayers(RemoteGameSnapshotDto? currentState)
+    {
+        var currentPlayers = currentState?.Data?.Players ?? new List<RemotePlayerStateDto>();
+        var previousRoundScores = currentState?.Data?.PreviousRound?.PlayerScores ?? new List<RemotePreviousRoundPlayerScoreDto>();
+
+        var players = new List<RoundOverPlayerSummary>();
+        foreach (var score in previousRoundScores)
+        {
+            var playerId = score.PlayerName ?? string.Empty;
+            var totalPoints = currentPlayers.FirstOrDefault(player =>
+                string.Equals(player.Id, playerId, StringComparison.OrdinalIgnoreCase))?.Score ?? 0;
+
+            players.Add(new RoundOverPlayerSummary
+            {
+                PlayerId = playerId,
+                TricksPoints = score.TricksPoints ?? 0,
+                OpponentsRemainingCardsPoints = score.OpponentsRemainingCardsPoints ?? 0,
+                HaggisPoints = score.HaggisPoints ?? 0,
+                RoundPoints = score.RoundPoints ?? 0,
+                TotalPoints = totalPoints
+            });
+        }
+
+        if (players.Count > 0)
+        {
+            return players;
+        }
+
+        return currentPlayers
+            .Select(player => new RoundOverPlayerSummary
+            {
+                PlayerId = player.Id ?? string.Empty,
+                TotalPoints = player.Score ?? 0
+            })
+            .ToList();
+    }
+
+    private async Task ShowScoreHistoryAsync(JsonEventListener listener, CancellationToken cancellationToken)
+    {
+        await _scoreHistoryScreen.ShowAsync(
+            BuildScoreHistoryState(),
+            () => Task.FromResult(DrainMessages(listener)),
+            cancellationToken);
+    }
+
+    private async Task ShowLastRoundSummaryAsync(JsonEventListener listener, CancellationToken cancellationToken)
+    {
+        var lastRoundSummary = _completedRounds.LastOrDefault();
+        if (lastRoundSummary is null)
+        {
+            _status = "No finished round yet.";
+            return;
+        }
+
+        await _roundOverScreen.ShowAsync(
+            lastRoundSummary,
+            () => Task.FromResult(DrainMessages(listener)),
+            cancellationToken);
+    }
+
+    private async Task HandleShortcutAsync(
+        GameInputAction shortcut,
+        JsonEventListener listener,
+        CancellationToken cancellationToken)
+    {
+        switch (shortcut)
+        {
+            case GameInputAction.ShowScoreHistory:
+                await ShowScoreHistoryAsync(listener, cancellationToken);
+                return;
+            case GameInputAction.ShowLastRoundSummary:
+                await ShowLastRoundSummaryAsync(listener, cancellationToken);
+                return;
+        }
+    }
+
+    private ScoreHistoryState BuildScoreHistoryState()
+    {
+        var roundNumbers = _completedRounds
+            .Select(round => round.RoundNumber)
+            .Distinct()
+            .OrderBy(round => round)
+            .ToArray();
+
+        var currentPlayers = _state?.Data?.Players ?? new List<RemotePlayerStateDto>();
+        var playerIds = currentPlayers
+            .Select(player => player.Id ?? string.Empty)
+            .Where(playerId => !string.IsNullOrWhiteSpace(playerId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(playerId => playerId, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var rows = new List<ScoreHistoryPlayerRow>();
+        foreach (var playerId in playerIds)
+        {
+            var roundPoints = new List<int>();
+            foreach (var roundNumber in roundNumbers)
+            {
+                var round = _completedRounds.FirstOrDefault(summary => summary.RoundNumber == roundNumber);
+                var player = round?.Players.FirstOrDefault(item =>
+                    string.Equals(item.PlayerId, playerId, StringComparison.OrdinalIgnoreCase));
+                roundPoints.Add(player?.RoundPoints ?? 0);
+            }
+
+            var totalPoints = currentPlayers.FirstOrDefault(player =>
+                string.Equals(player.Id, playerId, StringComparison.OrdinalIgnoreCase))?.Score ?? 0;
+
+            rows.Add(new ScoreHistoryPlayerRow
+            {
+                PlayerId = playerId,
+                RoundPoints = roundPoints,
+                TotalPoints = totalPoints
+            });
+        }
+
+        return new ScoreHistoryState
+        {
+            GameId = _options.GameId,
+            RoundNumbers = roundNumbers,
+            Players = rows
+        };
+    }
+
+    private bool IsHostPlayer()
+    {
+        return _roomPlayers.Count > 0 &&
+               string.Equals(_roomPlayers[0], _options.PlayerId, StringComparison.OrdinalIgnoreCase);
     }
 }

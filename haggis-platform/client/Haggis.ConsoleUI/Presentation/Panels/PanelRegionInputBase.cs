@@ -1,7 +1,12 @@
 using System.Text;
 
+namespace Haggis.ConsoleUI.Presentation.Panels;
+
 public abstract class PanelRegionInputBase : PanelRegionBase
 {
+    public const string FunctionKeyF1Token = "__F1__";
+    public const string FunctionKeyF2Token = "__F2__";
+
     private string _prompt = string.Empty;
     private readonly StringBuilder _buffer = new();
     private string? _submitted;
@@ -39,6 +44,12 @@ public abstract class PanelRegionInputBase : PanelRegionBase
     {
         switch (key.Key)
         {
+            case ConsoleKey.F1:
+                _submitted = FunctionKeyF1Token;
+                break;
+            case ConsoleKey.F2:
+                _submitted = FunctionKeyF2Token;
+                break;
             case ConsoleKey.Enter:
                 _submitted = _buffer.ToString();
                 _buffer.Clear();

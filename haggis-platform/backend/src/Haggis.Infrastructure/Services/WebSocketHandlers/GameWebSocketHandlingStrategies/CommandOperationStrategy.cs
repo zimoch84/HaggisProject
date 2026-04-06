@@ -33,7 +33,7 @@ internal sealed class CommandOperationStrategy : IGameOperationStrategy<GameWebS
                 State: null,
                 CreatedAt: DateTimeOffset.UtcNow,
                 MessageKind: "response");
-            await GameWebSocketHandler.SendToClientAsync(context.Socket, "command", rejected, cancellationToken);
+            await _handler.SendToClientAsync(context.Socket, "command", context.GameId, rejected, cancellationToken);
             return;
         }
 
@@ -42,12 +42,12 @@ internal sealed class CommandOperationStrategy : IGameOperationStrategy<GameWebS
         var outgoing = _handler.ApplicationService.Handle(context.GameId, commandMessage);
         if (!outgoing.Type.Equals("CommandApplied", StringComparison.Ordinal))
         {
-            await GameWebSocketHandler.SendToClientAsync(context.Socket, "command", outgoing, cancellationToken);
+            await _handler.SendToClientAsync(context.Socket, "command", context.GameId, outgoing, cancellationToken);
             return;
         }
 
         var response = outgoing with { MessageKind = "response" };
-        await GameWebSocketHandler.SendToClientAsync(context.Socket, "command", response, cancellationToken);
+        await _handler.SendToClientAsync(context.Socket, "command", context.GameId, response, cancellationToken);
 
         var eventMessage = outgoing with { MessageKind = "event" };
         await _handler.BroadcastExceptAsync(context.GameId, context.Socket, "command", eventMessage, cancellationToken);

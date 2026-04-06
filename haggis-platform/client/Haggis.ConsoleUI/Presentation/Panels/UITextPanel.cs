@@ -1,3 +1,5 @@
+namespace Haggis.ConsoleUI.Presentation.Panels;
+
 public sealed class UITextPanel : PanelRegionBase
 {
     private IReadOnlyList<string> _lines = Array.Empty<string>();

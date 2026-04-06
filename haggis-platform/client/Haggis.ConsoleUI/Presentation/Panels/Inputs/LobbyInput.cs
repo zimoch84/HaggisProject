@@ -1,3 +1,7 @@
+using Haggis.ConsoleUI.Presentation.ViewModels.Lobby;
+
+namespace Haggis.ConsoleUI.Presentation.Panels.Inputs;
+
 public sealed class LobbyInput : PanelRegionInputBase
 {
     public LobbyInput(string header, int x, int y, int width, int height)

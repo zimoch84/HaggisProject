@@ -27,12 +27,12 @@ internal sealed class SnapshotOperationStrategy : IGameOperationStrategy<GameWeb
                 State: null,
                 CreatedAt: DateTimeOffset.UtcNow,
                 MessageKind: "response");
-            await GameWebSocketHandler.SendToClientAsync(context.Socket, "snapshot", rejected, cancellationToken);
+            await _handler.SendToClientAsync(context.Socket, "snapshot", context.GameId, rejected, cancellationToken);
             return;
         }
 
         _handler.ConnectionManager.BindPlayer(context.GameId, context.ClientId, playerId);
         var snapshot = _handler.ApplicationService.GetSnapshot(context.GameId);
-        await GameWebSocketHandler.SendToClientAsync(context.Socket, "snapshot", snapshot, cancellationToken);
+        await _handler.SendToClientAsync(context.Socket, "snapshot", context.GameId, snapshot, cancellationToken);
     }
 }

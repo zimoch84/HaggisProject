@@ -1,6 +1,7 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using Haggis.ConsoleUI.Application.Game;
 
 public sealed class RemoteGameWebSocketClient : IAsyncDisposable
 {
@@ -67,7 +68,7 @@ public sealed class RemoteGameWebSocketClient : IAsyncDisposable
                     PlayerId = playerId,
                     Payload = new RemoteGameCommandPayloadDto
                     {
-                        Action = action.Action
+                        Action = action.DisplayAction
                     }
                 }
             }
