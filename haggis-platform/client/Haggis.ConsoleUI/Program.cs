@@ -9,7 +9,7 @@ Console.CancelKeyPress += (_, eventArgs) =>
     cancellationSource.Cancel();
 };
 
-const string serverBaseUrl = "http://localhost:5555";
+const string serverBaseUrl = "http://localhost:6666";
 string? defaultPlayerId = null;
 
 for (var i = 0; i < args.Length; i++)

@@ -1,82 +1,8 @@
 {
   "version": "0.2.0",
-  "compounds": [
-    {
-      "name": "Haggis Server + ConsoleUI",
-      "configurations": [
-        "Haggis.Infrastructure WebSocket (.NET)",
-        "Haggis.ConsoleUI Remote (.NET)"
-      ],
-      "stopAll": true
-    },
-    {
-      "name": "Haggis Server + Piotr + Bartek",
-      "configurations": [
-        "Haggis.Infrastructure WebSocket (.NET)",
-        "Haggis.ConsoleUI Remote Piotr (.NET)",
-        "Haggis.ConsoleUI Remote Bartek (.NET)"
-      ],
-      "stopAll": true
-    }
-  ],
   "configurations": [
     {
-      "name": "Haggis.ConsoleUI (.NET)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build Haggis.ConsoleUI",
-      "program": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI/bin/Debug/net8.0/HaggisRuntime.dll",
-      "args": [],
-      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI",
-      "stopAtEntry": false,
-      "console": "externalTerminal"
-    },
-    {
-      "name": "Haggis.ConsoleUI Remote (.NET)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build Haggis.ConsoleUI",
-      "program": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI/bin/Debug/net8.0/HaggisRuntime.dll",
-      "args": [
-        "remote",
-        "http://localhost:5555"
-      ],
-      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI",
-      "stopAtEntry": false,
-      "console": "externalTerminal"
-    },
-    {
-      "name": "Haggis.ConsoleUI Remote Piotr (.NET)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build Haggis.ConsoleUI",
-      "program": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI/bin/Debug/net8.0/HaggisRuntime.dll",
-      "args": [
-        "remote",
-        "http://localhost:5555",
-        "--user=piotr"
-      ],
-      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI",
-      "stopAtEntry": false,
-      "console": "externalTerminal"
-    },
-    {
-      "name": "Haggis.ConsoleUI Remote Bartek (.NET)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build Haggis.ConsoleUI",
-      "program": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI/bin/Debug/net8.0/HaggisRuntime.dll",
-      "args": [
-        "remote",
-        "http://localhost:5555",
-        "--user=bartek"
-      ],
-      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.ConsoleUI",
-      "stopAtEntry": false,
-      "console": "externalTerminal"
-    },
-    {
-      "name": "Haggis.Infrastructure WebSocket (.NET)",
+      "name": "Haggis Backend (.NET)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build Haggis.Infrastructure",
@@ -91,79 +17,31 @@
       }
     },
     {
-      "name": "Flutter Haggis (Windows)",
+      "name": "Flutter Android 1",
       "type": "dart",
       "request": "launch",
-      "program": "${workspaceFolder}/FlutterUI/flutter_ui/lib/main.dart",
-      "cwd": "${workspaceFolder}/FlutterUI/flutter_ui",
-      "deviceId": "windows"
-    },
-    {
-      "name": "Flutter Haggis (Chrome)",
-      "type": "dart",
-      "request": "launch",
-      "program": "${workspaceFolder}/FlutterUI/flutter_ui/lib/main.dart",
-      "cwd": "${workspaceFolder}/FlutterUI/flutter_ui",
-      "deviceId": "chrome"
-    },
-    {
-      "name": "Flutter Haggis (Android 1)",
-      "type": "dart",
-      "request": "launch",
-      "program": "${workspaceFolder}/FlutterUI/flutter_ui/lib/main.dart",
-      "cwd": "${workspaceFolder}/FlutterUI/flutter_ui",
+      "program": "${workspaceFolder}/haggis-platform/client/haggis_flutter/lib/main.dart",
+      "cwd": "${workspaceFolder}/haggis-platform/client/haggis_flutter",
       "deviceId": "emulator-5554",
       "preLaunchTask": "start Android Emulator 1"
     },
     {
-      "name": "Flutter Haggis (Android 2)",
+      "name": "Flutter Android 2",
       "type": "dart",
       "request": "launch",
-      "program": "${workspaceFolder}/FlutterUI/flutter_ui/lib/main.dart",
-      "cwd": "${workspaceFolder}/FlutterUI/flutter_ui",
+      "program": "${workspaceFolder}/haggis-platform/client/haggis_flutter/lib/main.dart",
+      "cwd": "${workspaceFolder}/haggis-platform/client/haggis_flutter",
       "deviceId": "emulator-5556",
       "preLaunchTask": "start Android Emulator 2"
-    },
-    {
-      "name": "Flutter Haggis (Current Android Emulator)",
-      "type": "dart",
-      "request": "launch",
-      "program": "${workspaceFolder}/FlutterUI/flutter_ui/lib/main.dart",
-      "cwd": "${workspaceFolder}/FlutterUI/flutter_ui",
-      "deviceId": "emulator-5556"
     }
   ],
   "compounds": [
     {
-      "name": "Haggis Backend + Flutter (Windows)",
+      "name": "Backend + 2 Android Emulators",
       "configurations": [
-        "Haggis.Infrastructure WebSocket (.NET)",
-        "Flutter Haggis (Windows)"
-      ],
-      "stopAll": true
-    },
-    {
-      "name": "Haggis Backend + Flutter (Chrome)",
-      "configurations": [
-        "Haggis.Infrastructure WebSocket (.NET)",
-        "Flutter Haggis (Chrome)"
-      ],
-      "stopAll": true
-    },
-    {
-      "name": "Haggis Backend + 2 Android Emulators",
-      "configurations": [
-        "Haggis.Infrastructure WebSocket (.NET)",
-        "Flutter Haggis (Android 1)",
-        "Flutter Haggis (Android 2)"
-      ],
-      "stopAll": true
-    },
-    {
-      "name": "Haggis Backend + Current Android Emulator",
-      "configurations": [
-        "Haggis.Infrastructure WebSocket (.NET)",
-        "Flutter Haggis (Current Android Emulator)"
+        "Haggis Backend (.NET)",
+        "Flutter Android 1",
+        "Flutter Android 2"
       ],
       "stopAll": true
     }

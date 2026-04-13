@@ -128,6 +128,20 @@ namespace HaggisTests
         }
 
         [Test]
+        public void BuildPossibleOpeningTricks_ShouldIncludeSequenceCompletedByWildCard()
+        {
+            var player = new HaggisPlayer("P1") { Hand = Cards("2B", "3B", "5B", "J") };
+
+            var tricks = _service.Opening(player);
+
+            Assert.That(
+                tricks.Any(t =>
+                    t.Type == TrickType.SEQ4 &&
+                    t.Cards.Select(card => card.ToString()).SequenceEqual(new[] { "2B", "3B", "J[4]", "5B" })),
+                Is.True);
+        }
+
+        [Test]
         public void ShouldSuggestWildedTrickWhenHaveOneCardLessToPlayingTrick()
         {
             var slawek = new HaggisPlayer("Sławek") { Hand = new List<string> { "2G", "4G", "J" }.ToCards() };

@@ -1,0 +1,4 @@
+{
+  "serverBaseUrl": "http://localhost:6666",
+  "androidEmulatorServerBaseUrl": "http://10.0.2.2:6666"
+}

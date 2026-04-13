@@ -1,4 +1,4 @@
-using Haggis.Domain.Enums;
+ï»¿using Haggis.Domain.Enums;
 using Haggis.Domain.Model;
 using System;
 using System.Collections.Generic;
@@ -14,24 +14,70 @@ namespace Haggis.Domain.Extentions
         {
             var tricks = new List<Trick>();
             var sequenceLength = (int)((int)sequenceType - 2) / 10;
-            cards.Sort();
-            var groupedCards = cards.GroupBy(card => card.Suit);
+            var nonWildCards = cards.Where(card => !card.IsWild).ToList();
+            nonWildCards.Sort();
+            var wildCards = cards.Where(card => card.IsWild).ToList();
 
-            foreach (var suitArray in groupedCards)
+            foreach (Suit suit in Enum.GetValues(typeof(Suit)))
             {
-                var singleSuit = suitArray.ToList();
-                for (int i = 0; i < singleSuit.Count() - sequenceLength + 1; i++)
-                {
-                    var sequence = singleSuit.GetRange(i, sequenceLength);
+                var singleSuit = nonWildCards
+                    .Where(card => card.Suit == suit)
+                    .OrderBy(card => card.Rank)
+                    .ToList();
 
-                    if (IsSequence(sequence) && !IsBomb(sequence))
+                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.TEN - sequenceLength + 1; startRank++)
+                {
+                    var sequence = BuildSequenceWithWilds(
+                        singleSuit,
+                        wildCards,
+                        (Rank)startRank,
+                        sequenceLength,
+                        suit);
+
+                    if (sequence.Count == sequenceLength &&
+                        sequence.Any(card => !card.IsWild) &&
+                        sequence.IsSequence() &&
+                        !IsBomb(sequence))
                     {
                         tricks.Add(new Trick(sequenceType, sequence));
                     }
                 }
             }
+
             return tricks;
         }
+
+        private static List<Card> BuildSequenceWithWilds(
+            List<Card> suitedCards,
+            List<Card> wildCards,
+            Rank firstRank,
+            int sequenceLength,
+            Suit suit)
+        {
+            var sequence = new List<Card>();
+            var availableWilds = new Queue<Card>(wildCards.OrderBy(card => card.BaseRank));
+
+            for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
+            {
+                var rank = (Rank)rankValue;
+                var matchingCard = suitedCards.FirstOrDefault(card => card.Rank == rank);
+                if (matchingCard != null)
+                {
+                    sequence.Add(matchingCard);
+                    continue;
+                }
+
+                if (availableWilds.Count == 0)
+                {
+                    return new List<Card>();
+                }
+
+                sequence.Add(availableWilds.Dequeue().WildAs(new Card(rank, suit)));
+            }
+
+            return sequence;
+        }
+
         public static List<Trick> FindTheSameCards(this List<Card> cards, TrickType trickType)
         {
             var tricks = new List<Trick>();
@@ -56,6 +102,7 @@ namespace Haggis.Domain.Extentions
             }
             return tricks;
         }
+
         public static List<Trick> FindTheSameCardsWithWildCards(this List<Card> cards, TrickType wildTrickType)
         {
             List<Trick> wildTricks = new List<Trick>();
@@ -63,12 +110,10 @@ namespace Haggis.Domain.Extentions
             if (wildTrickType == TrickType.SINGLE)
                 return wildTricks;
 
-            // Use all available wild cards instead of only the first one
             var wildCards = cards.Where(c => c.IsWild).ToList();
             if (wildCards.Count == 0)
                 return wildTricks;
 
-            // Build base tricks from non-wild cards with a lesser trick type
             var baseTricks = FindTheSameCards(cards.Where(c => !c.IsWild).ToList(), wildTrickType.LesserTrick());
 
             foreach (var baseTrick in baseTricks)
@@ -186,6 +231,7 @@ namespace Haggis.Domain.Extentions
             }
             return bombs;
         }
+
         public static bool Contains(this List<Card> cards, string card)
         {
 
@@ -196,25 +242,22 @@ namespace Haggis.Domain.Extentions
         {
             if (sequenceType.Class() != TrickClass.SEQUENCE_OF_PAIRS)
                 return null;
-            
+
             var tricks = new List<Trick>();
-            var pairedType = sequenceType.SeqByPair(); // Uzyskaj odpowiedni typ pary na podstawie sekwencji
+            var pairedType = sequenceType.SeqByPair();
             var groupedCards = cards.GroupBy(card => card.Suit);
 
-            // ZnajdŸ wszystkie sekwencje na podstawie podanego typu
             var allSequences = groupedCards
                 .SelectMany(group => group.ToList().FindCardSequences(pairedType))
                 .ToList();
 
-            // Zwróæ tricki typu PAIR na podstawie zgrupowanych sekwencji
             var allPairedSequences = allSequences
-                .GroupBy(seq => seq.Cards.Min(card => card.Rank)) // Grupuj wed³ug minimalnej karty
-                .Where(group => group.Count() >= 2) // Wybierz tylko grupy z co najmniej dwiema sekwencjami
-                .Select(group => new Trick(sequenceType, group.SelectMany(seq => seq.Cards).ToList())) // Twórz nowe tricki PAIR
+                .GroupBy(seq => seq.Cards.Min(card => card.Rank))
+                .Where(group => group.Count() >= 2)
+                .Select(group => new Trick(sequenceType, group.SelectMany(seq => seq.Cards).ToList()))
                 .ToList();
 
             return allPairedSequences;
         }
     }
 }
-
