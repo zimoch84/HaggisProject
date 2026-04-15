@@ -12,6 +12,8 @@ import 'round_over_controller.dart';
 import 'score_history_controller.dart';
 
 class GameController extends ChangeNotifier {
+  static const int _forcedStartSeed = 115826734;
+
   GameController({
     required this.serverBaseUrl,
     required this.playerId,
@@ -34,6 +36,7 @@ class GameController extends ChangeNotifier {
   final List<String> _selectedCards = <String>[];
   final Map<String, String> _wildAssignments = <String, String>{};
   bool _autoStartRequested = false;
+  bool _hasEstablishedSnapshotBaseline = false;
 
   GameSnapshot? get snapshot => _snapshot;
 
@@ -178,8 +181,12 @@ class GameController extends ChangeNotifier {
     }
 
     _autoStartRequested = true;
-    _client.createGame(playerId, room.players.length);
-    _status = 'Start command sent.';
+    _client.createGame(
+      playerId,
+      room.players.length,
+      seed: _forcedStartSeed,
+    );
+    _status = 'Start command sent. Seed: $_forcedStartSeed';
     notifyListeners();
   }
 
@@ -210,16 +217,35 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearSelectedCards() {
+    if (_selectedCards.isEmpty && _wildAssignments.isEmpty) {
+      return;
+    }
+
+    _selectedCards.clear();
+    _wildAssignments.clear();
+    notifyListeners();
+  }
+
   bool canSelectCard(String card) {
-    if (!isCurrentPlayersTurn) {
+    final snapshot = _snapshot;
+    if (snapshot == null) {
       return false;
     }
 
-    return true;
+    for (final GamePlayer player in snapshot.players) {
+      if (player.id != playerId) {
+        continue;
+      }
+
+      return player.hand.contains(card);
+    }
+
+    return false;
   }
 
   bool isCardPlayable(String card) {
-    return canSelectCard(card);
+    return isCurrentPlayersTurn && canSelectCard(card);
   }
 
   bool isCardSelected(String card) => _selectedCards.contains(card);
@@ -318,7 +344,12 @@ class GameController extends ChangeNotifier {
       _status = type == 'CommandApplied'
           ? 'Applied: ${((json['command'] as Map<String, dynamic>? ?? <String, dynamic>{})['type'] ?? '').toString()}'
           : 'Snapshot loaded.';
-      _updateDerivedRoundState(previousSnapshot, _snapshot);
+      _updateDerivedRoundState(
+        previousSnapshot,
+        _snapshot,
+        establishBaselineOnly: !_hasEstablishedSnapshotBaseline,
+      );
+      _hasEstablishedSnapshotBaseline = true;
       notifyListeners();
       return;
     }
@@ -340,7 +371,12 @@ class GameController extends ChangeNotifier {
   void _updateDerivedRoundState(
     GameSnapshot? previousSnapshot,
     GameSnapshot? currentSnapshot,
+    {bool establishBaselineOnly = false}
   ) {
+    if (establishBaselineOnly) {
+      return;
+    }
+
     final completedRound = _buildCompletedRound(previousSnapshot, currentSnapshot);
     if (completedRound != null) {
       _completedRounds.add(completedRound);
@@ -495,7 +531,9 @@ class GameController extends ChangeNotifier {
 
     final hand = currentPlayer?.hand ?? const <String>[];
     _selectedCards.removeWhere((String card) => !hand.contains(card));
-    if (_selectedCards.isNotEmpty && !_canMatchAnyAction(_selectedCards)) {
+    if (isCurrentPlayersTurn &&
+        _selectedCards.isNotEmpty &&
+        !_canMatchAnyAction(_selectedCards)) {
       _selectedCards.clear();
     }
     _syncWildAssignmentsWithSelection();
@@ -622,18 +660,9 @@ class GameController extends ChangeNotifier {
 }
 
 List<String> _extractSelectionCardsFromAction(String action) {
-  final start = action.indexOf('[');
-  final end = action.lastIndexOf(']');
-  if (start < 0 || end <= start) {
-    return const <String>[];
-  }
-
-  final content = action.substring(start + 1, end);
-  final parts = content.split('|');
   final selectedCards = <String>[];
 
-  for (final String part in parts) {
-    final token = part.trim().toUpperCase();
+  for (final String token in _extractActionParts(action)) {
     if (token.isEmpty) {
       continue;
     }
@@ -667,17 +696,50 @@ String? _extractWildAssignment(String action, String wildCard) {
 
 List<String> _extractActionParts(String action) {
   final start = action.indexOf('[');
-  final end = action.lastIndexOf(']');
-  if (start < 0 || end <= start) {
+  if (start < 0) {
     return const <String>[];
   }
 
-  return action
-      .substring(start + 1, end)
-      .split('|')
-      .map((String value) => value.trim().toUpperCase())
-      .where((String value) => value.isNotEmpty)
-      .toList(growable: false);
+  final parts = <String>[];
+  final token = StringBuffer();
+  var nestedBracketDepth = 0;
+
+  for (var index = start + 1; index < action.length; index++) {
+    final char = action[index];
+
+    if (char == '[') {
+      nestedBracketDepth++;
+      token.write(char);
+      continue;
+    }
+
+    if (char == ']') {
+      if (nestedBracketDepth == 0) {
+        final value = token.toString().trim().toUpperCase();
+        if (value.isNotEmpty) {
+          parts.add(value);
+        }
+        break;
+      }
+
+      nestedBracketDepth--;
+      token.write(char);
+      continue;
+    }
+
+    if (char == '|' && nestedBracketDepth == 0) {
+      final value = token.toString().trim().toUpperCase();
+      if (value.isNotEmpty) {
+        parts.add(value);
+      }
+      token.clear();
+      continue;
+    }
+
+    token.write(char);
+  }
+
+  return List<String>.unmodifiable(parts);
 }
 
 bool _sameCards(List<String> left, List<String> right) {

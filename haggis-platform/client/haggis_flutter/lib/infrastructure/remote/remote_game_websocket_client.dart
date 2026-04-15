@@ -44,13 +44,14 @@ class RemoteGameWebSocketClient {
     });
   }
 
-  void createGame(String playerId, int playerCount) {
+  void createGame(String playerId, int playerCount, {int? seed}) {
     send({
       'operation': 'create',
       'payload': {
         'playerId': playerId,
         'payload': {
           'playerCount': playerCount,
+          'seed': seed,
         },
       },
     });
