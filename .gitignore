@@ -11,6 +11,7 @@ haggis-platform/backend/src/Haggis.Infrastructure/logs/game-commands.log
 # OS / editor junk
 .DS_Store
 Thumbs.db
+.vscode/
 
 # Local placeholders
 .fake
