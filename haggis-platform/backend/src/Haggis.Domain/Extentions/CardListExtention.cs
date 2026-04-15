@@ -114,20 +114,46 @@ namespace Haggis.Domain.Extentions
             if (wildCards.Count == 0)
                 return wildTricks;
 
-            var baseTricks = FindTheSameCards(cards.Where(c => !c.IsWild).ToList(), wildTrickType.LesserTrick());
+            var requiredCardCount = (int)wildTrickType / 10;
+            var nonWildCards = cards.Where(c => !c.IsWild).ToList();
+            var groupedCards = nonWildCards.GroupBy(card => card.Rank);
 
-            foreach (var baseTrick in baseTricks)
+            foreach (var rankGroup in groupedCards)
             {
-                foreach (var wild in wildCards)
-                {
-                    var wildCardsList = new List<Card>(baseTrick.Cards);
-                    wildCardsList.Add(wild.WildAs(baseTrick.LastCard()));
+                var sameRankCards = rankGroup.ToList();
+                var maxNonWildCards = Math.Min(sameRankCards.Count, requiredCardCount - 1);
 
-                    var wildTrick = new Trick(wildTrickType, wildCardsList);
-                    wildTricks.Add(wildTrick);
+                for (var nonWildCardCount = 1; nonWildCardCount <= maxNonWildCards; nonWildCardCount++)
+                {
+                    var requiredWildCards = requiredCardCount - nonWildCardCount;
+                    if (requiredWildCards <= 0 || requiredWildCards > wildCards.Count)
+                        continue;
+
+                    var baseTricks = sameRankCards
+                        .GetKCombinationsByRankAndSuit(nonWildCardCount)
+                        .Select(combination => combination.ToList());
+                    var wildCombinations = wildCards.GetKCombinationsByRank(requiredWildCards);
+
+                    foreach (var baseTrick in baseTricks)
+                    {
+                        foreach (var wildCombination in wildCombinations)
+                        {
+                            var wildcardReplacements = wildCombination
+                                .Select(wild => wild.WildAs(baseTrick.Last()))
+                                .ToList();
+                            var trickCards = new List<Card>(baseTrick);
+                            trickCards.AddRange(wildcardReplacements);
+
+                            wildTricks.Add(new Trick(wildTrickType, trickCards));
+                        }
+                    }
                 }
             }
-            return wildTricks;
+
+            return wildTricks
+                .GroupBy(trick => trick.ToString())
+                .Select(group => group.First())
+                .ToList();
         }
 
         public static bool IsSequence(this List<Card> sequence)
