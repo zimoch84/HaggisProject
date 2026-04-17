@@ -38,8 +38,6 @@ Widget buildGamePageView({
   );
   final sortedHand = sortCardLabels(handSplit.remainingHand, handSortMode);
   final playableCards = resolvePlayableCards(controller, viewModel);
-  final canPlaySelected =
-      controller.isCurrentPlayersTurn && controller.canPlaySelectedCards;
   return Scaffold(
     extendBodyBehindAppBar: true,
     body: Stack(
@@ -102,8 +100,6 @@ Widget buildGamePageView({
                           onSortChanged: onSortChanged,
                           onCreateGroup: onCreateGroup,
                           onClearGroup: onClearGroup,
-                          canPlaySelected: canPlaySelected,
-                          onPlaySelected: onPlaySelected,
                           showCardHitZones: showCardHitZones,
                           cardScale: handCardScale,
                           spacingScale: handSpacingScale,
@@ -156,8 +152,6 @@ Widget buildGamePageView({
                         onSortChanged: onSortChanged,
                         onCreateGroup: onCreateGroup,
                         onClearGroup: onClearGroup,
-                        canPlaySelected: canPlaySelected,
-                        onPlaySelected: onPlaySelected,
                         showCardHitZones: showCardHitZones,
                         cardScale: handCardScale,
                         spacingScale: handSpacingScale,
