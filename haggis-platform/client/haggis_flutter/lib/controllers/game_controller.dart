@@ -28,7 +28,8 @@ class GameController extends ChangeNotifier {
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
   final RoundOverController roundOverController = RoundOverController();
-  final ScoreHistoryController scoreHistoryController = ScoreHistoryController();
+  final ScoreHistoryController scoreHistoryController =
+      ScoreHistoryController();
 
   GameSnapshot? _snapshot;
   String _status = 'Connecting to game...';
@@ -42,7 +43,8 @@ class GameController extends ChangeNotifier {
 
   String get status => _status;
   List<String> get selectedCards => List<String>.unmodifiable(_selectedCards);
-  Map<String, String> get wildAssignments => Map<String, String>.unmodifiable(_wildAssignments);
+  Map<String, String> get wildAssignments =>
+      Map<String, String>.unmodifiable(_wildAssignments);
 
   bool get canStartGame =>
       room.players.length >= 2 &&
@@ -54,7 +56,8 @@ class GameController extends ChangeNotifier {
   bool get isCurrentPlayersTurn => _snapshot?.currentPlayerId == playerId;
 
   bool get isGameInitialized =>
-      (_snapshot?.version ?? 0) > 0 && (_snapshot?.currentPlayerId ?? '').isNotEmpty;
+      (_snapshot?.version ?? 0) > 0 &&
+      (_snapshot?.currentPlayerId ?? '').isNotEmpty;
 
   bool get canPass => (_snapshot?.possibleActions ?? const <PossibleAction>[])
       .any((PossibleAction action) => action.type.toLowerCase() == 'pass');
@@ -113,6 +116,15 @@ class GameController extends ChangeNotifier {
               handCount: player.handCount,
               finished: player.finished,
               isCurrentPlayer: player.id == currentPlayerId,
+              hasJack: player.hand.any(
+                (String card) => card.trim().toUpperCase() == 'J',
+              ),
+              hasQueen: player.hand.any(
+                (String card) => card.trim().toUpperCase() == 'Q',
+              ),
+              hasKing: player.hand.any(
+                (String card) => card.trim().toUpperCase() == 'K',
+              ),
             ),
           )
           .toList(growable: false),
@@ -181,11 +193,7 @@ class GameController extends ChangeNotifier {
     }
 
     _autoStartRequested = true;
-    _client.createGame(
-      playerId,
-      room.players.length,
-      seed: _forcedStartSeed,
-    );
+    _client.createGame(playerId, room.players.length, seed: _forcedStartSeed);
     _status = 'Start command sent. Seed: $_forcedStartSeed';
     notifyListeners();
   }
@@ -250,7 +258,8 @@ class GameController extends ChangeNotifier {
 
   bool isCardSelected(String card) => _selectedCards.contains(card);
 
-  bool isWildCard(String card) => RegExp(r'^[JQK]$', caseSensitive: false).hasMatch(card.trim());
+  bool isWildCard(String card) =>
+      RegExp(r'^[JQK]$', caseSensitive: false).hasMatch(card.trim());
 
   String displayCardLabel(String card) {
     final assignment = _wildAssignments[card];
@@ -266,7 +275,8 @@ class GameController extends ChangeNotifier {
     }
 
     final options = <String>{};
-    for (final PossibleActionViewModel action in _matchingPlayableActionsIgnoringWild(wildCard)) {
+    for (final PossibleActionViewModel action
+        in _matchingPlayableActionsIgnoringWild(wildCard)) {
       final assignment = _extractWildAssignment(action.displayAction, wildCard);
       if (assignment != null && assignment.isNotEmpty) {
         options.add(assignment);
@@ -335,7 +345,8 @@ class GameController extends ChangeNotifier {
 
     if (type == 'GameSnapshot' || type == 'CommandApplied') {
       final previousSnapshot = _snapshot;
-      final stateJson = json['state'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final stateJson =
+          json['state'] as Map<String, dynamic>? ?? <String, dynamic>{};
       _snapshot = GameSnapshot.fromJson(stateJson);
       if (isGameInitialized) {
         _autoStartRequested = false;
@@ -370,14 +381,17 @@ class GameController extends ChangeNotifier {
 
   void _updateDerivedRoundState(
     GameSnapshot? previousSnapshot,
-    GameSnapshot? currentSnapshot,
-    {bool establishBaselineOnly = false}
-  ) {
+    GameSnapshot? currentSnapshot, {
+    bool establishBaselineOnly = false,
+  }) {
     if (establishBaselineOnly) {
       return;
     }
 
-    final completedRound = _buildCompletedRound(previousSnapshot, currentSnapshot);
+    final completedRound = _buildCompletedRound(
+      previousSnapshot,
+      currentSnapshot,
+    );
     if (completedRound != null) {
       _completedRounds.add(completedRound);
       roundOverController.setLastRound(completedRound);
@@ -406,9 +420,11 @@ class GameController extends ChangeNotifier {
     }
 
     final previousRound = currentSnapshot.previousRound;
-    final playerScores = previousRound?.playerScores ?? const <PreviousRoundPlayerScore>[];
+    final playerScores =
+        previousRound?.playerScores ?? const <PreviousRoundPlayerScore>[];
     final currentPlayersById = <String, GamePlayer>{
-      for (final GamePlayer player in currentSnapshot.players) player.id: player,
+      for (final GamePlayer player in currentSnapshot.players)
+        player.id: player,
     };
 
     final players = playerScores
@@ -426,11 +442,11 @@ class GameController extends ChangeNotifier {
 
     final sequence = previousSnapshot.appliedMoves.isNotEmpty
         ? previousSnapshot.appliedMoves
-            .map((TrickMove move) => '${move.playerId}: ${move.description}')
-            .toList(growable: false)
+              .map((TrickMove move) => '${move.playerId}: ${move.description}')
+              .toList(growable: false)
         : previousSnapshot.trick
-            .map((TrickMove move) => '${move.playerId}: ${move.description}')
-            .toList(growable: false);
+              .map((TrickMove move) => '${move.playerId}: ${move.description}')
+              .toList(growable: false);
 
     return RoundOverViewModel(
       gameId: room.gameId,
@@ -440,7 +456,9 @@ class GameController extends ChangeNotifier {
           'Round ${previousSnapshot.roundNumber} finished. Round ${currentSnapshot.roundNumber} started.',
       winnerPlayerId: previousRound?.winnerPlayerName ?? '',
       players: players,
-      haggisCards: List<String>.unmodifiable(previousRound?.haggisCards ?? const <String>[]),
+      haggisCards: List<String>.unmodifiable(
+        previousRound?.haggisCards ?? const <String>[],
+      ),
       lastSequenceLines: List<String>.unmodifiable(sequence),
     );
   }
@@ -450,21 +468,25 @@ class GameController extends ChangeNotifier {
       return null;
     }
 
-    final roundNumbers = _completedRounds
-        .map((RoundOverViewModel round) => round.roundNumber)
-        .toSet()
-        .toList()
-      ..sort();
+    final roundNumbers =
+        _completedRounds
+            .map((RoundOverViewModel round) => round.roundNumber)
+            .toSet()
+            .toList()
+          ..sort();
 
     final playerIds = <String>{
       for (final RoundOverViewModel round in _completedRounds)
-        for (final RoundOverPlayerRowViewModel player in round.players) player.playerId,
-      for (final GamePlayer player in _snapshot?.players ?? const <GamePlayer>[]) player.id,
-    }.toList()
-      ..sort();
+        for (final RoundOverPlayerRowViewModel player in round.players)
+          player.playerId,
+      for (final GamePlayer player
+          in _snapshot?.players ?? const <GamePlayer>[])
+        player.id,
+    }.toList()..sort();
 
     final currentTotals = <String, int>{
-      for (final GamePlayer player in _snapshot?.players ?? const <GamePlayer>[])
+      for (final GamePlayer player
+          in _snapshot?.players ?? const <GamePlayer>[])
         player.id: player.score,
     };
 
@@ -473,20 +495,24 @@ class GameController extends ChangeNotifier {
           final perRound = roundNumbers
               .map(
                 (int roundNumber) => _completedRounds
-                        .where((RoundOverViewModel round) => round.roundNumber == roundNumber)
-                        .expand((RoundOverViewModel round) => round.players)
-                        .firstWhere(
-                          (RoundOverPlayerRowViewModel row) => row.playerId == playerId,
-                          orElse: () => const RoundOverPlayerRowViewModel(
-                            playerId: '',
-                            tricksPoints: 0,
-                            opponentsRemainingCardsPoints: 0,
-                            haggisPoints: 0,
-                            roundPoints: 0,
-                            totalPoints: 0,
-                          ),
-                        )
-                        .roundPoints,
+                    .where(
+                      (RoundOverViewModel round) =>
+                          round.roundNumber == roundNumber,
+                    )
+                    .expand((RoundOverViewModel round) => round.players)
+                    .firstWhere(
+                      (RoundOverPlayerRowViewModel row) =>
+                          row.playerId == playerId,
+                      orElse: () => const RoundOverPlayerRowViewModel(
+                        playerId: '',
+                        tricksPoints: 0,
+                        opponentsRemainingCardsPoints: 0,
+                        haggisPoints: 0,
+                        roundPoints: 0,
+                        totalPoints: 0,
+                      ),
+                    )
+                    .roundPoints,
               )
               .toList(growable: false);
 
@@ -522,7 +548,8 @@ class GameController extends ChangeNotifier {
     }
 
     GamePlayer? currentPlayer;
-    for (final GamePlayer player in _snapshot?.players ?? const <GamePlayer>[]) {
+    for (final GamePlayer player
+        in _snapshot?.players ?? const <GamePlayer>[]) {
       if (player.id == playerId) {
         currentPlayer = player;
         break;
@@ -545,12 +572,14 @@ class GameController extends ChangeNotifier {
     }
 
     final selected = List<String>.from(selectedCards)..sort();
-    for (final PossibleAction action in _snapshot?.possibleActions ?? const <PossibleAction>[]) {
+    for (final PossibleAction action
+        in _snapshot?.possibleActions ?? const <PossibleAction>[]) {
       if (action.type.toLowerCase() == 'pass') {
         continue;
       }
 
-      final labels = _extractSelectionCardsFromAction(action.displayAction)..sort();
+      final labels = _extractSelectionCardsFromAction(action.displayAction)
+        ..sort();
       if (_isSubset(selected, labels)) {
         return true;
       }
@@ -559,7 +588,9 @@ class GameController extends ChangeNotifier {
     return false;
   }
 
-  List<PossibleActionViewModel> _matchingPlayableActionsIgnoringWild(String ignoredWildCard) {
+  List<PossibleActionViewModel> _matchingPlayableActionsIgnoringWild(
+    String ignoredWildCard,
+  ) {
     final matches = _findMatchingPlayableActionsForSelection(
       _selectedCards,
       wildAssignments: _wildAssignments,
@@ -591,12 +622,14 @@ class GameController extends ChangeNotifier {
     final selected = List<String>.from(cards)..sort();
     final matches = <PossibleActionViewModel>[];
 
-    for (final PossibleAction action in _snapshot?.possibleActions ?? const <PossibleAction>[]) {
+    for (final PossibleAction action
+        in _snapshot?.possibleActions ?? const <PossibleAction>[]) {
       if (action.type.toLowerCase() == 'pass') {
         continue;
       }
 
-      final labels = _extractSelectionCardsFromAction(action.displayAction)..sort();
+      final labels = _extractSelectionCardsFromAction(action.displayAction)
+        ..sort();
       if (!_sameCards(labels, selected)) {
         continue;
       }
@@ -607,7 +640,10 @@ class GameController extends ChangeNotifier {
         accentColor: _resolveActionColor(action),
       );
 
-      if (_matchesWildAssignments(actionViewModel, wildAssignments: wildAssignments)) {
+      if (_matchesWildAssignments(
+        actionViewModel,
+        wildAssignments: wildAssignments,
+      )) {
         matches.add(actionViewModel);
       }
     }
@@ -625,8 +661,12 @@ class GameController extends ChangeNotifier {
         continue;
       }
 
-      final assignment = _extractWildAssignment(action.displayAction, entry.key);
-      if (assignment == null || assignment.toUpperCase() != entry.value.toUpperCase()) {
+      final assignment = _extractWildAssignment(
+        action.displayAction,
+        entry.key,
+      );
+      if (assignment == null ||
+          assignment.toUpperCase() != entry.value.toUpperCase()) {
         return false;
       }
     }
@@ -635,7 +675,9 @@ class GameController extends ChangeNotifier {
   }
 
   void _syncWildAssignmentsWithSelection() {
-    _wildAssignments.removeWhere((String key, String value) => !_selectedCards.contains(key));
+    _wildAssignments.removeWhere(
+      (String key, String value) => !_selectedCards.contains(key),
+    );
 
     final wildCards = _selectedCards.where(isWildCard).toList(growable: false);
     for (final String wildCard in wildCards) {
@@ -685,7 +727,9 @@ List<String> _extractSelectionCardsFromAction(String action) {
 String? _extractWildAssignment(String action, String wildCard) {
   final parts = _extractActionParts(action);
   for (final String token in parts) {
-    final match = RegExp('^${RegExp.escape(wildCard.toUpperCase())}\\[(.+)\\]\$').firstMatch(token);
+    final match = RegExp(
+      '^${RegExp.escape(wildCard.toUpperCase())}\\[(.+)\\]\$',
+    ).firstMatch(token);
     if (match != null) {
       return match.group(1)?.trim().toUpperCase();
     }

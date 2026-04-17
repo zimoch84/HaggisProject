@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../view_models/game_view_model.dart';
 
+const String _miniCardBackAssetPath = 'assets/Cards/OldStyle/rewers_mini.png';
+
 class TopRibbon extends StatelessWidget {
   const TopRibbon({
     super.key,
@@ -33,13 +35,6 @@ class TopRibbon extends StatelessWidget {
       InfoChip(icon: Icons.meeting_room_outlined, label: viewModel.roomName),
       InfoChip(icon: Icons.group_outlined, label: '$playerCount'),
       InfoChip(icon: Icons.casino_outlined, label: 'R${viewModel.roundNumber}'),
-      InfoChip(
-        icon: Icons.play_circle_outline,
-        label: viewModel.currentPlayerId.isEmpty
-            ? '-'
-            : viewModel.currentPlayerId,
-      ),
-      InfoChip(icon: Icons.person_outline, label: viewModel.playerId),
       if (ownPlayer != null)
         PlayerPill(player: ownPlayer!, isSelf: true, compact: true),
       ...opponents.map(
@@ -191,11 +186,7 @@ class PlayerPill extends StatelessWidget {
             ),
             const SizedBox(width: 10),
           ] else ...[
-            Icon(
-              isSelf ? Icons.person : Icons.person_outline,
-              size: 16,
-              color: const Color(0xFF9BE2BF),
-            ),
+            _HandCountBadge(handCount: player.handCount),
             const SizedBox(width: 8),
           ],
           Column(
@@ -210,7 +201,23 @@ class PlayerPill extends StatelessWidget {
                   fontSize: 12,
                 ),
               ),
-              if (!compact)
+              if (compact)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${player.score} pkt',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _HaggisFaceMarkers(player: player),
+                  ],
+                )
+              else
                 Text(
                   'score ${player.score}  reka ${player.handCount}${player.finished ? '  finish' : ''}',
                   style: const TextStyle(fontSize: 12, color: Colors.white70),
@@ -218,6 +225,110 @@ class PlayerPill extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HandCountBadge extends StatelessWidget {
+  const _HandCountBadge({required this.handCount});
+
+  final int handCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        Image.asset(
+          _miniCardBackAssetPath,
+          width: 20,
+          height: 28,
+          fit: BoxFit.contain,
+        ),
+        Positioned(
+          bottom: -3,
+          right: -8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(
+              color: const Color(0xFFB15D45),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFFD8CFBD), width: 0.8),
+            ),
+            child: Text(
+              '$handCount',
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HaggisFaceMarkers extends StatelessWidget {
+  const _HaggisFaceMarkers({required this.player});
+
+  final GamePlayerViewModel player;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _FaceMarker(label: 'J', isActive: player.hasJack),
+        const SizedBox(width: 3),
+        _FaceMarker(label: 'Q', isActive: player.hasQueen),
+        const SizedBox(width: 3),
+        _FaceMarker(label: 'K', isActive: player.hasKing),
+        if (player.finished) ...[
+          const SizedBox(width: 6),
+          const Text(
+            'finish',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF9BE2BF),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _FaceMarker extends StatelessWidget {
+  const _FaceMarker({required this.label, required this.isActive});
+
+  final String label;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: isActive ? const Color(0xFFB15D45) : const Color(0x4431544B),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isActive ? const Color(0xFFE7C7A1) : const Color(0x6656B891),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: isActive ? Colors.white : Colors.white54,
+          height: 1,
+        ),
       ),
     );
   }

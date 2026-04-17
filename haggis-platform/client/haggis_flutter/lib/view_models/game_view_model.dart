@@ -45,6 +45,9 @@ class GamePlayerViewModel {
     required this.handCount,
     required this.finished,
     required this.isCurrentPlayer,
+    required this.hasJack,
+    required this.hasQueen,
+    required this.hasKing,
   });
 
   final String id;
@@ -52,13 +55,13 @@ class GamePlayerViewModel {
   final int handCount;
   final bool finished;
   final bool isCurrentPlayer;
+  final bool hasJack;
+  final bool hasQueen;
+  final bool hasKing;
 }
 
 class TrickMoveViewModel {
-  const TrickMoveViewModel({
-    required this.playerId,
-    required this.description,
-  });
+  const TrickMoveViewModel({required this.playerId, required this.description});
 
   final String playerId;
   final String description;

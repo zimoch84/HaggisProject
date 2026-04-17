@@ -97,8 +97,8 @@ class DisplayCardLabel {
     if (raw.length == 1) {
       return DisplayCardLabel(
         rankToken: raw,
-        suitToken: '?',
-        accentToken: '?',
+        suitToken: '',
+        accentToken: '',
         assignmentRankToken: '',
         assignmentSuitToken: '',
         isWildAssignment: false,
@@ -124,10 +124,10 @@ class DisplayCardLabel {
   static (String, String) _splitRankAndSuit(String token) {
     final trimmed = token.trim().toUpperCase();
     if (trimmed.isEmpty) {
-      return ('?', '?');
+      return ('?', '');
     }
     if (trimmed.length == 1) {
-      return (trimmed, '?');
+      return (trimmed, '');
     }
     return (
       trimmed.substring(0, trimmed.length - 1),

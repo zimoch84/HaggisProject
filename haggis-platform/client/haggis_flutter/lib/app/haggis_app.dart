@@ -8,12 +8,10 @@ import '../pages/connect_page.dart';
 import '../pages/game_page.dart';
 import '../pages/lobby_page.dart';
 import 'app_settings.dart';
+import 'player_preferences.dart';
 
 class HaggisFlutterApp extends StatelessWidget {
-  const HaggisFlutterApp({
-    super.key,
-    required this.appSettings,
-  });
+  const HaggisFlutterApp({super.key, required this.appSettings});
 
   final AppSettings appSettings;
 
@@ -36,10 +34,7 @@ class HaggisFlutterApp extends StatelessWidget {
 }
 
 class HaggisHomePage extends StatefulWidget {
-  const HaggisHomePage({
-    super.key,
-    required this.appSettings,
-  });
+  const HaggisHomePage({super.key, required this.appSettings});
 
   final AppSettings appSettings;
 
@@ -49,14 +44,19 @@ class HaggisHomePage extends StatefulWidget {
 
 class _HaggisHomePageState extends State<HaggisHomePage> {
   late final AppFlowController _appFlowController;
+  bool _bootstrapping = true;
   bool _connecting = false;
   String? _connectError;
 
   @override
   void initState() {
     super.initState();
-    _appFlowController = AppFlowController(appSettings: widget.appSettings);
+    _appFlowController = AppFlowController(
+      appSettings: widget.appSettings,
+      playerPreferences: PlayerPreferences(),
+    );
     _appFlowController.addListener(_refresh);
+    _bootstrap();
   }
 
   @override
@@ -68,6 +68,10 @@ class _HaggisHomePageState extends State<HaggisHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_bootstrapping) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final flow = _appFlowController.viewModel;
 
     switch (flow.screen) {
@@ -120,6 +124,27 @@ class _HaggisHomePageState extends State<HaggisHomePage> {
       if (mounted) {
         setState(() {
           _connecting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _bootstrap() async {
+    setState(() {
+      _bootstrapping = true;
+      _connectError = null;
+    });
+
+    try {
+      await _appFlowController.tryRestoreSession();
+    } catch (error) {
+      setState(() {
+        _connectError = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _bootstrapping = false;
         });
       }
     }

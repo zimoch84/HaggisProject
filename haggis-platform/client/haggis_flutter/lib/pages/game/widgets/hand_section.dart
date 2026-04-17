@@ -16,6 +16,8 @@ class HandSection extends StatelessWidget {
     required this.onSortChanged,
     required this.onCreateGroup,
     required this.onClearGroup,
+    required this.canPlaySelected,
+    required this.onPlaySelected,
     required this.showCardHitZones,
     required this.cardScale,
     required this.spacingScale,
@@ -33,6 +35,8 @@ class HandSection extends StatelessWidget {
   final ValueChanged<HandSortMode> onSortChanged;
   final VoidCallback onCreateGroup;
   final VoidCallback onClearGroup;
+  final bool canPlaySelected;
+  final Future<void> Function() onPlaySelected;
   final bool showCardHitZones;
   final double cardScale;
   final double spacingScale;
@@ -113,6 +117,19 @@ class HandSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: FilledButton.icon(
+                  onPressed: canPlaySelected ? onPlaySelected : null,
+                  style: FilledButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFFB15D45),
+                    disabledBackgroundColor: const Color(0xFF5C4944),
+                  ),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Play'),
+                ),
+              ),
               if (selectedCards.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(right: 10),
