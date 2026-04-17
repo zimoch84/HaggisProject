@@ -89,10 +89,16 @@ int compareCardLabels(String left, String right, HandSortMode sortMode) {
 }
 
 List<String> extractCardLabels(String raw) {
+  final normalized = raw.trim().toUpperCase();
+  final bracketStart = normalized.indexOf('[');
+  final bracketEnd = normalized.lastIndexOf(']');
+  final source = bracketStart >= 0 && bracketEnd > bracketStart
+      ? normalized.substring(bracketStart + 1, bracketEnd)
+      : normalized;
   final matches = RegExp(
     r'[JQK](?:\[[^\]]+\])?|(10|[2-9A])[BGROY]',
     caseSensitive: false,
-  ).allMatches(raw.toUpperCase());
+  ).allMatches(source);
   return matches.map((Match match) => match.group(0)!).toList(growable: false);
 }
 
