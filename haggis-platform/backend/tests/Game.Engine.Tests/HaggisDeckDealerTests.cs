@@ -12,7 +12,7 @@ namespace HaggisTests
         [Test]
         public void DealSetupCards_ShouldConsumeCardsFromDealerState()
         {
-            var dealer = new HaggisDeckDealer(12345);
+            var dealer = new HaggisDeckDealer(12345,3);
 
             var dealt = dealer.DealSetupCards();
             var remaining = dealer.GetHaggisCards();
@@ -23,9 +23,9 @@ namespace HaggisTests
         }
 
         [Test]
-        public void GetHaggisCards_ShouldReturnRemainingUndealtCards()
+        public void GetHaggisCards_ShouldReturnRemainingUndealtCards4ThreePlayers()
         {
-            var dealer = new HaggisDeckDealer(12345);
+            var dealer = new HaggisDeckDealer(12345,3);
 
             dealer.DealSetupCards();
             dealer.DealSetupCards();
@@ -34,6 +34,20 @@ namespace HaggisTests
             var remaining = dealer.GetHaggisCards();
 
             Assert.That(remaining.Count, Is.EqualTo(3));
+            Assert.Throws<InvalidOperationException>(() => dealer.DealSetupCards());
+        }
+        
+        [Test]
+        public void GetHaggisCards_ShouldReturnRemainingUndealtCardsFor2Players()
+        {
+            var dealer = new HaggisDeckDealer(12345,2);
+
+            dealer.DealSetupCards();
+            dealer.DealSetupCards();
+
+            var remaining = dealer.GetHaggisCards();
+
+            Assert.That(remaining.Count, Is.EqualTo(8));
             Assert.Throws<InvalidOperationException>(() => dealer.DealSetupCards());
         }
     }

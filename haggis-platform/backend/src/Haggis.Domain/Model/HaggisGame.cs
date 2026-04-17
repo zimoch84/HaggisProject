@@ -61,7 +61,7 @@ namespace Haggis.Domain.Model
         {
             CurrentRoundNumber++;
             var roundSeed = unchecked(Seed + CurrentRoundNumber * 7919);
-            DeckDealer = new HaggisDeckDealer(roundSeed);
+            DeckDealer = new HaggisDeckDealer(roundSeed, Players.Count);
             Players.ForEach(player =>
             {
                 player.Discard.Clear();

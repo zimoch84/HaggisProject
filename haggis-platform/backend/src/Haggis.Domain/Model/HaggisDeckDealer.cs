@@ -10,9 +10,9 @@ namespace Haggis.Domain.Model
     {
         private readonly List<Card> _haggisCards;
 
-        public HaggisDeckDealer(int seed)
+        public HaggisDeckDealer(int seed, int playerNumber)
         {
-            _haggisCards = CreateAllCards();
+            _haggisCards = CreateAllCards(playerNumber);
             var random = new Random(seed);
 
             for (var n = _haggisCards.Count - 1; n > 0; --n)
@@ -42,16 +42,28 @@ namespace Haggis.Domain.Model
             return _haggisCards.AsReadOnly();
         }
 
-        private static List<Card> CreateAllCards()
+        private static List<Card> CreateAllCards(int playerNumber)
         {
-            return new List<Card>
+            if(playerNumber == 3)
             {
-                new Card(TWO, RED), new Card(THREE, RED), new Card(FOUR, RED), new Card(FIVE, RED), new Card(SIX, RED), new Card(SEVEN, RED), new Card(EIGHT, RED), new Card(NINE, RED), new Card(TEN, RED),
-                new Card(TWO, GREEN), new Card(THREE, GREEN), new Card(FOUR, GREEN), new Card(FIVE, GREEN), new Card(SIX, GREEN), new Card(SEVEN, GREEN), new Card(EIGHT, GREEN), new Card(NINE, GREEN), new Card(TEN, GREEN),
-                new Card(TWO, ORANGE), new Card(THREE, ORANGE), new Card(FOUR, ORANGE), new Card(FIVE, ORANGE), new Card(SIX, ORANGE), new Card(SEVEN, ORANGE), new Card(EIGHT, ORANGE), new Card(NINE, ORANGE), new Card(TEN, ORANGE),
-                new Card(TWO, YELLOW), new Card(THREE, YELLOW), new Card(FOUR, YELLOW), new Card(FIVE, YELLOW), new Card(SIX, YELLOW), new Card(SEVEN, YELLOW), new Card(EIGHT, YELLOW), new Card(NINE, YELLOW), new Card(TEN, YELLOW),
-                new Card(TWO, BLACK), new Card(THREE, BLACK), new Card(FOUR, BLACK), new Card(FIVE, BLACK), new Card(SIX, BLACK), new Card(SEVEN, BLACK), new Card(EIGHT, BLACK), new Card(NINE, BLACK), new Card(TEN, BLACK)
-            };
+                return new List<Card>
+                {
+                    new Card(TWO, RED), new Card(THREE, RED), new Card(FOUR, RED), new Card(FIVE, RED), new Card(SIX, RED), new Card(SEVEN, RED), new Card(EIGHT, RED), new Card(NINE, RED), new Card(TEN, RED),
+                    new Card(TWO, GREEN), new Card(THREE, GREEN), new Card(FOUR, GREEN), new Card(FIVE, GREEN), new Card(SIX, GREEN), new Card(SEVEN, GREEN), new Card(EIGHT, GREEN), new Card(NINE, GREEN), new Card(TEN, GREEN),
+                    new Card(TWO, ORANGE), new Card(THREE, ORANGE), new Card(FOUR, ORANGE), new Card(FIVE, ORANGE), new Card(SIX, ORANGE), new Card(SEVEN, ORANGE), new Card(EIGHT, ORANGE), new Card(NINE, ORANGE), new Card(TEN, ORANGE),
+                    new Card(TWO, YELLOW), new Card(THREE, YELLOW), new Card(FOUR, YELLOW), new Card(FIVE, YELLOW), new Card(SIX, YELLOW), new Card(SEVEN, YELLOW), new Card(EIGHT, YELLOW), new Card(NINE, YELLOW), new Card(TEN, YELLOW),
+                    new Card(TWO, BLACK), new Card(THREE, BLACK), new Card(FOUR, BLACK), new Card(FIVE, BLACK), new Card(SIX, BLACK), new Card(SEVEN, BLACK), new Card(EIGHT, BLACK), new Card(NINE, BLACK), new Card(TEN, BLACK)
+                };
+            }
+            else {
+                return new List<Card> 
+                {
+                    new Card(TWO, RED), new Card(THREE, RED), new Card(FOUR, RED), new Card(FIVE, RED), new Card(SIX, RED), new Card(SEVEN, RED), new Card(EIGHT, RED), new Card(NINE, RED), new Card(TEN, RED),
+                    new Card(TWO, GREEN), new Card(THREE, GREEN), new Card(FOUR, GREEN), new Card(FIVE, GREEN), new Card(SIX, GREEN), new Card(SEVEN, GREEN), new Card(EIGHT, GREEN), new Card(NINE, GREEN), new Card(TEN, GREEN),
+                    new Card(TWO, ORANGE), new Card(THREE, ORANGE), new Card(FOUR, ORANGE), new Card(FIVE, ORANGE), new Card(SIX, ORANGE), new Card(SEVEN, ORANGE), new Card(EIGHT, ORANGE), new Card(NINE, ORANGE), new Card(TEN, ORANGE),
+                    new Card(TWO, BLACK), new Card(THREE, BLACK), new Card(FOUR, BLACK), new Card(FIVE, BLACK), new Card(SIX, BLACK), new Card(SEVEN, BLACK), new Card(EIGHT, BLACK), new Card(NINE, BLACK), new Card(TEN, BLACK)
+                };
+            }
         }
     }
 }
