@@ -262,7 +262,7 @@ class _HandCountBadge extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: Color.fromARGB(255, 255, 255, 255),
                 height: 1,
               ),
             ),

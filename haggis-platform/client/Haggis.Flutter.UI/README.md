@@ -1,4 +1,4 @@
-# haggis_flutter
+# Haggis.Flutter.UI
 
 A new Flutter project.
 
