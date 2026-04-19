@@ -116,6 +116,7 @@ class _GamePageState extends State<GamePage> {
         ..clear()
         ..addAll(selectedCards);
     });
+    widget.controller.clearSelectedCards();
   }
 
   void _clearSavedGroup() {

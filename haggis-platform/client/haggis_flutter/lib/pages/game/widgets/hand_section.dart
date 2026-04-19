@@ -58,10 +58,10 @@ class HandSection extends StatelessWidget {
                         ? const SizedBox.shrink()
                         : PlayerHandFan(
                             cards: savedGroup,
-                            playableCards: const <String>{},
-                            selectedCards: const <String>[],
+                            playableCards: playableCards,
+                            selectedCards: selectedCards,
                             cardLabelBuilder: cardLabelBuilder,
-                            onCardTap: (_) async {},
+                            onCardTap: onCardTap,
                             showHitZoneOutline: showCardHitZones,
                             cardScale: cardScale * 0.92,
                             spacingScale: spacingScale,
