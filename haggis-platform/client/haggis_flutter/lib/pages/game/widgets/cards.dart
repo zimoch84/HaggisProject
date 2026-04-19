@@ -354,14 +354,16 @@ class PlayerHandFan extends StatelessWidget {
     final preferredStep = 32.0 * spacingScale;
     final minimumStep = 14.0 * spacingScale;
     final cardHeight = 98.0 * cardScale;
-    final effectiveVerticalOffset = verticalOffset.clamp(-24.0, 96.0);
-    final fanHeight = cardHeight + (48 * cardScale) + (24 * arcScale);
+    final naturalFanHeight = cardHeight + (48 * cardScale) + (24 * arcScale);
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final availableWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : cardWidth;
+        final fanHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : naturalFanHeight;
         final fittedStep = cards.length <= 1
             ? cardWidth
             : (availableWidth - cardWidth) / (cards.length - 1);
@@ -375,34 +377,95 @@ class PlayerHandFan extends StatelessWidget {
             ? availableWidth
             : contentWidth;
         final horizontalInset = (viewportWidth - contentWidth) / 2;
+        final verticalAdjustment = _resolveVerticalAdjustment(
+          cardHeight: cardHeight,
+          fanHeight: fanHeight,
+        );
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: SizedBox(
+          child: _fanHitBox(
             width: viewportWidth,
             height: fanHeight,
-            child: Transform.translate(
-              offset: Offset(0, effectiveVerticalOffset),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  for (int index = 0; index < cards.length; index++)
-                    _positionedHandCard(
-                      index: index,
-                      count: cards.length,
-                      step: effectiveStep,
-                      startOffset: horizontalInset,
-                      label: cards[index],
-                      displayLabel: cardLabelBuilder(cards[index]),
-                      isPlayable: playableCards.contains(cards[index]),
-                      isSelected: selectedCards.contains(cards[index]),
-                    ),
-                ],
-              ),
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                for (int index = 0; index < cards.length; index++)
+                  _positionedHandCard(
+                    index: index,
+                    count: cards.length,
+                    step: effectiveStep,
+                    startOffset: horizontalInset,
+                    verticalAdjustment: verticalAdjustment,
+                    label: cards[index],
+                    displayLabel: cardLabelBuilder(cards[index]),
+                    isPlayable: playableCards.contains(cards[index]),
+                    isSelected: selectedCards.contains(cards[index]),
+                    cardHeight: cardHeight,
+                    fanHeight: fanHeight,
+                  ),
+              ],
             ),
           ),
         );
       },
+    );
+  }
+
+  double _resolveVerticalAdjustment({
+    required double cardHeight,
+    required double fanHeight,
+  }) {
+    if (cards.isEmpty) {
+      return 0;
+    }
+
+    var minTop = double.infinity;
+    var maxBottom = 0.0;
+    for (var index = 0; index < cards.length; index++) {
+      final top = _baseCardTop(
+        index,
+        cards.length,
+        selectedCards.contains(cards[index]),
+      );
+      minTop = top < minTop ? top : minTop;
+      final bottom = top + cardHeight;
+      maxBottom = bottom > maxBottom ? bottom : maxBottom;
+    }
+
+    final minOffset = -minTop;
+    final maxOffset = fanHeight - maxBottom;
+    if (maxOffset < minOffset) {
+      return minOffset;
+    }
+
+    return maxOffset;
+  }
+
+  double _baseCardTop(int index, int count, bool isSelected) {
+    final center = (count - 1) / 2;
+    final distanceFromCenter = index - center;
+    final normalized = center == 0 ? 0.0 : distanceFromCenter / center;
+    final baseTop = 8 + normalized.abs() * 10 * arcScale;
+    return isSelected ? baseTop - (18 * cardScale) : baseTop;
+  }
+
+  Widget _fanHitBox({
+    required double width,
+    required double height,
+    required Widget child,
+  }) {
+    final box = SizedBox(width: width, height: height, child: child);
+    if (!showHitZoneOutline) {
+      return box;
+    }
+
+    return DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xCC40C4FF), width: 2),
+      ),
+      child: box,
     );
   }
 
@@ -411,17 +474,22 @@ class PlayerHandFan extends StatelessWidget {
     required int count,
     required double step,
     required double startOffset,
+    required double verticalAdjustment,
     required String label,
     required String displayLabel,
     required bool isPlayable,
     required bool isSelected,
+    required double cardHeight,
+    required double fanHeight,
   }) {
     final center = (count - 1) / 2;
     final distanceFromCenter = index - center;
     final normalized = center == 0 ? 0.0 : distanceFromCenter / center;
     final angle = normalized * 0.12 * arcScale;
-    final baseTop = 8 + normalized.abs() * 10 * arcScale;
-    final top = isSelected ? baseTop - (18 * cardScale) : baseTop;
+    final maxTop = fanHeight > cardHeight ? fanHeight - cardHeight : 0.0;
+    final top = (_baseCardTop(index, count, isSelected) + verticalAdjustment)
+        .clamp(0.0, maxTop)
+        .toDouble();
 
     return Positioned(
       left: startOffset + index * step,

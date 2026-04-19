@@ -46,7 +46,7 @@ class HandSection extends StatelessWidget {
       children: [
         Positioned.fill(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 48, 8, 0),
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [

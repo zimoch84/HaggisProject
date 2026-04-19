@@ -44,8 +44,9 @@ Widget buildGamePageView({
       children: [
         const GameBackground(),
         SafeArea(
+          bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
             child: LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
                 final isLandscape = isLandscapeLayout(constraints);
