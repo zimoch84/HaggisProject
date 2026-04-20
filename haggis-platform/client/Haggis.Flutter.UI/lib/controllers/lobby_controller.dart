@@ -7,7 +7,7 @@ import '../view_models/lobby_view_model.dart';
 
 class LobbyController extends ChangeNotifier {
   LobbyController(this.serverBaseUrl, this.playerId)
-      : _client = GlobalLobbyWebSocketClient(serverBaseUrl);
+    : _client = GlobalLobbyWebSocketClient(serverBaseUrl);
 
   final String serverBaseUrl;
   final String playerId;
@@ -18,14 +18,15 @@ class LobbyController extends ChangeNotifier {
   String status = 'Connecting...';
   bool _isBusy = false;
   Completer<LobbyRoom?>? _pendingCreatedRoom;
+  String? _pendingCreatedRoomId;
 
   LobbyViewModel get viewModel => LobbyViewModel(
-        playerId: playerId,
-        status: status,
-        rooms: List<LobbyRoom>.unmodifiable(rooms),
-        messages: List<LobbyChatMessage>.unmodifiable(messages),
-        isBusy: _isBusy,
-      );
+    playerId: playerId,
+    status: status,
+    rooms: List<LobbyRoom>.unmodifiable(rooms),
+    messages: List<LobbyChatMessage>.unmodifiable(messages),
+    isBusy: _isBusy,
+  );
 
   Future<void> connect() async {
     await _client.connect();
@@ -52,25 +53,43 @@ class LobbyController extends ChangeNotifier {
   }
 
   Future<LobbyRoom?> createRoom(String playerId, String roomName) async {
-    final normalizedName =
-        roomName.trim().isEmpty ? "$playerId's room" : roomName.trim();
-    final roomId = _slugify(normalizedName);
+    final normalizedName = roomName.trim().isEmpty
+        ? "$playerId's room"
+        : roomName.trim();
+    final roomId = _buildRoomId(normalizedName);
     _pendingCreatedRoom?.complete(null);
     _pendingCreatedRoom = Completer<LobbyRoom?>();
-    _client.createRoom(
-      playerId: playerId,
-      roomName: normalizedName,
-      roomId: roomId,
-    );
+    _pendingCreatedRoomId = roomId;
     _isBusy = true;
     status = "Creating room '$normalizedName'...";
     notifyListeners();
+
+    try {
+      _client.createRoom(
+        playerId: playerId,
+        roomName: normalizedName,
+        roomId: roomId,
+      );
+    } catch (error) {
+      _pendingCreatedRoom?.complete(null);
+      _pendingCreatedRoom = null;
+      _pendingCreatedRoomId = null;
+      _isBusy = false;
+      status = 'Could not send create room request: $error';
+      notifyListeners();
+      return null;
+    }
+
     final createdRoom = await _pendingCreatedRoom!.future.timeout(
       const Duration(seconds: 5),
       onTimeout: () => null,
     );
     if (createdRoom == null) {
-      refreshRooms();
+      _pendingCreatedRoom = null;
+      _pendingCreatedRoomId = null;
+      _isBusy = false;
+      status = "Could not create room '$normalizedName'.";
+      notifyListeners();
     }
     return createdRoom;
   }
@@ -90,12 +109,10 @@ class LobbyController extends ChangeNotifier {
       messages
         ..clear()
         ..addAll(
-          ((json['history'] as List<dynamic>? ?? <dynamic>[]))
-              .map(
-                (dynamic message) => LobbyChatMessage.fromJson(
-                  message as Map<String, dynamic>,
-                ),
-              ),
+          ((json['history'] as List<dynamic>? ?? <dynamic>[])).map(
+            (dynamic message) =>
+                LobbyChatMessage.fromJson(message as Map<String, dynamic>),
+          ),
         );
       status = 'Connected to public lobby.';
       notifyListeners();
@@ -121,19 +138,38 @@ class LobbyController extends ChangeNotifier {
             (dynamic room) => LobbyRoom.fromJson(room as Map<String, dynamic>),
           ),
         );
+      final pendingRoom = _findPendingCreatedRoom();
       _isBusy = false;
       status = 'Loaded ${rooms.length} rooms.';
+      if (pendingRoom != null && _pendingCreatedRoom?.isCompleted == false) {
+        status = "Created room '${pendingRoom.roomName}'.";
+        _pendingCreatedRoom?.complete(pendingRoom);
+        _pendingCreatedRoom = null;
+        _pendingCreatedRoomId = null;
+      }
       notifyListeners();
       return;
     }
 
     if (operation == 'createroom' || operation == 'privatechat') {
       final data = json['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final error = (data['error'] ?? '').toString();
+      if (error.isNotEmpty) {
+        _isBusy = false;
+        status = error;
+        _pendingCreatedRoom?.complete(null);
+        _pendingCreatedRoom = null;
+        _pendingCreatedRoomId = null;
+        notifyListeners();
+        return;
+      }
+
       final roomJson = data['room'] as Map<String, dynamic>?;
       if (roomJson != null) {
         final room = LobbyRoom.fromJson(roomJson);
-        final existingIndex =
-            rooms.indexWhere((LobbyRoom item) => item.roomId == room.roomId);
+        final existingIndex = rooms.indexWhere(
+          (LobbyRoom item) => item.roomId == room.roomId,
+        );
         if (existingIndex >= 0) {
           rooms[existingIndex] = room;
         } else {
@@ -143,6 +179,7 @@ class LobbyController extends ChangeNotifier {
         status = "Created room '${room.roomName}'.";
         _pendingCreatedRoom?.complete(room);
         _pendingCreatedRoom = null;
+        _pendingCreatedRoomId = null;
       }
       notifyListeners();
       return;
@@ -152,17 +189,38 @@ class LobbyController extends ChangeNotifier {
       _isBusy = false;
       _pendingCreatedRoom?.complete(null);
       _pendingCreatedRoom = null;
+      _pendingCreatedRoomId = null;
       status = (json['detail'] ?? json['error']).toString();
       notifyListeners();
     }
   }
 
-  String _slugify(String value) {
-    return value
+  LobbyRoom? _findPendingCreatedRoom() {
+    final pendingRoomId = _pendingCreatedRoomId;
+    if (pendingRoomId == null || pendingRoomId.isEmpty) {
+      return null;
+    }
+
+    for (final room in rooms) {
+      if (room.roomId == pendingRoomId) {
+        return room;
+      }
+    }
+
+    return null;
+  }
+
+  String _buildRoomId(String value) {
+    final slug = value
         .trim()
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
         .replaceAll(RegExp(r'-+'), '-')
         .replaceAll(RegExp(r'^-|-$'), '');
+    if (slug.isNotEmpty) {
+      return slug;
+    }
+
+    return DateTime.now().microsecondsSinceEpoch.toString();
   }
 }

@@ -21,6 +21,7 @@ class LobbyPage extends StatefulWidget {
 
 class _LobbyPageState extends State<LobbyPage> {
   final TextEditingController _roomController = TextEditingController();
+  bool _creatingRoom = false;
   bool _joining = false;
 
   @override
@@ -102,10 +103,7 @@ class _LobbyPageState extends State<LobbyPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: fillHeight ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        Text(
-          'Rooms',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        Text('Rooms', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         Text(widget.controller.viewModel.status),
         const SizedBox(height: 16),
@@ -118,14 +116,14 @@ class _LobbyPageState extends State<LobbyPage> {
                 children: [
                   TextField(
                     controller: _roomController,
-                    decoration: const InputDecoration(
-                      labelText: 'New room name',
-                    ),
+                    decoration: _roomInputDecoration(),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _handleCreate(),
                   ),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: widget.controller.viewModel.isBusy ? null : _handleCreate,
-                    child: const Text('Create'),
+                    onPressed: _isCreateDisabled ? null : _handleCreate,
+                    child: Text(_creatingRoom ? 'Creating...' : 'Create'),
                   ),
                 ],
               );
@@ -136,15 +134,15 @@ class _LobbyPageState extends State<LobbyPage> {
                 Expanded(
                   child: TextField(
                     controller: _roomController,
-                    decoration: const InputDecoration(
-                      labelText: 'New room name',
-                    ),
+                    decoration: _roomInputDecoration(),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _handleCreate(),
                   ),
                 ),
                 const SizedBox(width: 12),
                 FilledButton(
-                  onPressed: widget.controller.viewModel.isBusy ? null : _handleCreate,
-                  child: const Text('Create'),
+                  onPressed: _isCreateDisabled ? null : _handleCreate,
+                  child: Text(_creatingRoom ? 'Creating...' : 'Create'),
                 ),
               ],
             );
@@ -159,10 +157,7 @@ class _LobbyPageState extends State<LobbyPage> {
     );
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: content,
-      ),
+      child: Padding(padding: const EdgeInsets.all(16), child: content),
     );
   }
 
@@ -210,10 +205,7 @@ class _LobbyPageState extends State<LobbyPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: fillHeight ? MainAxisSize.max : MainAxisSize.min,
           children: [
-            Text(
-              'Global Chat',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text('Global Chat', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             if (fillHeight)
               Expanded(child: list)
@@ -226,15 +218,41 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   Future<void> _handleCreate() async {
-    final room = await widget.controller.createRoom(
-      widget.controller.viewModel.playerId,
-      _roomController.text.trim(),
-    );
-    if (mounted) {
-      _roomController.clear();
+    if (_isCreateDisabled) {
+      return;
     }
-    if (room != null) {
-      await _joinRoom(room);
+
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _creatingRoom = true;
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Creating room...')));
+
+    try {
+      final room = await widget.controller.createRoom(
+        widget.controller.viewModel.playerId,
+        _roomController.text.trim(),
+      );
+      if (mounted && room != null) {
+        _roomController.clear();
+      }
+      if (room != null) {
+        await _joinRoom(room);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not create room: $error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _creatingRoom = false;
+        });
+      }
     }
   }
 
@@ -257,5 +275,19 @@ class _LobbyPageState extends State<LobbyPage> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  bool get _isCreateDisabled =>
+      _creatingRoom || _joining || widget.controller.viewModel.isBusy;
+
+  InputDecoration _roomInputDecoration() {
+    return InputDecoration(
+      labelText: 'New room name',
+      suffixIcon: IconButton(
+        tooltip: 'Create',
+        onPressed: _isCreateDisabled ? null : _handleCreate,
+        icon: const Icon(Icons.add),
+      ),
+    );
   }
 }
