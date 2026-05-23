@@ -35,5 +35,33 @@ namespace HaggisTests
                 combinations[0].Cards.Select(card => card.ToString()),
                 Is.EqualTo(new[] { "10Y", "J[10]", "Q[10]", "K[10]" }));
         }
+
+        [Test]
+        public void FindPairedSequences_ShouldUseWildCardsToCompleteConsecutivePairs()
+        {
+            var cards = new[] { "3G", "4B", "J", "Q" };
+
+            var combinations = cards.ToCards().FindPairedSequences(TrickType.PAIRSEQ2);
+
+            Assert.That(combinations.Count, Is.EqualTo(1));
+            Assert.That(combinations[0].Type, Is.EqualTo(TrickType.PAIRSEQ2));
+            Assert.That(
+                combinations[0].Cards.Select(card => card.ToString()),
+                Is.EqualTo(new[] { "J[3]", "3G", "4B", "Q[4]" }));
+        }
+
+        [Test]
+        public void FindPairedSequences_ShouldAllowTenAsSequenceStartWithJackAndQueenPair()
+        {
+            var cards = new[] { "10G", "10B", "J", "Q" };
+
+            var combinations = cards.ToCards().FindPairedSequences(TrickType.PAIRSEQ2);
+
+            Assert.That(
+                combinations.Any(trick =>
+                    trick.Cards.Select(card => card.ToString()).SequenceEqual(
+                        new[] { "10B", "10G", "J", "Q" })),
+                Is.True);
+        }
     }
 }

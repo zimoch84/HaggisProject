@@ -269,21 +269,86 @@ namespace Haggis.Domain.Extentions
             if (sequenceType.Class() != TrickClass.SEQUENCE_OF_PAIRS)
                 return null;
 
+            var pairSequenceLength = ((int)sequenceType - 4) / 20;
             var tricks = new List<Trick>();
-            var pairedType = sequenceType.SeqByPair();
-            var groupedCards = cards.GroupBy(card => card.Suit);
+            var suits = Enum.GetValues(typeof(Suit)).Cast<Suit>().ToList();
 
-            var allSequences = groupedCards
-                .SelectMany(group => group.ToList().FindCardSequences(pairedType))
+            for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.JACK - pairSequenceLength + 1; startRank++)
+            {
+                for (var firstSuitIndex = 0; firstSuitIndex < suits.Count; firstSuitIndex++)
+                {
+                    for (var secondSuitIndex = firstSuitIndex + 1; secondSuitIndex < suits.Count; secondSuitIndex++)
+                    {
+                        var availableWilds = new Queue<Card>(
+                            cards.Where(card => card.IsWild).OrderBy(card => card.BaseRank));
+                        var firstSequence = BuildSuitedSequenceWithSharedWilds(
+                            cards,
+                            availableWilds,
+                            (Rank)startRank,
+                            pairSequenceLength,
+                            suits[firstSuitIndex]);
+                        if (firstSequence.Count != pairSequenceLength)
+                            continue;
+
+                        var secondSequence = BuildSuitedSequenceWithSharedWilds(
+                            cards,
+                            availableWilds,
+                            (Rank)startRank,
+                            pairSequenceLength,
+                            suits[secondSuitIndex]);
+                        if (secondSequence.Count != pairSequenceLength)
+                            continue;
+
+                        var pairedSequenceCards = new List<Card>();
+                        pairedSequenceCards.AddRange(firstSequence);
+                        pairedSequenceCards.AddRange(secondSequence);
+                        if (pairedSequenceCards.Any(card => !card.IsWild))
+                        {
+                            tricks.Add(new Trick(sequenceType, pairedSequenceCards));
+                        }
+                    }
+                }
+            }
+
+            return tricks
+                .GroupBy(trick => trick.ToString())
+                .Select(group => group.First())
                 .ToList();
+        }
 
-            var allPairedSequences = allSequences
-                .GroupBy(seq => seq.Cards.Min(card => card.Rank))
-                .Where(group => group.Count() >= 2)
-                .Select(group => new Trick(sequenceType, group.SelectMany(seq => seq.Cards).ToList()))
-                .ToList();
+        private static List<Card> BuildSuitedSequenceWithSharedWilds(
+            List<Card> cards,
+            Queue<Card> availableWilds,
+            Rank firstRank,
+            int sequenceLength,
+            Suit suit)
+        {
+            var sequence = new List<Card>();
 
-            return allPairedSequences;
+            for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
+            {
+                var rank = (Rank)rankValue;
+                var matchingCard = cards.FirstOrDefault(card =>
+                    !card.IsWild && card.Suit == suit && card.Rank == rank);
+                if (matchingCard != null)
+                {
+                    sequence.Add(matchingCard);
+                    continue;
+                }
+
+                if (availableWilds.Count == 0)
+                    return new List<Card>();
+
+                var wildCard = availableWilds.Dequeue();
+                sequence.Add(IsWildRank(rank) ? wildCard : wildCard.WildAs(new Card(rank, suit)));
+            }
+
+            return sequence;
+        }
+
+        private static bool IsWildRank(Rank rank)
+        {
+            return rank == Rank.JACK || rank == Rank.QUEEN || rank == Rank.KING;
         }
     }
 }
