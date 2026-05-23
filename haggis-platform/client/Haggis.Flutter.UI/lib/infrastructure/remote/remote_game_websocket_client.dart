@@ -25,9 +25,14 @@ class RemoteGameWebSocketClient {
     _channel = WebSocketChannel.connect(
       buildWsUri(serverBaseUrl, '/ws/games/$gameId'),
     );
-    _subscription = _channel.stream.listen((dynamic event) {
-      _messages.add(jsonDecode(event as String) as Map<String, dynamic>);
-    }, onError: _messages.addError, onDone: _messages.close);
+    await _channel.ready.timeout(const Duration(seconds: 5));
+    _subscription = _channel.stream.listen(
+      (dynamic event) {
+        _messages.add(jsonDecode(event as String) as Map<String, dynamic>);
+      },
+      onError: _messages.addError,
+      onDone: _messages.close,
+    );
   }
 
   void join(String playerId) {
@@ -49,10 +54,7 @@ class RemoteGameWebSocketClient {
       'operation': 'create',
       'payload': {
         'playerId': playerId,
-        'payload': {
-          'playerCount': playerCount,
-          'seed': seed,
-        },
+        'payload': {'playerCount': playerCount, 'seed': seed},
       },
     });
   }
@@ -77,9 +79,7 @@ class RemoteGameWebSocketClient {
         'command': {
           'type': 'Play',
           'playerId': playerId,
-          'payload': {
-            'action': action,
-          },
+          'payload': {'action': action},
         },
       },
     });

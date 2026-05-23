@@ -54,12 +54,17 @@ class AppFlowController extends ChangeNotifier {
 
   Future<void> connectToLobby() async {
     final controller = LobbyController(_config.serverBaseUrl, _config.playerId);
-    await controller.connect();
-    await _playerPreferences.savePlayerId(_config.playerId);
-    _lobbyController?.dispose();
-    _lobbyController = controller;
-    _screen = AppScreen.lobby;
-    notifyListeners();
+    try {
+      await controller.connect().timeout(const Duration(seconds: 5));
+      await _playerPreferences.savePlayerId(_config.playerId);
+      _lobbyController?.dispose();
+      _lobbyController = controller;
+      _screen = AppScreen.lobby;
+      notifyListeners();
+    } catch (_) {
+      controller.dispose();
+      rethrow;
+    }
   }
 
   Future<void> openGame(LobbyRoom room) async {
@@ -68,7 +73,12 @@ class AppFlowController extends ChangeNotifier {
       playerId: _config.playerId,
       room: room,
     );
-    await controller.connect();
+    try {
+      await controller.connect();
+    } catch (_) {
+      controller.dispose();
+      rethrow;
+    }
     _gameController?.dispose();
     _gameController = controller;
     _screen = AppScreen.game;

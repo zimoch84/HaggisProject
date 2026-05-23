@@ -170,8 +170,14 @@ class _LobbyPageState extends State<LobbyPage> {
             itemBuilder: (context, index) {
               final room = rooms[index];
               return ListTile(
-                title: Text(room.roomName),
-                subtitle: Text('${room.players.join(', ')}\n${room.gameId}'),
+                onTap: _joining ? null : () => _joinRoom(room),
+                mouseCursor: _joining
+                    ? SystemMouseCursors.basic
+                    : SystemMouseCursors.click,
+                title: Text('Room: ${room.displayName}'),
+                subtitle: Text(
+                  'Players: ${room.players.join(', ')}\nID: ${room.gameId}',
+                ),
                 isThreeLine: true,
                 trailing: FilledButton.tonal(
                   onPressed: _joining ? null : () => _joinRoom(room),
@@ -262,6 +268,14 @@ class _LobbyPageState extends State<LobbyPage> {
     });
     try {
       await widget.onJoinRoom(room);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not join room: ${_formatJoinError(error)}'),
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -269,6 +283,18 @@ class _LobbyPageState extends State<LobbyPage> {
         });
       }
     }
+  }
+
+  String _formatJoinError(Object error) {
+    final message = error.toString();
+    if (message.contains('TimeoutException')) {
+      return 'game socket did not connect within 5 seconds.';
+    }
+    if (message.contains('SocketException') ||
+        message.contains('WebSocketChannelException')) {
+      return 'could not connect to game socket.';
+    }
+    return message.replaceFirst('Exception: ', '');
   }
 
   void _refresh() {

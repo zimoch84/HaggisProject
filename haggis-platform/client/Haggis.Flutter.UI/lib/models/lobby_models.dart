@@ -21,13 +21,24 @@ class LobbyRoom {
   final String gameId;
   final String roomName;
   final List<String> players;
+
+  String get displayName {
+    final trimmedRoomName = roomName.trim();
+    if (trimmedRoomName.isNotEmpty) {
+      return trimmedRoomName;
+    }
+
+    final trimmedRoomId = roomId.trim();
+    if (trimmedRoomId.isNotEmpty) {
+      return trimmedRoomId;
+    }
+
+    return gameId.trim();
+  }
 }
 
 class LobbyChatMessage {
-  LobbyChatMessage({
-    required this.playerId,
-    required this.text,
-  });
+  LobbyChatMessage({required this.playerId, required this.text});
 
   factory LobbyChatMessage.fromJson(Map<String, dynamic> json) {
     return LobbyChatMessage(

@@ -21,6 +21,7 @@ class GlobalLobbyWebSocketClient {
     _channel = WebSocketChannel.connect(
       buildWsUri(serverBaseUrl, '/ws/global/chat'),
     );
+    await _channel.ready.timeout(const Duration(seconds: 5));
     _subscription = _channel.stream.listen((dynamic event) {
       _messages.add(jsonDecode(event as String) as Map<String, dynamic>);
     }, onError: _messages.addError, onDone: _messages.close);

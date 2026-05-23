@@ -6,13 +6,11 @@ class ConnectPage extends StatefulWidget {
   const ConnectPage({
     super.key,
     required this.viewModel,
-    required this.onPlayerIdChanged,
     required this.onConnect,
   });
 
   final ConnectViewModel viewModel;
-  final ValueChanged<String> onPlayerIdChanged;
-  final Future<void> Function() onConnect;
+  final Future<void> Function(String playerId) onConnect;
 
   @override
   State<ConnectPage> createState() => _ConnectPageState();
@@ -20,6 +18,7 @@ class ConnectPage extends StatefulWidget {
 
 class _ConnectPageState extends State<ConnectPage> {
   late final TextEditingController _playerController;
+  late final FocusNode _playerFocusNode;
   bool _connecting = false;
   String? _error;
 
@@ -27,7 +26,14 @@ class _ConnectPageState extends State<ConnectPage> {
   void initState() {
     super.initState();
     _playerController = TextEditingController(text: widget.viewModel.playerId);
+    _playerFocusNode = FocusNode();
     _error = widget.viewModel.error;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _playerFocusNode.requestFocus();
+      }
+    });
   }
 
   @override
@@ -42,6 +48,7 @@ class _ConnectPageState extends State<ConnectPage> {
 
   @override
   void dispose() {
+    _playerFocusNode.dispose();
     _playerController.dispose();
     super.dispose();
   }
@@ -68,7 +75,18 @@ class _ConnectPageState extends State<ConnectPage> {
                   const SizedBox(height: 24),
                   TextField(
                     controller: _playerController,
+                    focusNode: _playerFocusNode,
+                    autofocus: true,
                     decoration: const InputDecoration(labelText: 'Player ID'),
+                    textInputAction: TextInputAction.done,
+                    onChanged: (_) {
+                      if (_error != null) {
+                        setState(() {
+                          _error = null;
+                        });
+                      }
+                    },
+                    onSubmitted: (_) => _handleConnect(),
                   ),
                   const SizedBox(height: 12),
                   if (_error != null) ...[
@@ -106,21 +124,27 @@ class _ConnectPageState extends State<ConnectPage> {
       setState(() {
         _error = 'Player ID jest wymagane.';
       });
+      await _showConnectError(_error!);
       return;
     }
 
-    widget.onPlayerIdChanged(playerId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Otwieram lobby jako "$playerId"...')),
+    );
+
     setState(() {
       _connecting = true;
       _error = null;
     });
 
     try {
-      await widget.onConnect();
+      await widget.onConnect(playerId);
     } catch (error) {
+      final message = _formatError(error);
       setState(() {
-        _error = error.toString();
+        _error = message;
       });
+      await _showConnectError(message);
     } finally {
       if (mounted) {
         setState(() {
@@ -128,5 +152,37 @@ class _ConnectPageState extends State<ConnectPage> {
         });
       }
     }
+  }
+
+  Future<void> _showConnectError(String message) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nie można otworzyć lobby'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatError(Object error) {
+    final message = error.toString();
+    if (message.contains('TimeoutException')) {
+      return 'Backend nie odpowiedział w ciągu 5 sekund. Sprawdź, czy Haggis Backend działa na porcie 6666.';
+    }
+    if (message.contains('SocketException') ||
+        message.contains('WebSocketChannelException')) {
+      return 'Nie można połączyć się z backendem lobby. Sprawdź backend i adres serwera.';
+    }
+    return message.replaceFirst('Exception: ', '');
   }
 }

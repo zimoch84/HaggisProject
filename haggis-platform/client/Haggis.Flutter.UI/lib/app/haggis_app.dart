@@ -121,7 +121,6 @@ class _HaggisHomePageState extends State<HaggisHomePage> {
             isConnecting: _connecting,
             error: _connectError,
           ),
-          onPlayerIdChanged: _appFlowController.updatePlayerId,
           onConnect: _connectToLobby,
         );
       case AppScreen.lobby:
@@ -146,18 +145,20 @@ class _HaggisHomePageState extends State<HaggisHomePage> {
     }
   }
 
-  Future<void> _connectToLobby() async {
+  Future<void> _connectToLobby(String playerId) async {
     setState(() {
       _connecting = true;
       _connectError = null;
     });
 
     try {
+      _appFlowController.updatePlayerId(playerId);
       await _appFlowController.connectToLobby();
     } catch (error) {
       setState(() {
         _connectError = error.toString();
       });
+      rethrow;
     } finally {
       if (mounted) {
         setState(() {

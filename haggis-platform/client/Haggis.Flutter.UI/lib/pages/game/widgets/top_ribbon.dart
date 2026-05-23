@@ -31,8 +31,11 @@ class TopRibbon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final playerCount = viewModel.players.length;
+    final roomLabel = viewModel.roomName.trim().isNotEmpty
+        ? viewModel.roomName.trim()
+        : viewModel.gameId;
     final items = <Widget>[
-      InfoChip(icon: Icons.meeting_room_outlined, label: viewModel.roomName),
+      InfoChip(icon: Icons.meeting_room_outlined, label: 'Room: $roomLabel'),
       InfoChip(icon: Icons.group_outlined, label: '$playerCount'),
       InfoChip(icon: Icons.casino_outlined, label: 'R${viewModel.roundNumber}'),
       if (ownPlayer != null)
