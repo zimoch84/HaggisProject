@@ -20,8 +20,9 @@
       "name": "Flutter Android 1",
       "type": "dart",
       "request": "launch",
-      "program": "${workspaceFolder}/haggis-platform/client/haggis_flutter/lib/main.dart",
-      "cwd": "${workspaceFolder}/haggis-platform/client/haggis_flutter",
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.Flutter.UI",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
       "deviceId": "emulator-5554",
       "preLaunchTask": "start Android Emulator 1"
     },
@@ -29,15 +30,24 @@
       "name": "Flutter Android 2",
       "type": "dart",
       "request": "launch",
-      "program": "${workspaceFolder}/haggis-platform/client/haggis_flutter/lib/main.dart",
-      "cwd": "${workspaceFolder}/haggis-platform/client/haggis_flutter",
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.Flutter.UI",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
       "deviceId": "emulator-5556",
       "preLaunchTask": "start Android Emulator 2"
     }
   ],
   "compounds": [
     {
-      "name": "Backend + 2 Android Emulators",
+      "name": "2 Flutter Android Apps Debug",
+      "configurations": [
+        "Flutter Android 1",
+        "Flutter Android 2"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Backend + 2 Flutter Android Apps",
       "configurations": [
         "Haggis Backend (.NET)",
         "Flutter Android 1",
