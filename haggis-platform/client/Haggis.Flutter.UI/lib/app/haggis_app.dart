@@ -7,6 +7,7 @@ import '../view_models/connect_view_model.dart';
 import '../pages/connect_page.dart';
 import '../pages/game_page.dart';
 import '../pages/lobby_page.dart';
+import 'app_build_info.dart';
 import 'app_settings.dart';
 import 'player_preferences.dart';
 
@@ -20,6 +21,14 @@ class HaggisFlutterApp extends StatelessWidget {
     return MaterialApp(
       title: 'haggis',
       debugShowCheckedModeBanner: false,
+      builder: (BuildContext context, Widget? child) {
+        return Stack(
+          children: [
+            ?child,
+            const Positioned(right: 8, bottom: 8, child: _AppBuildBadge()),
+          ],
+        );
+      },
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFB54A2E),
@@ -29,6 +38,35 @@ class HaggisFlutterApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: HaggisHomePage(appSettings: appSettings),
+    );
+  }
+}
+
+class _AppBuildBadge extends StatelessWidget {
+  const _AppBuildBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xCC162A2E),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0x6656B891)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Text(
+            AppBuildInfo.displayLabel,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
