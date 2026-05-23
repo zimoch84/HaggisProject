@@ -74,6 +74,11 @@
       "dependsOn": [
         "start Android Emulator 1"
       ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "flutter-android"
+      },
       "problemMatcher": []
     },
     {
@@ -93,6 +98,11 @@
       "dependsOn": [
         "start Android Emulator 2"
       ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "flutter-android"
+      },
       "problemMatcher": []
     },
     {
