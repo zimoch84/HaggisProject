@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import '../models/card_ui_models.dart';
 import '../utils/card_ui_helpers.dart';
@@ -322,6 +324,49 @@ class SuitSymbolMark extends StatelessWidget {
   }
 }
 
+class CardGeometry {
+  const CardGeometry({
+    required this.index,
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+    required this.angle,
+    required this.visibleHitWidth,
+  });
+
+  final int index;
+  final double left;
+  final double top;
+  final double width;
+  final double height;
+  final double angle;
+  final double visibleHitWidth;
+
+  Rect get visibleHitRect => Rect.fromLTWH(left, top, visibleHitWidth, height);
+
+  bool containsPoint(Offset point) {
+    return visibleHitRect.contains(point);
+  }
+
+  bool containsPointWithRotation(Offset point) {
+    if (angle == 0) {
+      return containsPoint(point);
+    }
+
+    final pivot = Offset(left + width / 2, top + height);
+    final translated = point - pivot;
+    final sinAngle = -sin(angle);
+    final cosAngle = cos(angle);
+    final unrotated = Offset(
+      translated.dx * cosAngle - translated.dy * sinAngle,
+      translated.dx * sinAngle + translated.dy * cosAngle,
+    );
+
+    return visibleHitRect.contains(unrotated + pivot);
+  }
+}
+
 class PlayerHandFan extends StatelessWidget {
   const PlayerHandFan({
     super.key,
@@ -384,27 +429,46 @@ class PlayerHandFan extends StatelessWidget {
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: _fanHitBox(
-            width: viewportWidth,
-            height: fanHeight,
-            child: Stack(
-              clipBehavior: Clip.hardEdge,
-              children: [
-                for (int index = 0; index < cards.length; index++)
-                  _positionedHandCard(
-                    index: index,
-                    count: cards.length,
-                    step: effectiveStep,
-                    startOffset: horizontalInset,
-                    verticalAdjustment: verticalAdjustment,
-                    label: cards[index],
-                    displayLabel: cardLabelBuilder(cards[index]),
-                    isPlayable: playableCards.contains(cards[index]),
-                    isSelected: selectedCards.contains(cards[index]),
-                    cardHeight: cardHeight,
-                    fanHeight: fanHeight,
-                  ),
-              ],
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapUp: cards.isEmpty
+                ? null
+                : (TapUpDetails details) {
+                    final card = _cardAtOffset(
+                      localOffset: details.localPosition,
+                      startOffset: horizontalInset,
+                      step: effectiveStep,
+                      cardWidth: cardWidth,
+                      cardHeight: cardHeight,
+                      fanHeight: fanHeight,
+                      verticalAdjustment: verticalAdjustment,
+                    );
+                    if (card != null) {
+                      onCardTap(card);
+                    }
+                  },
+            child: _fanHitBox(
+              width: viewportWidth,
+              height: fanHeight,
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  for (int index = 0; index < cards.length; index++)
+                    _positionedHandCard(
+                      index: index,
+                      count: cards.length,
+                      step: effectiveStep,
+                      startOffset: horizontalInset,
+                      verticalAdjustment: verticalAdjustment,
+                      label: cards[index],
+                      displayLabel: cardLabelBuilder(cards[index]),
+                      isPlayable: playableCards.contains(cards[index]),
+                      cardWidth: cardWidth,
+                      cardHeight: cardHeight,
+                      fanHeight: fanHeight,
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -450,6 +514,72 @@ class PlayerHandFan extends StatelessWidget {
     return isSelected ? baseTop - (18 * cardScale) : baseTop;
   }
 
+  CardGeometry _cardGeometryAtIndex({
+    required int index,
+    required int count,
+    required double startOffset,
+    required double step,
+    required double cardWidth,
+    required double cardHeight,
+    required double fanHeight,
+    required double verticalAdjustment,
+  }) {
+    final center = (count - 1) / 2;
+    final distanceFromCenter = index - center;
+    final normalized = center == 0 ? 0.0 : distanceFromCenter / center;
+    final angle = normalized * 0.12 * arcScale;
+    final maxTop = fanHeight > cardHeight ? fanHeight - cardHeight : 0.0;
+    final top =
+        (_baseCardTop(index, count, selectedCards.contains(cards[index])) +
+                verticalAdjustment)
+            .clamp(0.0, maxTop)
+            .toDouble();
+
+    return CardGeometry(
+      index: index,
+      left: startOffset + index * step,
+      top: top,
+      width: cardWidth,
+      height: cardHeight,
+      angle: angle,
+      visibleHitWidth: index == count - 1
+          ? cardWidth
+          : step.clamp(0.0, cardWidth).toDouble(),
+    );
+  }
+
+  String? _cardAtOffset({
+    required Offset localOffset,
+    required double startOffset,
+    required double step,
+    required double cardWidth,
+    required double cardHeight,
+    required double fanHeight,
+    required double verticalAdjustment,
+  }) {
+    if (cards.isEmpty) {
+      return null;
+    }
+
+    for (var index = cards.length - 1; index >= 0; index--) {
+      final geometry = _cardGeometryAtIndex(
+        index: index,
+        count: cards.length,
+        startOffset: startOffset,
+        step: step,
+        cardWidth: cardWidth,
+        cardHeight: cardHeight,
+        fanHeight: fanHeight,
+        verticalAdjustment: verticalAdjustment,
+      );
+      if (geometry.containsPointWithRotation(localOffset)) {
+        return cards[index];
+      }
+    }
+
+    return null;
+  }
+
   Widget _fanHitBox({
     required double width,
     required double height,
@@ -478,27 +608,30 @@ class PlayerHandFan extends StatelessWidget {
     required String label,
     required String displayLabel,
     required bool isPlayable,
-    required bool isSelected,
+    required double cardWidth,
     required double cardHeight,
     required double fanHeight,
   }) {
-    final center = (count - 1) / 2;
-    final distanceFromCenter = index - center;
-    final normalized = center == 0 ? 0.0 : distanceFromCenter / center;
-    final angle = normalized * 0.12 * arcScale;
-    final maxTop = fanHeight > cardHeight ? fanHeight - cardHeight : 0.0;
-    final top = (_baseCardTop(index, count, isSelected) + verticalAdjustment)
-        .clamp(0.0, maxTop)
-        .toDouble();
+    final geometry = _cardGeometryAtIndex(
+      index: index,
+      count: count,
+      startOffset: startOffset,
+      step: step,
+      cardWidth: cardWidth,
+      cardHeight: cardHeight,
+      fanHeight: fanHeight,
+      verticalAdjustment: verticalAdjustment,
+    );
+    final isSelected = selectedCards.contains(label);
 
     return Positioned(
-      left: startOffset + index * step,
-      top: top,
+      left: geometry.left,
+      top: geometry.top,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOutCubic,
         child: Transform.rotate(
-          angle: angle,
+          angle: geometry.angle,
           alignment: Alignment.bottomCenter,
           child: HandCard(
             label: displayLabel,
@@ -507,7 +640,6 @@ class PlayerHandFan extends StatelessWidget {
             showHitZoneOutline: showHitZoneOutline,
             key: ValueKey<String>('hand-$label'),
             scale: cardScale,
-            onTap: () => onCardTap(label),
           ),
         ),
       ),
