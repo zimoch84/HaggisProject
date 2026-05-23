@@ -3,19 +3,14 @@ import 'package:flutter/material.dart';
 import '../view_models/score_history_view_model.dart';
 
 class ScoreHistoryPage extends StatelessWidget {
-  const ScoreHistoryPage({
-    super.key,
-    required this.viewModel,
-  });
+  const ScoreHistoryPage({super.key, required this.viewModel});
 
   final ScoreHistoryViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Score History'),
-      ),
+      appBar: AppBar(title: const Text('Score History')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Card(
@@ -34,28 +29,49 @@ class ScoreHistoryPage extends StatelessWidget {
                           child: SingleChildScrollView(
                             child: DataTable(
                               columns: [
-                                const DataColumn(label: Text('Player')),
-                                ...viewModel.roundNumbers.map(
-                                  (int round) => DataColumn(label: Text('R$round')),
+                                const DataColumn(label: Text('Round')),
+                                ...viewModel.players.map(
+                                  (ScoreHistoryPlayerRowViewModel player) =>
+                                      DataColumn(label: Text(player.playerId)),
                                 ),
                                 const DataColumn(label: Text('Total')),
                               ],
-                              rows: viewModel.players
-                                  .map(
-                                    (ScoreHistoryPlayerRowViewModel player) =>
-                                        DataRow(
-                                      cells: [
-                                        DataCell(Text(player.playerId)),
-                                        ...player.roundPoints.map(
-                                          (int points) => DataCell(
-                                            Text(points >= 0 ? '+$points' : '$points'),
+                              rows: [
+                                ...viewModel.roundNumbers.asMap().entries.map(
+                                  (MapEntry<int, int> round) => DataRow(
+                                    cells: [
+                                      DataCell(Text('R${round.value}')),
+                                      ...viewModel.players.map((
+                                        ScoreHistoryPlayerRowViewModel player,
+                                      ) {
+                                        final points =
+                                            round.key <
+                                                player.roundPoints.length
+                                            ? player.roundPoints[round.key]
+                                            : 0;
+                                        return DataCell(
+                                          Text(_formatSigned(points)),
+                                        );
+                                      }),
+                                      DataCell(
+                                        Text(_formatRoundTotal(round.key)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                DataRow(
+                                  cells: [
+                                    const DataCell(Text('Total')),
+                                    ...viewModel.players.map(
+                                      (ScoreHistoryPlayerRowViewModel player) =>
+                                          DataCell(
+                                            Text(player.totalPoints.toString()),
                                           ),
-                                        ),
-                                        DataCell(Text(player.totalPoints.toString())),
-                                      ],
                                     ),
-                                  )
-                                  .toList(growable: false),
+                                    DataCell(Text(_formatGrandTotal())),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -67,4 +83,29 @@ class ScoreHistoryPage extends StatelessWidget {
       ),
     );
   }
+
+  String _formatRoundTotal(int roundIndex) {
+    final total = viewModel.players.fold<int>(0, (
+      int sum,
+      ScoreHistoryPlayerRowViewModel player,
+    ) {
+      if (roundIndex >= player.roundPoints.length) {
+        return sum;
+      }
+
+      return sum + player.roundPoints[roundIndex];
+    });
+    return _formatSigned(total);
+  }
+
+  String _formatGrandTotal() {
+    final total = viewModel.players.fold<int>(
+      0,
+      (int sum, ScoreHistoryPlayerRowViewModel player) =>
+          sum + player.totalPoints,
+    );
+    return total.toString();
+  }
+
+  String _formatSigned(int points) => points >= 0 ? '+$points' : '$points';
 }
