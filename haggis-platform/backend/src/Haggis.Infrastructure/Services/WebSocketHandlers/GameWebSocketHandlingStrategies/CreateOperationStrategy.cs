@@ -16,8 +16,7 @@ internal sealed class CreateOperationStrategy : IGameOperationStrategy<GameWebSo
         var payloadDto = operation.Payload!;
         var playerId = payloadDto.PlayerId.Trim();
 
-        GameRoom? room;
-        if (!_handler.RoomStore.TryJoinRoom(context.GameId, playerId, out room) || room is null)
+        if (!_handler.RoomStore.TryGetRoom(context.GameId, out var room) || room is null)
         {
             room = _handler.RoomStore.GetOrCreateRoom(context.GameId, playerId, "haggis");
         }
