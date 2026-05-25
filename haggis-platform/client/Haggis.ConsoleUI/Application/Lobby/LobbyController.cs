@@ -18,21 +18,10 @@ public sealed class LobbyController
     public async Task<LobbyRoom?> RunAsync(string playerId, CancellationToken cancellationToken)
     {
         var state = new LobbyState();
-
-        using var bootstrap = await _lobbyClient.ReceiveAsync(cancellationToken);
-        if (bootstrap is not null)
-        {
-            ApplyLobbyMessage(state, bootstrap.RootElement);
-        }
-
-        await _lobbyClient.SendListRoomsAsync(cancellationToken);
-        using var roomsResponse = await _lobbyClient.ReceiveAsync(cancellationToken);
-        if (roomsResponse is not null)
-        {
-            ApplyLobbyMessage(state, roomsResponse.RootElement);
-        }
-
         await using var listener = new JsonEventListener(_lobbyClient.ReceiveAsync);
+
+        state.Status = "Loading rooms...";
+        await _lobbyClient.SendListRoomsAsync(cancellationToken);
 
         while (!cancellationToken.IsCancellationRequested)
         {
