@@ -11,8 +11,8 @@ namespace Haggis.Domain.Services
     public abstract class TrickGenerationServiceBase
     {
         private static List<TrickType> SameCardTypes { get; } = new List<TrickType> { SINGLE, PAIR, TRIPLE, QUAD, FIVED, SIXED };
-        private static List<TrickType> SequenceTypes { get; } = new List<TrickType> { SEQ3, SEQ4, SEQ5, SEQ6, SEQ6, SEQ7 };
-        private static List<TrickType> PairedSequenceType { get; } = new List<TrickType> { PAIRSEQ2 };
+        private static List<TrickType> SequenceTypes { get; } = new List<TrickType> { SEQ3, SEQ4, SEQ5, SEQ6, SEQ7 };
+        private static List<TrickType> PairedSequenceType { get; } = new List<TrickType> { PAIRSEQ2, PAIRSEQ3, PAIRSEQ4, PAIRSEQ5, PAIRSEQ6, PAIRSEQ7 };
 
         protected List<Trick> BuildAllPossibleTricks(IHaggisPlayer player, TrickType? lastTrickType)
         {

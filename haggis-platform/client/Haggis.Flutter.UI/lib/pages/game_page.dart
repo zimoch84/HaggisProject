@@ -47,6 +47,12 @@ class _GamePageState extends State<GamePage> {
       savedGroup: savedGroup,
       onCreateGroup: _createGroupFromSelection,
       onClearGroup: _clearSavedGroup,
+      onGroupRainbowBomb: _findBombGroup(_BombGroupType.rainbow) == null
+          ? null
+          : () => _createBombGroup(_BombGroupType.rainbow),
+      onGroupColorBomb: _findBombGroup(_BombGroupType.color) == null
+          ? null
+          : () => _createBombGroup(_BombGroupType.color),
       showCardHitZones: showCardHitZones,
       handCardScale: handCardScale,
       handSpacingScale: handSpacingScale,
@@ -129,6 +135,72 @@ class _GamePageState extends State<GamePage> {
     });
   }
 
+  void _createBombGroup(_BombGroupType type) {
+    final bombCards = _findBombGroup(type);
+    if (bombCards == null) {
+      return;
+    }
+
+    setState(() {
+      savedGroup
+        ..clear()
+        ..addAll(bombCards);
+    });
+    widget.controller.clearSelectedCards();
+  }
+
+  List<String>? _findBombGroup(_BombGroupType type) {
+    final hand = widget.controller.viewModel.hand;
+    final cardsByRank = <int, List<_BombCandidateCard>>{
+      3: <_BombCandidateCard>[],
+      5: <_BombCandidateCard>[],
+      7: <_BombCandidateCard>[],
+      9: <_BombCandidateCard>[],
+    };
+
+    for (var index = 0; index < hand.length; index++) {
+      final parsed = _BombCandidateCard.tryParse(hand[index], index);
+      if (parsed == null || !cardsByRank.containsKey(parsed.rank)) {
+        continue;
+      }
+
+      cardsByRank[parsed.rank]!.add(parsed);
+    }
+
+    if (cardsByRank.values.any(
+      (List<_BombCandidateCard> cards) => cards.isEmpty,
+    )) {
+      return null;
+    }
+
+    for (final three in cardsByRank[3]!) {
+      for (final five in cardsByRank[5]!) {
+        for (final seven in cardsByRank[7]!) {
+          for (final nine in cardsByRank[9]!) {
+            final bomb = <_BombCandidateCard>[three, five, seven, nine];
+            if (_matchesBombType(bomb, type)) {
+              bomb.sort(
+                (_BombCandidateCard left, _BombCandidateCard right) =>
+                    left.index.compareTo(right.index),
+              );
+              return bomb.map((_BombCandidateCard card) => card.label).toList();
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  bool _matchesBombType(List<_BombCandidateCard> cards, _BombGroupType type) {
+    final suits = cards.map((_BombCandidateCard card) => card.suit).toSet();
+    return switch (type) {
+      _BombGroupType.rainbow => suits.length == cards.length,
+      _BombGroupType.color => suits.length == 1,
+    };
+  }
+
   void _syncSavedGroupWithHand() {
     if (savedGroup.isEmpty) {
       return;
@@ -145,6 +217,37 @@ class _GamePageState extends State<GamePage> {
       context: context,
       controller: widget.controller,
       onRebuild: () => setState(() {}),
+    );
+  }
+}
+
+enum _BombGroupType { rainbow, color }
+
+class _BombCandidateCard {
+  const _BombCandidateCard({
+    required this.label,
+    required this.rank,
+    required this.suit,
+    required this.index,
+  });
+
+  final String label;
+  final int rank;
+  final String suit;
+  final int index;
+
+  static _BombCandidateCard? tryParse(String label, int index) {
+    final normalized = label.trim().toUpperCase();
+    final match = RegExp(r'^(3|5|7|9)([BGROY])$').firstMatch(normalized);
+    if (match == null) {
+      return null;
+    }
+
+    return _BombCandidateCard(
+      label: label,
+      rank: int.parse(match.group(1)!),
+      suit: match.group(2)!,
+      index: index,
     );
   }
 }

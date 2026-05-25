@@ -37,9 +37,6 @@ namespace Haggis.Domain.Model
                 throw new ArgumentException("Only wild card can replace another card.", nameof(rank));
             if (replace == null)
                 throw new ArgumentNullException(nameof(replace));
-            if (replace.IsWild)
-                throw new ArgumentException("Wild card cannot replace another wild card.", nameof(replace));
-
             BaseRank = rank;
             Replaces = replace;
         }

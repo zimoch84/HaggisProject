@@ -16,6 +16,8 @@ class HandSection extends StatelessWidget {
     required this.onSortChanged,
     required this.onCreateGroup,
     required this.onClearGroup,
+    required this.onGroupRainbowBomb,
+    required this.onGroupColorBomb,
     required this.showCardHitZones,
     required this.cardScale,
     required this.spacingScale,
@@ -33,6 +35,8 @@ class HandSection extends StatelessWidget {
   final ValueChanged<HandSortMode> onSortChanged;
   final VoidCallback onCreateGroup;
   final VoidCallback onClearGroup;
+  final VoidCallback? onGroupRainbowBomb;
+  final VoidCallback? onGroupColorBomb;
   final bool showCardHitZones;
   final double cardScale;
   final double spacingScale;
@@ -123,6 +127,32 @@ class HandSection extends StatelessWidget {
                       backgroundColor: const Color(0xAA31544B),
                     ),
                     child: const Text('Grupuj zazn.'),
+                  ),
+                ),
+              if (onGroupRainbowBomb != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: FilledButton.tonalIcon(
+                    onPressed: onGroupRainbowBomb,
+                    icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                    label: const Text('Rainbow'),
+                    style: FilledButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xAA31544B),
+                    ),
+                  ),
+                ),
+              if (onGroupColorBomb != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: FilledButton.tonalIcon(
+                    onPressed: onGroupColorBomb,
+                    icon: const Icon(Icons.palette_outlined, size: 18),
+                    label: const Text('Kolor'),
+                    style: FilledButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xAA31544B),
+                    ),
                   ),
                 ),
               if (savedGroup.isNotEmpty)

@@ -51,17 +51,52 @@ namespace HaggisTests
         }
 
         [Test]
-        public void FindPairedSequences_ShouldAllowTenAsSequenceStartWithJackAndQueenPair()
+        public void FindCardSequences_ShouldAllowSequenceStartingAtTenWithJackAndQueen()
+        {
+            var cards = new[] { "10R", "J", "Q" };
+
+            var combinations = cards.ToCards().FindCardSequences(TrickType.SEQ3);
+
+            Assert.That(
+                combinations.Select(trick => trick.ToString()),
+                Does.Contain("SEQ3[10R|J[11]|Q[12]]"));
+        }
+
+        [Test]
+        public void FindCardSequences_ShouldAllowAnyWildCardsForJackAndQueenSlots()
+        {
+            var cards = new[] { "10R", "Q", "K" };
+
+            var combinations = cards.ToCards().FindCardSequences(TrickType.SEQ3);
+
+            Assert.That(
+                combinations.Select(trick => trick.ToString()),
+                Does.Contain("SEQ3[10R|Q[11]|K[12]]"));
+        }
+
+        [Test]
+        public void FindPairedSequences_ShouldFindThreePairSequence()
+        {
+            var cards = new[] { "6O", "7B", "8B", "6B", "7O", "8O" };
+
+            var combinations = cards.ToCards().FindPairedSequences(TrickType.PAIRSEQ3);
+
+            Assert.That(
+                combinations.Select(trick => trick.ToString()),
+                Does.Contain("PAIRSEQ3[6B|6O|7B|7O|8B|8O]"));
+        }
+
+        [Test]
+        public void FindPairedSequences_ShouldAllowTenAsPairSequenceStartWithWildCards()
         {
             var cards = new[] { "10G", "10B", "J", "Q" };
 
             var combinations = cards.ToCards().FindPairedSequences(TrickType.PAIRSEQ2);
 
             Assert.That(
-                combinations.Any(trick =>
-                    trick.Cards.Select(card => card.ToString()).SequenceEqual(
-                        new[] { "10B", "10G", "J", "Q" })),
-                Is.True);
+                combinations.Select(trick => trick.ToString()),
+                Does.Contain("PAIRSEQ2[10B|10G|J[11]|Q[11]]"));
         }
+ 
     }
 }

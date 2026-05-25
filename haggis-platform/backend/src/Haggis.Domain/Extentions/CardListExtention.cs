@@ -25,7 +25,7 @@ namespace Haggis.Domain.Extentions
                     .OrderBy(card => card.Rank)
                     .ToList();
 
-                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.TEN - sequenceLength + 1; startRank++)
+                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - sequenceLength + 1; startRank++)
                 {
                     var sequence = BuildSequenceWithWilds(
                         singleSuit,
@@ -273,7 +273,7 @@ namespace Haggis.Domain.Extentions
             var tricks = new List<Trick>();
             var suits = Enum.GetValues(typeof(Suit)).Cast<Suit>().ToList();
 
-            for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.JACK - pairSequenceLength + 1; startRank++)
+            for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - pairSequenceLength + 1; startRank++)
             {
                 for (var firstSuitIndex = 0; firstSuitIndex < suits.Count; firstSuitIndex++)
                 {
@@ -340,15 +340,10 @@ namespace Haggis.Domain.Extentions
                     return new List<Card>();
 
                 var wildCard = availableWilds.Dequeue();
-                sequence.Add(IsWildRank(rank) ? wildCard : wildCard.WildAs(new Card(rank, suit)));
+                sequence.Add(wildCard.WildAs(new Card(rank, suit)));
             }
 
             return sequence;
-        }
-
-        private static bool IsWildRank(Rank rank)
-        {
-            return rank == Rank.JACK || rank == Rank.QUEEN || rank == Rank.KING;
         }
     }
 }
