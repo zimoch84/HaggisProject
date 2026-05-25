@@ -1,1 +1,17 @@
+# Local temp / artifacts
+_tmp_build/
+.tmp/
+bugreport-*.zip
+
+# Logs
+*.log
+**/logs/*.log
 haggis-platform/backend/src/Haggis.Infrastructure/logs/game-commands.log
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Local placeholders
+.fake

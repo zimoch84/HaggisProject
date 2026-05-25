@@ -18,6 +18,7 @@ namespace Haggis.Domain.Model
         public ScoringTable ScoringTable { get; }
         public IHaggisScoringStrategy ScoringStrategy { get; private set; }
         public RoundScoringResult PreviousRoundResult => ScoringTable.GetLastRoundScore();
+        public IReadOnlyList<string> PreviousRoundHaggisCards { get; private set; } = Array.Empty<string>();
 
         public HaggisGame(
             List<IHaggisPlayer> players,
@@ -50,6 +51,9 @@ namespace Haggis.Domain.Model
             }
 
             ScoringTable.AddRoundScore(ScoringTableService.BuildRoundScoringResult(state));
+            PreviousRoundHaggisCards = (state.HaggisCards ?? Array.Empty<Card>())
+                .Select(card => card.ToString())
+                .ToArray();
         }
 
         public bool GameOver()
@@ -61,7 +65,7 @@ namespace Haggis.Domain.Model
         {
             CurrentRoundNumber++;
             var roundSeed = unchecked(Seed + CurrentRoundNumber * 7919);
-            DeckDealer = new HaggisDeckDealer(roundSeed);
+            DeckDealer = new HaggisDeckDealer(roundSeed, Players.Count);
             Players.ForEach(player =>
             {
                 player.Discard.Clear();

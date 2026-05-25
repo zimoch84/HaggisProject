@@ -122,6 +122,7 @@ public sealed class GlobalChatHub
                             }
                         },
                         cancellationToken);
+                    await BroadcastRoomListAsync(cancellationToken);
                     continue;
                 }
 
@@ -158,6 +159,7 @@ public sealed class GlobalChatHub
                             }
                         },
                         cancellationToken);
+                    await BroadcastRoomListAsync(cancellationToken);
                     continue;
                 }
 
@@ -228,6 +230,30 @@ public sealed class GlobalChatHub
             }
 
             await SendAsync(socket, message, cancellationToken);
+        }
+    }
+
+    private async Task BroadcastRoomListAsync(CancellationToken cancellationToken)
+    {
+        var payload = new
+        {
+            operation = "listroom",
+            data = new
+            {
+                rooms = _roomStore.ListRooms().Select(ToRoomResponse).ToList(),
+                createdAt = DateTimeOffset.UtcNow
+            }
+        };
+
+        foreach (var pair in _clients)
+        {
+            var socket = pair.Value;
+            if (socket.State != WebSocketState.Open)
+            {
+                continue;
+            }
+
+            await SendAsync(socket, payload, cancellationToken);
         }
     }
 

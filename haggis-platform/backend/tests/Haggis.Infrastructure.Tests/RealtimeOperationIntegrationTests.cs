@@ -227,6 +227,66 @@ public class RealtimeOperationIntegrationTests
     }
 
     [Test]
+    public async Task GameOperation_Create_WhenNonHost_ReturnsOperationRejected_AndDoesNotJoinRoom()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeoutCts.Token;
+        const string gameId = "non-host-create-no-join";
+
+        var globalClient = factory.Server.CreateWebSocketClient();
+        using var globalSocket = await globalClient.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), cancellationToken);
+        _ = await ReceiveTextAsync(globalSocket, cancellationToken); // bootstrap
+
+        await SendJsonAsync(globalSocket, new
+        {
+            operation = "createroom",
+            payload = new
+            {
+                playerId = "alice",
+                roomId = gameId,
+                roomName = "Non Host Create Room"
+            }
+        }, cancellationToken);
+        _ = await ReceiveTextAsync(globalSocket, cancellationToken);
+
+        var gameClient = factory.Server.CreateWebSocketClient();
+        using var gameSocket = await gameClient.ConnectAsync(new Uri($"ws://localhost/ws/games/{gameId}"), cancellationToken);
+
+        await SendJsonAsync(gameSocket, new
+        {
+            operation = "create",
+            payload = new
+            {
+                playerId = "bob",
+                payload = new
+                {
+                    players = new[] { "alice", "bob" },
+                    playerCount = 2,
+                    seed = 123
+                }
+            }
+        }, cancellationToken);
+
+        var rejected = await ReceiveByTypeAsync(gameSocket, "OperationRejected", cancellationToken);
+        Assert.That(GetRequiredPropertyIgnoreCase(rejected, "error").GetString(), Does.Contain("Only the host"));
+
+        await SendJsonAsync(globalSocket, new { operation = "listroom" }, cancellationToken);
+        var listPayload = await ReceiveTextAsync(globalSocket, cancellationToken);
+
+        using var listDoc = JsonDocument.Parse(listPayload);
+        var rooms = GetRequiredPropertyIgnoreCase(GetRequiredPropertyIgnoreCase(listDoc.RootElement, "data"), "rooms");
+        var room = rooms.EnumerateArray()
+            .Single(x => GetRequiredPropertyIgnoreCase(x, "roomId").GetString() == gameId);
+        var players = GetRequiredPropertyIgnoreCase(room, "players")
+            .EnumerateArray()
+            .Select(x => x.GetString())
+            .ToArray();
+
+        Assert.That(players, Is.EqualTo(new[] { "alice" }));
+    }
+
+    [Test]
     public async Task GlobalOperation_PrivateChat_ReturnsGameEndpoint_AndRoomHasBothPlayers()
     {
         await using var factory = new WebApplicationFactory<Program>();

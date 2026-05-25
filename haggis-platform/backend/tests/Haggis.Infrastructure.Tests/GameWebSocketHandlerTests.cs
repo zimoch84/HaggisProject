@@ -37,10 +37,13 @@ public class GameWebSocketHubTests
         Assert.That(receiverApplied.Count, Is.EqualTo(1));
 
         using var payload = JsonDocument.Parse(receiverApplied[0]);
-        Assert.That(payload.RootElement.GetProperty("Type").GetString(), Is.EqualTo("CommandApplied"));
-        Assert.That(payload.RootElement.GetProperty("GameId").GetString(), Is.EqualTo("game-1"));
-        Assert.That(payload.RootElement.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(1));
-        Assert.That(payload.RootElement.GetProperty("Command").GetProperty("Type").GetString(), Is.EqualTo("Initialize"));
+        Assert.That(GetRequiredPropertyIgnoreCase(payload.RootElement, "Type").GetString(), Is.EqualTo("CommandApplied"));
+        Assert.That(GetRequiredPropertyIgnoreCase(payload.RootElement, "GameId").GetString(), Is.EqualTo("game-1"));
+        Assert.That(GetRequiredPropertyIgnoreCase(payload.RootElement, "OrderPointer").GetInt64(), Is.EqualTo(1));
+        Assert.That(GetRequiredPropertyIgnoreCase(
+                GetRequiredPropertyIgnoreCase(payload.RootElement, "Command"),
+                "Type").GetString(),
+            Is.EqualTo("Initialize"));
     }
 
     [Test]
@@ -62,8 +65,8 @@ public class GameWebSocketHubTests
         using var msg1 = JsonDocument.Parse(sent[0]);
         using var msg2 = JsonDocument.Parse(sent[1]);
 
-        Assert.That(msg1.RootElement.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(1));
-        Assert.That(msg2.RootElement.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(2));
+        Assert.That(GetRequiredPropertyIgnoreCase(msg1.RootElement, "OrderPointer").GetInt64(), Is.EqualTo(1));
+        Assert.That(GetRequiredPropertyIgnoreCase(msg2.RootElement, "OrderPointer").GetInt64(), Is.EqualTo(2));
     }
 
     [Test]
@@ -141,8 +144,33 @@ public class GameWebSocketHubTests
     private static bool IsCommandApplied(string payload)
     {
         using var doc = JsonDocument.Parse(payload);
-        return doc.RootElement.TryGetProperty("Type", out var type) &&
+        return TryGetPropertyIgnoreCase(doc.RootElement, "Type", out var type) &&
                string.Equals(type.GetString(), "CommandApplied", StringComparison.Ordinal);
+    }
+
+    private static JsonElement GetRequiredPropertyIgnoreCase(JsonElement element, string propertyName)
+    {
+        if (TryGetPropertyIgnoreCase(element, propertyName, out var value))
+        {
+            return value;
+        }
+
+        throw new InvalidOperationException($"Missing JSON property '{propertyName}'.");
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 
     private static GameWebSocketHandler CreateHub(IPlayerSocketRegistry? registry = null)
@@ -156,7 +184,14 @@ public class GameWebSocketHubTests
         var appService = new GameCommandApplicationService(store, roomStore);
         var effectiveRegistry = registry ?? new PlayerSocketRegistry();
         var connectionManager = new GameConnectionManager(effectiveRegistry);
-        return new GameWebSocketHandler(appService, connectionManager, roomStore);
+        return new GameWebSocketHandler(appService, connectionManager, roomStore, new NoOpGameWebSocketAuditLogger());
+    }
+
+    private sealed class NoOpGameWebSocketAuditLogger : IGameWebSocketAuditLogger
+    {
+        public void Log(GameWebSocketAuditEntry entry)
+        {
+        }
     }
 
     private sealed class FakeWebSocket : WebSocket

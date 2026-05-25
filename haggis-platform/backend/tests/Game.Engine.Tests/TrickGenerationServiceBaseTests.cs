@@ -128,6 +128,51 @@ namespace HaggisTests
         }
 
         [Test]
+        public void BuildPossibleOpeningTricks_ShouldIncludeSequenceCompletedByWildCard()
+        {
+            var player = new HaggisPlayer("P1") { Hand = Cards("2B", "3B", "5B", "J") };
+
+            var tricks = _service.Opening(player);
+
+            Assert.That(
+                tricks.Any(t =>
+                    t.Type == TrickType.SEQ4 &&
+                    t.Cards.Select(card => card.ToString()).SequenceEqual(new[] { "2B", "3B", "J[4]", "5B" })),
+                Is.True);
+        }
+
+        [Test]
+        public void BuildPossibleOpeningTricks_ShouldNotDuplicateSixCardSequenceCompletedByWildCard()
+        {
+            var player = new HaggisPlayer("P1")
+            {
+                Hand = Cards("2R", "3G", "5G", "5O", "6G", "7R", "7G", "8G", "K")
+            };
+
+            var tricks = _service.Opening(player);
+            var sequence = "SEQ6[3G|K[4]|5G|6G|7G|8G]";
+
+            Assert.That(
+                tricks.Count(trick => trick.ToString() == sequence),
+                Is.EqualTo(1));
+        }
+
+        [Test]
+        public void BuildPossibleOpeningTricks_ShouldIncludeThreePairSequence()
+        {
+            var player = new HaggisPlayer("P1")
+            {
+                Hand = Cards("6O", "7B", "8B", "6B", "7O", "8O")
+            };
+
+            var tricks = _service.Opening(player);
+
+            Assert.That(
+                tricks.Select(trick => trick.ToString()),
+                Does.Contain("PAIRSEQ3[6B|6O|7B|7O|8B|8O]"));
+        }
+
+        [Test]
         public void ShouldSuggestWildedTrickWhenHaveOneCardLessToPlayingTrick()
         {
             var slawek = new HaggisPlayer("Sławek") { Hand = new List<string> { "2G", "4G", "J" }.ToCards() };

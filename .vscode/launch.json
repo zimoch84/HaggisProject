@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Haggis.Infrastructure WebSocket (.NET)",
+      "name": "Haggis Backend (.NET)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build Haggis.Infrastructure",
@@ -13,8 +13,47 @@
       "console": "internalConsole",
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "http://localhost:5555"
+        "ASPNETCORE_URLS": "http://localhost:6666"
       }
+    },
+    {
+      "name": "Flutter Android 1",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.Flutter.UI",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "emulator-5554",
+      "preLaunchTask": "start Android Emulator 1"
+    },
+    {
+      "name": "Flutter Android 2",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.Flutter.UI",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "emulator-5556",
+      "preLaunchTask": "start Android Emulator 2"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "2 Flutter Android Apps Debug",
+      "configurations": [
+        "Flutter Android 1",
+        "Flutter Android 2"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Backend + 2 Flutter Android Apps",
+      "configurations": [
+        "Haggis Backend (.NET)",
+        "Flutter Android 1",
+        "Flutter Android 2"
+      ],
+      "stopAll": true
     }
   ]
 }

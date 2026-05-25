@@ -136,6 +136,20 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         return game.BaseSeed;
     }
 
+    public RoundScoringResult? GetPreviousRoundResult(string gameId)
+    {
+        return _games.TryGetValue(gameId, out var game)
+            ? game.PreviousRoundResult
+            : null;
+    }
+
+    public IReadOnlyList<string> GetPreviousRoundHaggisCards(string gameId)
+    {
+        return _games.TryGetValue(gameId, out var game)
+            ? game.PreviousRoundHaggisCards
+            : Array.Empty<string>();
+    }
+
     protected override bool IsStartCommand(GameCommand command) =>
         command.Type.Equals("Initialize", StringComparison.OrdinalIgnoreCase) ||
         command.Type.Equals("Init", StringComparison.OrdinalIgnoreCase) ||

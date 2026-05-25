@@ -1,24 +1,24 @@
 public static class InitConsole
 {
+    private const int DefaultWidth = 160;
+    private const int DefaultHeight = 50;
+
     public static void Apply()
     {
         try
         {
-            int width = 170;
-            int height = 55;
+            int targetWidth = Math.Min(DefaultWidth, Console.LargestWindowWidth);
+            int targetHeight = Math.Min(DefaultHeight, Console.LargestWindowHeight);
 
-            // ZAWSZE najpierw bufor
-            Console.SetBufferSize(width, height);
+            if (targetWidth < 80 || targetHeight < 25)
+                return;
 
-            // potem okno
-            Console.SetWindowSize(
-                Math.Min(width, Console.LargestWindowWidth),
-                Math.Min(height, Console.LargestWindowHeight)
-            );
+            Console.SetWindowSize(targetWidth, targetHeight);
+            Console.SetBufferSize(targetWidth, targetHeight);
         }
         catch
         {
-            // ignorujemy na ma³ych ekranach
+            // Ignore when the host terminal does not allow resizing.
         }
     }
 }
