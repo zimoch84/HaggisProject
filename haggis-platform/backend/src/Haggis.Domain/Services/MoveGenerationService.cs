@@ -30,6 +30,7 @@ namespace Haggis.Domain.Services
                 ? GetPossibleOpeningTricks(state.CurrentPlayer)
                 : GetPossibleContinuationTricks(state.CurrentPlayer, lastTrick);
 
+            possibleTricks.Sort((left, right) => left.CompareTo(right));
             possibleTricks.ForEach(trick => actions.Add(HaggisAction.FromTrick(trick, state.CurrentPlayer)));
             actions.Add(HaggisAction.Pass(state.CurrentPlayer));
 

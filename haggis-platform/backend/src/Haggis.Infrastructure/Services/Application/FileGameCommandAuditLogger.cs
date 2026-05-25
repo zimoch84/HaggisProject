@@ -20,6 +20,17 @@ public sealed class FileGameCommandAuditLogger : IGameCommandAuditLogger
             : Path.Combine(
                 hostEnvironment.ContentRootPath,
                 string.IsNullOrWhiteSpace(configuredPath) ? "logs\\game-commands.log" : configuredPath);
+
+        if (configuration.GetValue("GameCommandAudit:ClearOnStartup", true))
+        {
+            var directory = Path.GetDirectoryName(_logFilePath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllText(_logFilePath, string.Empty);
+        }
     }
 
     public void Log(GameCommandAuditEntry entry)

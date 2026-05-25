@@ -1,13 +1,18 @@
-# Local scratch/build artifacts
+# Local temp / artifacts
 .tmp/
 _tmp_build/
 bugreport-*.zip
+**/.gradle/
 
-# Local editor recommendations
+# Logs
+*.log
+**/logs/*.log
+haggis-platform/backend/src/Haggis.Infrastructure/logs/game-commands.log
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
 .vscode/extensions.json
 
-# Runtime logs
-haggis-platform/backend/src/Haggis.Infrastructure/logs/
-
-# Generated Flutter workspace left by local experiments on branches without Flutter UI sources
-haggis-platform/client/Haggis.Flutter.UI/
+# Local placeholders
+.fake

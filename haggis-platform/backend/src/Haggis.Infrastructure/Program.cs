@@ -16,6 +16,7 @@ builder.Services.AddSingleton<HaggisServerGameLoop>();
 builder.Services.AddSingleton<IGameEngine, HaggisGameEngine>();
 builder.Services.AddSingleton<IGameSessionStore, GameSessionStore>();
 builder.Services.AddSingleton<IGameCommandAuditLogger, FileGameCommandAuditLogger>();
+builder.Services.AddSingleton<IGameWebSocketAuditLogger, FileGameWebSocketAuditLogger>();
 builder.Services.AddSingleton<IGameCommandApplicationService, GameCommandApplicationService>();
 builder.Services.AddSingleton<GameWebSocketHandler>();
 builder.Services.AddSingleton<IGameConnectionManager, GameConnectionManager>();

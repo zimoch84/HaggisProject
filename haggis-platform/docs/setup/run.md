@@ -28,9 +28,9 @@ dotnet run --project .\backend\src\Haggis.Infrastructure\Haggis.Infrastructure.c
 
 Domyslny endpoint lokalny:
 
-- `http://localhost:5555`
-- `ws://localhost:5555/ws/global/chat`
-- `ws://localhost:5555/ws/games/{gameId}`
+- `http://localhost:6666`
+- `ws://localhost:6666/ws/global/chat`
+- `ws://localhost:6666/ws/games/{gameId}`
 
 ## Testy silnika gry
 

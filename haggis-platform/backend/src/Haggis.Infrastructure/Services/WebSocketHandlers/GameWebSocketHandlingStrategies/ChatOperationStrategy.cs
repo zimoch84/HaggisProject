@@ -31,7 +31,7 @@ internal sealed class ChatOperationStrategy : IGameOperationStrategy<GameWebSock
                 State: null,
                 CreatedAt: DateTimeOffset.UtcNow,
                 MessageKind: "response");
-            await GameWebSocketHandler.SendToClientAsync(context.Socket, "chat", rejected, cancellationToken);
+            await _handler.SendToClientAsync(context.Socket, "chat", context.GameId, rejected, cancellationToken);
             return;
         }
 

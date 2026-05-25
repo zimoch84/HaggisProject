@@ -4,9 +4,9 @@ Ten dokument opisuje aktualne komunikaty WebSocket dla `Haggis.Infrastructure` i
 
 ## Endpointy
 
-- healthcheck HTTP: `GET http://localhost:5555/`
-- global chat WS: `ws://localhost:5555/ws/global/chat`
-- game room WS: `ws://localhost:5555/ws/games/{gameId}`
+- healthcheck HTTP: `GET http://localhost:6666/`
+- global chat WS: `ws://localhost:6666/ws/global/chat`
+- game room WS: `ws://localhost:6666/ws/games/{gameId}`
 
 Jesli endpoint WS zostanie wywolany zwyklym HTTP GET, serwer zwroci:
 
@@ -479,10 +479,10 @@ albo dla czatu:
 
 ## Szybki flow testowy w Postmanie
 
-1. Otworz `ws://localhost:5555/ws/global/chat`.
+1. Otworz `ws://localhost:6666/ws/global/chat`.
 2. Odbierz `GlobalChatBootstrap`.
 3. Wyslij `createroom` i skopiuj `room.gameEndpoint`.
-4. Otworz nowe polaczenie na `ws://localhost:5555{gameEndpoint}`.
+4. Otworz nowe polaczenie na `ws://localhost:6666{gameEndpoint}`.
 5. Wyslij `join`.
 6. Wyslij `command` z `Initialize`.
 7. Wyslij `chat` na roomie.

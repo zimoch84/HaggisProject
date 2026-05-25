@@ -35,7 +35,18 @@ public sealed class HaggisGameEngine : IGameEngine
             var gameOver = GameLoop.IsGameOver(gameId);
             var displayedScores = GameLoop.GetDisplayedScores(gameId, finalState);
             var configuredSeed = GameLoop.GetConfiguredSeed(gameId);
-            nextData = BuildHaggisStateData(finalState, displayedScores, gameOver, configuredSeed, command, appliedMove, appliedMoves);
+            var previousRoundResult = GameLoop.GetPreviousRoundResult(gameId);
+            var previousRoundHaggisCards = GameLoop.GetPreviousRoundHaggisCards(gameId);
+            nextData = BuildHaggisStateData(
+                finalState,
+                displayedScores,
+                gameOver,
+                configuredSeed,
+                previousRoundResult,
+                previousRoundHaggisCards,
+                command,
+                appliedMove,
+                appliedMoves);
         }
         else
         {
@@ -94,6 +105,8 @@ public sealed class HaggisGameEngine : IGameEngine
         IReadOnlyDictionary<string, int> displayedScores,
         bool gameOver,
         int? configuredSeed,
+        RoundScoringResult? previousRoundResult,
+        IReadOnlyList<string> previousRoundHaggisCards,
         GameCommand command,
         HaggisAction? appliedMove,
         IReadOnlyList<HaggisAction> appliedMoves)
@@ -146,6 +159,23 @@ public sealed class HaggisGameEngine : IGameEngine
                 isPass = move.IsPass,
                 action = move.Desc
             }),
+            previousRound = previousRoundResult is null
+                ? null
+                : new
+                {
+                    roundNumber = previousRoundResult.RoundNumber,
+                    winnerPlayerName = previousRoundResult.WinnerPlayerName,
+                    finishingOrderPlayerNames = previousRoundResult.FinishingOrderPlayerNames,
+                    haggisCards = previousRoundHaggisCards,
+                    playerScores = previousRoundResult.PlayerScores.Select(score => new
+                    {
+                        playerName = score.PlayerName,
+                        tricksPoints = score.TricksPoints,
+                        opponentsRemainingCardsPoints = score.OpponentsRemainingCardsPoints,
+                        haggisPoints = score.HaggisPoints,
+                        roundPoints = score.RoundPoints
+                    })
+                },
             lastCommand = new
             {
                 type = command.Type,

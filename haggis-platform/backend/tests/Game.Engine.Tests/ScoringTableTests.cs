@@ -117,9 +117,9 @@ namespace HaggisTests
                 WinnerPlayerName = "Alice",
                 PlayerScores = new List<PlayerRoundScore>
                 {
-                    new PlayerRoundScore { PlayerName = "Alice", RoundPoints = 6 },
-                    new PlayerRoundScore { PlayerName = "Bob", RoundPoints = 3 },
-                    new PlayerRoundScore { PlayerName = "Carol", RoundPoints = 1 }
+                    new PlayerRoundScore { PlayerName = "Alice", TricksPoints = 6 },
+                    new PlayerRoundScore { PlayerName = "Bob", TricksPoints = 3 },
+                    new PlayerRoundScore { PlayerName = "Carol", TricksPoints = 1 }
                 }
             });
             game.ScoringTable.AddRoundScore(new RoundScoringResult
@@ -128,9 +128,9 @@ namespace HaggisTests
                 WinnerPlayerName = "Bob",
                 PlayerScores = new List<PlayerRoundScore>
                 {
-                    new PlayerRoundScore { PlayerName = "Alice", RoundPoints = 5 },
-                    new PlayerRoundScore { PlayerName = "Bob", RoundPoints = 2 },
-                    new PlayerRoundScore { PlayerName = "Carol", RoundPoints = 1 }
+                    new PlayerRoundScore { PlayerName = "Alice", TricksPoints = 5 },
+                    new PlayerRoundScore { PlayerName = "Bob", TricksPoints = 2 },
+                    new PlayerRoundScore { PlayerName = "Carol", TricksPoints = 1 }
                 }
             });
 
@@ -169,10 +169,54 @@ namespace HaggisTests
             var expectedRunOutPoints = (others[0].Hand.Count + others[1].Hand.Count) * strategy.RunOutMultiplier;
             var expectedDiscardPoints = firstFinished.Discard.Sum(card => strategy.GetCardPoints(card));
             var expectedHaggisCardsScore = state.HaggisCards.Sum(card => strategy.GetCardPoints(card));
-            var bobRoundScore = roundResult.PlayerScores.First(score => score.PlayerName == "Bob").RoundPoints;
+            var bobRoundScore = roundResult.PlayerScores.First(score => score.PlayerName == "Bob");
             Assert.That(firstFinished.OpponentRemainingCardsOnFinish, Is.EqualTo(3));
-            Assert.That(bobRoundScore, Is.EqualTo(expectedDiscardPoints + expectedRunOutPoints + expectedHaggisCardsScore));
+            Assert.That(bobRoundScore.TricksPoints, Is.EqualTo(expectedDiscardPoints));
+            Assert.That(bobRoundScore.OpponentsRemainingCardsPoints, Is.EqualTo(expectedRunOutPoints));
+            Assert.That(bobRoundScore.HaggisPoints, Is.EqualTo(expectedHaggisCardsScore));
+            Assert.That(bobRoundScore.RoundPoints, Is.EqualTo(expectedDiscardPoints + expectedRunOutPoints + expectedHaggisCardsScore));
             Assert.That(roundResult.FinishingOrderPlayerNames.First(), Is.EqualTo("Bob"));
+        }
+
+        [Test]
+        public void BuildRoundScoringResult_ShouldSplitPointsIntoTricksRemainingCardsAndHaggis()
+        {
+            var players = new List<IHaggisPlayer>
+            {
+                new HaggisPlayer("Alice"),
+                new HaggisPlayer("Bob")
+            };
+
+            var strategy = new EveryCardOnePointScoringStrategy();
+            var state = new RoundState(players, strategy, roundNumber: 3, haggisCards: Cards("J", "Q").ToList());
+
+            var alice = state.Players.First(player => player.Name == "Alice");
+            var bob = state.Players.First(player => player.Name == "Bob");
+
+            alice.Discard = Cards("2Y", "3Y", "4Y");
+            alice.Hand = new List<Card>();
+            alice.OpponentRemainingCardsOnFinish = -1;
+
+            bob.Discard = Cards("5G");
+            bob.Hand = Cards("6G", "7G", "8G", "9G", "10G");
+
+            new RunOutScoringService().Apply(state, HaggisAction.Pass(alice));
+
+            var result = new ScoringTableService().BuildRoundScoringResult(state);
+
+            var aliceScore = result.PlayerScores.First(score => score.PlayerName == "Alice");
+            var bobScore = result.PlayerScores.First(score => score.PlayerName == "Bob");
+            var expectedHaggisPoints = state.HaggisCards.Sum(card => strategy.GetCardPoints(card));
+
+            Assert.That(aliceScore.TricksPoints, Is.EqualTo(3));
+            Assert.That(aliceScore.OpponentsRemainingCardsPoints, Is.EqualTo(5 * strategy.RunOutMultiplier));
+            Assert.That(aliceScore.HaggisPoints, Is.EqualTo(expectedHaggisPoints));
+            Assert.That(aliceScore.RoundPoints, Is.EqualTo(3 + 5 * strategy.RunOutMultiplier + expectedHaggisPoints));
+
+            Assert.That(bobScore.TricksPoints, Is.EqualTo(1));
+            Assert.That(bobScore.OpponentsRemainingCardsPoints, Is.EqualTo(0));
+            Assert.That(bobScore.HaggisPoints, Is.EqualTo(0));
+            Assert.That(bobScore.RoundPoints, Is.EqualTo(1));
         }
     }
 }
