@@ -51,22 +51,23 @@ public sealed class RemoteGameStateParserTests
         Assert.Multiple(() =>
         {
             Assert.That(state.Version, Is.EqualTo(7));
-            Assert.That(state.CurrentPlayerId, Is.EqualTo("p2"));
-            Assert.That(state.RoundOver, Is.True);
-            Assert.That(state.Players, Has.Count.EqualTo(1));
-            Assert.That(state.Players[0].Id, Is.EqualTo("p1"));
-            Assert.That(state.Players[0].Score, Is.EqualTo(11));
-            Assert.That(state.Players[0].HandCount, Is.EqualTo(3));
-            Assert.That(state.Players[0].Finished, Is.False);
-            Assert.That(state.Players[0].Hand, Is.EqualTo(new[] { "3S", "4H" }));
-            Assert.That(state.Trick, Has.Count.EqualTo(1));
-            Assert.That(state.Trick[0].Description, Is.EqualTo("Pair 7"));
-            Assert.That(state.PossibleActions, Has.Count.EqualTo(1));
-            Assert.That(state.PossibleActions[0].Type, Is.EqualTo("Play"));
-            Assert.That(state.PossibleActions[0].Action, Is.EqualTo("7 7"));
-            Assert.That(state.AppliedMove, Is.Not.Null);
-            Assert.That(state.AppliedMove!.PlayerId, Is.EqualTo("p2"));
-            Assert.That(state.AppliedMove.Action, Is.EqualTo("Pair 7"));
+            Assert.That(state.Data, Is.Not.Null);
+            Assert.That(state.Data!.CurrentPlayerId, Is.EqualTo("p2"));
+            Assert.That(state.Data.RoundOver, Is.True);
+            Assert.That(state.Data.Players, Has.Count.EqualTo(1));
+            Assert.That(state.Data.Players![0].Id, Is.EqualTo("p1"));
+            Assert.That(state.Data.Players[0].Score, Is.EqualTo(11));
+            Assert.That(state.Data.Players[0].HandCount, Is.EqualTo(3));
+            Assert.That(state.Data.Players[0].Finished, Is.False);
+            Assert.That(state.Data.Players[0].Hand, Is.EqualTo(new[] { "3S", "4H" }));
+            Assert.That(state.Data.Trick, Has.Count.EqualTo(1));
+            Assert.That(state.Data.Trick![0].Description, Is.EqualTo("Pair 7"));
+            Assert.That(state.Data.PossibleActions, Has.Count.EqualTo(1));
+            Assert.That(state.Data.PossibleActions![0].Type, Is.EqualTo("Play"));
+            Assert.That(state.Data.PossibleActions[0].Action, Is.EqualTo("7 7"));
+            Assert.That(state.Data.AppliedMove, Is.Not.Null);
+            Assert.That(state.Data.AppliedMove!.PlayerId, Is.EqualTo("p2"));
+            Assert.That(state.Data.AppliedMove.Action, Is.EqualTo("Pair 7"));
         });
     }
 
@@ -91,16 +92,17 @@ public sealed class RemoteGameStateParserTests
         Assert.Multiple(() =>
         {
             Assert.That(state.Version, Is.EqualTo(5));
-            Assert.That(state.CurrentPlayerId, Is.EqualTo(string.Empty));
-            Assert.That(state.RoundOver, Is.False);
-            Assert.That(state.Players, Has.Count.EqualTo(1));
-            Assert.That(state.Players[0].Score, Is.EqualTo(0));
-            Assert.That(state.Players[0].HandCount, Is.EqualTo(0));
-            Assert.That(state.Players[0].Finished, Is.False);
-            Assert.That(state.Players[0].Hand, Is.Empty);
-            Assert.That(state.Trick, Is.Empty);
-            Assert.That(state.PossibleActions, Is.Empty);
-            Assert.That(state.AppliedMove, Is.Null);
+            Assert.That(state.Data, Is.Not.Null);
+            Assert.That(state.Data!.CurrentPlayerId, Is.Null);
+            Assert.That(state.Data.RoundOver, Is.Null);
+            Assert.That(state.Data.Players, Has.Count.EqualTo(1));
+            Assert.That(state.Data.Players![0].Score, Is.Null);
+            Assert.That(state.Data.Players[0].HandCount, Is.Null);
+            Assert.That(state.Data.Players[0].Finished, Is.Null);
+            Assert.That(state.Data.Players[0].Hand, Is.Null);
+            Assert.That(state.Data.Trick, Is.Null);
+            Assert.That(state.Data.PossibleActions, Is.Null);
+            Assert.That(state.Data.AppliedMove, Is.Null);
         });
     }
 
@@ -118,7 +120,7 @@ public sealed class RemoteGameStateParserTests
 
         var state = RemoteGameStateParser.ParseSnapshot(document.RootElement);
 
-        Assert.That(state.AppliedMove, Is.Null);
+        Assert.That(state.Data?.AppliedMove, Is.Null);
     }
 
     [Test]
@@ -139,9 +141,10 @@ public sealed class RemoteGameStateParserTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(state.Players, Is.Empty);
-            Assert.That(state.Trick, Is.Empty);
-            Assert.That(state.PossibleActions, Is.Empty);
+            Assert.That(state.Data, Is.Not.Null);
+            Assert.That(state.Data!.Players, Is.Empty);
+            Assert.That(state.Data.Trick, Is.Empty);
+            Assert.That(state.Data.PossibleActions, Is.Empty);
         });
     }
 
@@ -206,27 +209,23 @@ public sealed class RemoteGameStateParserTests
         Assert.Multiple(() =>
         {
             Assert.That(state.Version, Is.EqualTo(9));
-            Assert.That(state.CurrentPlayerId, Is.EqualTo("p3"));
-            Assert.That(state.RoundOver, Is.True);
-            Assert.That(state.Players[0].Id, Is.EqualTo("p3"));
-            Assert.That(state.Trick[0].Description, Is.EqualTo("Pass"));
-            Assert.That(state.PossibleActions[0].Type, Is.EqualTo("Pass"));
-            Assert.That(state.AppliedMove, Is.Not.Null);
-            Assert.That(state.AppliedMove!.Action, Is.EqualTo("Pass"));
+            Assert.That(state.Data, Is.Not.Null);
+            Assert.That(state.Data!.CurrentPlayerId, Is.EqualTo("p3"));
+            Assert.That(state.Data.RoundOver, Is.True);
+            Assert.That(state.Data.Players![0].Id, Is.EqualTo("p3"));
+            Assert.That(state.Data.Trick![0].Description, Is.EqualTo("Pass"));
+            Assert.That(state.Data.PossibleActions![0].Type, Is.EqualTo("Pass"));
+            Assert.That(state.Data.AppliedMove, Is.Not.Null);
+            Assert.That(state.Data.AppliedMove!.Action, Is.EqualTo("Pass"));
         });
     }
 
-    private static void AssertEmptyState(RemoteGameState state)
+    private static void AssertEmptyState(RemoteGameSnapshotDto state)
     {
         Assert.Multiple(() =>
         {
-            Assert.That(state.Version, Is.EqualTo(0));
-            Assert.That(state.CurrentPlayerId, Is.EqualTo(string.Empty));
-            Assert.That(state.RoundOver, Is.False);
-            Assert.That(state.Players, Is.Empty);
-            Assert.That(state.Trick, Is.Empty);
-            Assert.That(state.PossibleActions, Is.Empty);
-            Assert.That(state.AppliedMove, Is.Null);
+            Assert.That(state.Version, Is.Null);
+            Assert.That(state.Data, Is.Null);
         });
     }
 }
