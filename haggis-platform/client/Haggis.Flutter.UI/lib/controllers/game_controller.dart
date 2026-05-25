@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../infrastructure/remote/remote_game_websocket_client.dart';
 import '../models/game_models.dart';
 import '../models/lobby_models.dart';
+import '../models/single_player_models.dart';
 import '../view_models/game_view_model.dart';
 import '../view_models/round_over_view_model.dart';
 import '../view_models/score_history_view_model.dart';
@@ -18,11 +19,15 @@ class GameController extends ChangeNotifier {
     required this.serverBaseUrl,
     required this.playerId,
     required this.room,
+    this.singlePlayer = false,
+    this.singlePlayerAiPlayers = const <SinglePlayerAiConfig>[],
   });
 
   final String serverBaseUrl;
   final String playerId;
   final LobbyRoom room;
+  final bool singlePlayer;
+  final List<SinglePlayerAiConfig> singlePlayerAiPlayers;
 
   late final RemoteGameWebSocketClient _client;
   StreamSubscription<Map<String, dynamic>>? _subscription;
@@ -47,8 +52,8 @@ class GameController extends ChangeNotifier {
       Map<String, String>.unmodifiable(_wildAssignments);
 
   bool get canStartGame =>
-      room.players.length >= 2 &&
-      room.players.length <= 3 &&
+      (singlePlayer ||
+          (room.players.length >= 2 && room.players.length <= 3)) &&
       room.players.isNotEmpty &&
       room.players.first == playerId &&
       !isGameInitialized;
@@ -155,6 +160,7 @@ class GameController extends ChangeNotifier {
               ),
             ),
       scoreHistoryAvailable: scoreHistoryController.hasData,
+      singlePlayer: singlePlayer,
     );
   }
 
@@ -193,9 +199,27 @@ class GameController extends ChangeNotifier {
     }
 
     _autoStartRequested = true;
-    _client.createGame(playerId, room.players.length, seed: _forcedStartSeed);
+    _client.createGame(
+      playerId,
+      singlePlayer ? 3 : room.players.length,
+      seed: _forcedStartSeed,
+      players: singlePlayer ? _buildSinglePlayerRoster() : null,
+    );
     _status = 'Start command sent. Seed: $_forcedStartSeed';
     notifyListeners();
+  }
+
+  List<Map<String, Object?>> _buildSinglePlayerRoster() {
+    return <Map<String, Object?>>[
+      <String, Object?>{'id': playerId},
+      ...singlePlayerAiPlayers.map(
+        (SinglePlayerAiConfig config) => <String, Object?>{
+          'id': config.name,
+          'type': 'ai',
+          'ai': <String, Object?>{'difficulty': config.difficulty.value},
+        },
+      ),
+    ];
   }
 
   void playAction(PossibleActionViewModel action) {

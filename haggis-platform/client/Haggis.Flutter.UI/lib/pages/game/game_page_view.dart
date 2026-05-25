@@ -52,8 +52,13 @@ Widget buildGamePageView({
             child: LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
                 final isLandscape = isLandscapeLayout(constraints);
+                final reservedTopHeight = isLandscape ? 112.0 : 124.0;
+                final reservedTableGap = isLandscape ? 22.0 : 26.0;
                 final handSectionHeight = computeHandSectionHeight(
-                  availableHeight: constraints.maxHeight,
+                  availableHeight:
+                      constraints.maxHeight -
+                      reservedTopHeight -
+                      reservedTableGap,
                   isLandscape: isLandscape,
                   handCardScale: handCardScale,
                   handArcScale: handArcScale,

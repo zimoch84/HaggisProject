@@ -105,8 +105,8 @@ class _ConnectPageState extends State<ConnectPage> {
                         : _handleConnect,
                     child: Text(
                       (_connecting || widget.viewModel.isConnecting)
-                          ? 'Connecting...'
-                          : 'Open Lobby',
+                          ? 'Opening...'
+                          : 'Continue',
                     ),
                   ),
                 ],
@@ -128,9 +128,9 @@ class _ConnectPageState extends State<ConnectPage> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Otwieram lobby jako "$playerId"...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Continuing as "$playerId"...')));
 
     setState(() {
       _connecting = true;

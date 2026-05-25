@@ -34,10 +34,13 @@ class TopRibbon extends StatelessWidget {
     final roomLabel = viewModel.roomName.trim().isNotEmpty
         ? viewModel.roomName.trim()
         : viewModel.gameId;
-    final items = <Widget>[
-      InfoChip(icon: Icons.meeting_room_outlined, label: 'Room: $roomLabel'),
+    final infoItems = <Widget>[
+      if (!viewModel.singlePlayer)
+        InfoChip(icon: Icons.meeting_room_outlined, label: 'Room: $roomLabel'),
       InfoChip(icon: Icons.group_outlined, label: '$playerCount'),
       InfoChip(icon: Icons.casino_outlined, label: 'R${viewModel.roundNumber}'),
+    ];
+    final playerItems = <Widget>[
       if (ownPlayer != null)
         PlayerPill(player: ownPlayer!, isSelf: true, compact: true),
       ...opponents.map(
@@ -46,54 +49,127 @@ class TopRibbon extends StatelessWidget {
       ),
     ];
 
-    return Row(
-      children: [
-        IconButton(
-          onPressed: onLeave,
-          icon: const Icon(Icons.arrow_back),
-          color: Colors.white,
-        ),
-        Flexible(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+    final actions = <Widget>[
+      IconButton(
+        tooltip: 'Last round',
+        onPressed: hasLastRound ? onOpenLastRound : null,
+        icon: const Icon(Icons.flag_outlined),
+        color: Colors.white,
+      ),
+      IconButton(
+        tooltip: 'Score history',
+        onPressed: viewModel.scoreHistoryAvailable ? onOpenScoreHistory : null,
+        icon: const Icon(Icons.scoreboard_outlined),
+        color: Colors.white,
+      ),
+      IconButton(
+        tooltip: 'Refresh',
+        onPressed: onRefresh,
+        icon: const Icon(Icons.sync),
+        color: Colors.white,
+      ),
+      IconButton(
+        tooltip: 'Hand tuning',
+        onPressed: onOpenHandTuning,
+        icon: const Icon(Icons.tune),
+        color: Colors.white,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final useSingleLine = constraints.maxWidth >= 720;
+        if (useSingleLine) {
+          return SizedBox(
+            height: 56,
             child: Row(
               children: [
-                for (int index = 0; index < items.length; index++) ...[
-                  if (index > 0) const SizedBox(width: 8),
-                  items[index],
-                ],
+                IconButton(
+                  onPressed: onLeave,
+                  icon: const Icon(Icons.arrow_back),
+                  color: Colors.white,
+                ),
+                Expanded(
+                  child: ClipRect(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final item in [
+                            ...infoItems,
+                            ...playerItems,
+                          ]) ...[item, const SizedBox(width: 8)],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Row(mainAxisSize: MainAxisSize.min, children: actions),
               ],
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          tooltip: 'Last round',
-          onPressed: hasLastRound ? onOpenLastRound : null,
-          icon: const Icon(Icons.flag_outlined),
-          color: Colors.white,
-        ),
-        IconButton(
-          tooltip: 'Score history',
-          onPressed: viewModel.scoreHistoryAvailable
-              ? onOpenScoreHistory
-              : null,
-          icon: const Icon(Icons.scoreboard_outlined),
-          color: Colors.white,
-        ),
-        IconButton(
-          tooltip: 'Refresh',
-          onPressed: onRefresh,
-          icon: const Icon(Icons.sync),
-          color: Colors.white,
-        ),
-        IconButton(
-          tooltip: 'Hand tuning',
-          onPressed: onOpenHandTuning,
-          icon: const Icon(Icons.tune),
-          color: Colors.white,
-        ),
-      ],
+          );
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: onLeave,
+                  icon: const Icon(Icons.arrow_back),
+                  color: Colors.white,
+                ),
+                Expanded(
+                  child: ClipRect(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (
+                            int index = 0;
+                            index < infoItems.length;
+                            index++
+                          ) ...[
+                            if (index > 0) const SizedBox(width: 8),
+                            infoItems[index],
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Row(mainAxisSize: MainAxisSize.min, children: actions),
+              ],
+            ),
+            if (playerItems.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 52,
+                child: ClipRect(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (
+                          int index = 0;
+                          index < playerItems.length;
+                          index++
+                        ) ...[
+                          if (index > 0) const SizedBox(width: 8),
+                          playerItems[index],
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -153,7 +229,7 @@ class PlayerPill extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 10 : 12,
-        vertical: compact ? 8 : 10,
+        vertical: compact ? 5 : 10,
       ),
       decoration: BoxDecoration(
         color: const Color(0xCC163034),
@@ -196,12 +272,17 @@ class PlayerPill extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                player.id,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  fontSize: 12,
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: compact ? 72 : 140),
+                child: Text(
+                  player.id,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    fontSize: 12,
+                    height: 1.05,
+                  ),
                 ),
               ),
               if (compact)
@@ -214,6 +295,7 @@ class PlayerPill extends StatelessWidget {
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         color: Colors.white70,
+                        height: 1.05,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -246,13 +328,13 @@ class _HandCountBadge extends StatelessWidget {
       children: [
         Image.asset(
           _miniCardBackAssetPath,
-          width: 20,
-          height: 28,
+          width: 18,
+          height: 24,
           fit: BoxFit.contain,
         ),
         Positioned(
-          bottom: -3,
-          right: -8,
+          bottom: 0,
+          right: -6,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
             decoration: BoxDecoration(
@@ -327,7 +409,7 @@ class _FaceMarker extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: FontWeight.w800,
           color: isActive ? Colors.white : Colors.white54,
           height: 1,

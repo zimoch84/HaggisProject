@@ -70,73 +70,80 @@ class TableSection extends StatelessWidget {
                   },
                 ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            if (viewModel.isGameInitialized)
-              OutlinedButton.icon(
-                onPressed: canPass ? controller.pass : null,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Color(0x6656B891)),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+        const SizedBox(height: 8),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: MediaQuery.sizeOf(context).width - 64,
+            child: Row(
+              children: [
+                if (viewModel.isGameInitialized)
+                  OutlinedButton.icon(
+                    onPressed: canPass ? controller.pass : null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0x6656B891)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.front_hand_outlined),
+                    label: const Text(
+                      'Pass',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  )
+                else
+                  FilledButton.icon(
+                    onPressed: canAttemptStart ? controller.startGame : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFB15D45),
+                      disabledBackgroundColor: const Color(0xFF5C4944),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.rocket_launch_outlined),
+                    label: const Text(
+                      'StartGame',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                const Spacer(),
+                if (viewModel.isGameInitialized)
+                  FilledButton.icon(
+                    onPressed: canPlay ? onPlayPressed : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFB15D45),
+                      disabledBackgroundColor: const Color(0xFF5C4944),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text(
+                      'Play',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
-                ),
-                icon: const Icon(Icons.front_hand_outlined),
-                label: const Text(
-                  'Pass',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              )
-            else
-              FilledButton.icon(
-                onPressed: canAttemptStart ? controller.startGame : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFB15D45),
-                  disabledBackgroundColor: const Color(0xFF5C4944),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                icon: const Icon(Icons.rocket_launch_outlined),
-                label: const Text(
-                  'StartGame',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-            const Spacer(),
-            if (viewModel.isGameInitialized)
-              FilledButton.icon(
-                onPressed: canPlay ? onPlayPressed : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFB15D45),
-                  disabledBackgroundColor: const Color(0xFF5C4944),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text(
-                  'Play',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
       ],
     );

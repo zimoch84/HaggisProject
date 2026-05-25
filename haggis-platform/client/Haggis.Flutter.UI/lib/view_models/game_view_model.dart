@@ -18,6 +18,7 @@ class GameViewModel {
     required this.possibleActions,
     required this.previousRoundSummary,
     required this.scoreHistoryAvailable,
+    required this.singlePlayer,
   });
 
   final String gameId;
@@ -36,6 +37,7 @@ class GameViewModel {
   final List<PossibleActionViewModel> possibleActions;
   final RoundSummaryBadgeViewModel? previousRoundSummary;
   final bool scoreHistoryAvailable;
+  final bool singlePlayer;
 }
 
 class GamePlayerViewModel {

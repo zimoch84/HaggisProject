@@ -11,4 +11,6 @@ public sealed class GameState
     public string Status { get; set; } = "Connecting...";
 
     public IReadOnlyList<string> RoomPlayers { get; set; } = Array.Empty<string>();
+
+    public bool SinglePlayer { get; set; }
 }
