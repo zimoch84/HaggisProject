@@ -9,7 +9,7 @@ public sealed class GameRoomStore : IGameRoomStore
 {
     private readonly ConcurrentDictionary<string, GameRoom> _rooms = new();
 
-    public GameRoom GetOrCreateRoom(string roomId, string hostPlayerId, string gameType, string? roomName = null)
+    public GameRoom GetOrCreateRoom(string roomId, string hostPlayerId, string gameType, string? roomName = null, bool isPublic = true)
     {
         var normalizedRoomName = string.IsNullOrWhiteSpace(roomName)
             ? BuildDefaultRoomName(hostPlayerId, gameType)
@@ -22,6 +22,7 @@ public sealed class GameRoomStore : IGameRoomStore
             GameType = gameType.Trim().ToLowerInvariant(),
             RoomName = normalizedRoomName,
             CreatedAt = DateTimeOffset.UtcNow,
+            IsPublic = isPublic,
             Players = new List<string> { hostPlayerId }
         };
 
@@ -32,6 +33,7 @@ public sealed class GameRoomStore : IGameRoomStore
     public IReadOnlyList<GameRoom> ListRooms()
     {
         return _rooms.Values
+            .Where(x => x.IsPublic)
             .OrderByDescending(x => x.CreatedAt)
             .Select(Clone)
             .ToList();
@@ -78,6 +80,7 @@ public sealed class GameRoomStore : IGameRoomStore
             GameType = room.GameType,
             RoomName = room.RoomName,
             CreatedAt = room.CreatedAt,
+            IsPublic = room.IsPublic,
             Players = room.Players.ToList()
         };
     }

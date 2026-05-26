@@ -107,7 +107,7 @@ namespace HaggisTests
         }
 
         [Test]
-        public void Should_next_player_be_who_played_2_bomb_when_not_finished()
+        public void Should_next_player_be_who_had_best_trick_before_2_bombs_when_not_finished()
         {
             var trickPlay = new TrickPlay(3);
             trickPlay.AddAction(HaggisAction.FromTrick("4BYOG_QUAD", Piotr));
@@ -125,7 +125,7 @@ namespace HaggisTests
 
             trickPlay.AddAction(HaggisAction.Pass(Slawek));
             Assert.That(trickPlay.IsEndingPass(), Is.True);
-            Assert.That(trickPlay.Taking() == Slawek, Is.True);
+            Assert.That(trickPlay.Taking() == Piotr, Is.True);
 
         }
         [Test]

@@ -59,10 +59,11 @@ public class GameRoomToGameFlowIntegrationTests
 
         using var eventDoc = JsonDocument.Parse(eventPayload);
         var root = eventDoc.RootElement;
-        Assert.That(root.GetProperty("Type").GetString(), Is.EqualTo("CommandApplied"));
-        Assert.That(root.GetProperty("GameId").GetString(), Is.EqualTo(roomId));
-        Assert.That(root.GetProperty("Command").GetProperty("Type").GetString(), Is.EqualTo("Initialize"));
-        Assert.That(root.GetProperty("Command").GetProperty("PlayerId").GetString(), Is.EqualTo("alice"));
+        Assert.That(GetRequiredPropertyIgnoreCase(root, "Type").GetString(), Is.EqualTo("CommandApplied"));
+        Assert.That(GetRequiredPropertyIgnoreCase(root, "GameId").GetString(), Is.EqualTo(roomId));
+        var command = GetRequiredPropertyIgnoreCase(root, "Command");
+        Assert.That(GetRequiredPropertyIgnoreCase(command, "Type").GetString(), Is.EqualTo("Initialize"));
+        Assert.That(GetRequiredPropertyIgnoreCase(command, "PlayerId").GetString(), Is.EqualTo("alice"));
     }
 
     private static async Task SendTextAsync(WebSocket socket, string text, CancellationToken cancellationToken)
@@ -95,6 +96,22 @@ public class GameRoomToGameFlowIntegrationTests
                 return Encoding.UTF8.GetString(ms.ToArray());
             }
         }
+    }
+
+    private static JsonElement GetRequiredPropertyIgnoreCase(JsonElement element, string propertyName)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return property.Value;
+                }
+            }
+        }
+
+        throw new KeyNotFoundException($"Missing property '{propertyName}'.");
     }
 }
 

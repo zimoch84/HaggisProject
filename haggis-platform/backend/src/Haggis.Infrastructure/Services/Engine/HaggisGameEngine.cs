@@ -113,6 +113,11 @@ public sealed class HaggisGameEngine : IGameEngine
     {
         var gameOverScore = state.ScoringStrategy.GameOverScore;
         var roundOver = state.RoundOver();
+        var finishingOrderPlayerNames = state.FinishingOrder
+            .Select(playerGuid => state.Players.FirstOrDefault(player => player.GUID == playerGuid)?.Name)
+            .OfType<string>()
+            .Where(playerName => !string.IsNullOrWhiteSpace(playerName))
+            .ToList();
 
         var data = new
         {
@@ -125,6 +130,7 @@ public sealed class HaggisGameEngine : IGameEngine
             currentPlayerId = state.CurrentPlayer.Name,
             roundOver,
             gameOver,
+            finishingOrderPlayerNames,
             players = state.Players.Select(player => new
             {
                 id = player.Name,
@@ -132,6 +138,8 @@ public sealed class HaggisGameEngine : IGameEngine
                 handCount = player.Hand.Count,
                 hand = player.Hand.Select(card => card.ToString()),
                 finished = player.Finished,
+                finishPosition = finishingOrderPlayerNames.FindIndex(playerName =>
+                    playerName.Equals(player.Name, StringComparison.OrdinalIgnoreCase)) + 1,
                 isAi = player is AIPlayer
             }),
             trick = state.CurrentTrickPlay.Actions.Select(action => new

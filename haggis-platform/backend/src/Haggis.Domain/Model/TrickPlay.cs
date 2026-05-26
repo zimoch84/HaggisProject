@@ -82,19 +82,18 @@ namespace Haggis.Domain.Model
 
         public IHaggisPlayer Taking()
         {
-            if (NotPassActions.Last().Trick?.Type != TrickType.BOMB)
+            var lastNotPassAction = NotPassActions.Last();
+            if (lastNotPassAction.Trick?.Type != TrickType.BOMB)
             {
-                return NotPassActions.Last().Player;
+                return lastNotPassAction.Player;
             }
-            else
-            {
-                /*If we start with bomb there will be no lastaction before */
-                if (NotPassActions.GetSecondToLast() != null)
-                    return NotPassActions.GetSecondToLast().Player;
 
-                /*So player who play the bomb takes*/
-                return NotPassActions.Last().Player;
-            }
+            var previousBestAction = NotPassActions
+                .Where(a => a.Trick?.Type != TrickType.BOMB)
+                .LastOrDefault();
+
+            /* If the trick starts with a bomb there is no earlier best trick. */
+            return previousBestAction?.Player ?? lastNotPassAction.Player;
         }
 
         public override bool Equals(object obj)

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/material.dart';
 
@@ -43,6 +44,15 @@ class GameController extends ChangeNotifier {
   final Map<String, String> _wildAssignments = <String, String>{};
   bool _autoStartRequested = false;
   bool _hasEstablishedSnapshotBaseline = false;
+  bool _processingCommandQueue = false;
+  bool _disposed = false;
+  int _appliedMovesReplayGeneration = 0;
+  int _collectAnimationGeneration = 0;
+  List<TrickMove>? _visibleTrickReplay;
+  TrickCollectViewModel? _collectingTrick;
+  RoundOverViewModel? _deferredRoundOver;
+  final Queue<Map<String, dynamic>> _pendingCommandMessages =
+      Queue<Map<String, dynamic>>();
 
   GameSnapshot? get snapshot => _snapshot;
 
@@ -101,6 +111,14 @@ class GameController extends ChangeNotifier {
         break;
       }
     }
+    final visibleTrick =
+        _visibleTrickReplay ?? snapshot?.trick ?? const <TrickMove>[];
+    final visibleCurrentTrick = _visibleTrickReplay == null
+        ? snapshot?.trick ?? const <TrickMove>[]
+        : _resolveVisibleCurrentTrick(
+            visibleTrick,
+            snapshot?.trick ?? const <TrickMove>[],
+          );
     return GameViewModel(
       gameId: room.gameId,
       roomName: room.roomName,
@@ -113,27 +131,32 @@ class GameController extends ChangeNotifier {
       isCurrentPlayersTurn: isCurrentPlayersTurn,
       isGameInitialized: isGameInitialized,
       hand: List<String>.unmodifiable(currentPlayer?.hand ?? const <String>[]),
-      players: (snapshot?.players ?? const <GamePlayer>[])
-          .map(
-            (GamePlayer player) => GamePlayerViewModel(
-              id: player.id,
-              score: player.score,
-              handCount: player.handCount,
-              finished: player.finished,
-              isCurrentPlayer: player.id == currentPlayerId,
-              hasJack: player.hand.any(
-                (String card) => card.trim().toUpperCase() == 'J',
-              ),
-              hasQueen: player.hand.any(
-                (String card) => card.trim().toUpperCase() == 'Q',
-              ),
-              hasKing: player.hand.any(
-                (String card) => card.trim().toUpperCase() == 'K',
-              ),
-            ),
-          )
-          .toList(growable: false),
-      trick: (snapshot?.trick ?? const <TrickMove>[])
+      players:
+          _orderedPlayers(
+                snapshot?.players ?? const <GamePlayer>[],
+                currentPlayerId,
+              )
+              .map(
+                (GamePlayer player) => GamePlayerViewModel(
+                  id: player.id,
+                  score: player.score,
+                  handCount: player.handCount,
+                  finished: player.finished,
+                  finishPosition: player.finishPosition,
+                  isCurrentPlayer: player.id == currentPlayerId,
+                  hasJack: player.hand.any(
+                    (String card) => card.trim().toUpperCase() == 'J',
+                  ),
+                  hasQueen: player.hand.any(
+                    (String card) => card.trim().toUpperCase() == 'Q',
+                  ),
+                  hasKing: player.hand.any(
+                    (String card) => card.trim().toUpperCase() == 'K',
+                  ),
+                ),
+              )
+              .toList(growable: false),
+      trick: visibleTrick
           .map(
             (TrickMove move) => TrickMoveViewModel(
               playerId: move.playerId,
@@ -141,6 +164,15 @@ class GameController extends ChangeNotifier {
             ),
           )
           .toList(growable: false),
+      currentTrick: visibleCurrentTrick
+          .map(
+            (TrickMove move) => TrickMoveViewModel(
+              playerId: move.playerId,
+              description: move.description,
+            ),
+          )
+          .toList(growable: false),
+      collectingTrick: _collectingTrick,
       possibleActions: (snapshot?.possibleActions ?? const <PossibleAction>[])
           .map(
             (PossibleAction action) => PossibleActionViewModel(
@@ -344,6 +376,13 @@ class GameController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _pendingCommandMessages.clear();
+    _appliedMovesReplayGeneration++;
+    _collectAnimationGeneration++;
+    _visibleTrickReplay = null;
+    _collectingTrick = null;
+    _deferredRoundOver = null;
     _subscription?.cancel();
     _client.dispose();
     roundOverController.dispose();
@@ -367,25 +406,16 @@ class GameController extends ChangeNotifier {
       return;
     }
 
-    if (type == 'GameSnapshot' || type == 'CommandApplied') {
-      final previousSnapshot = _snapshot;
-      final stateJson =
-          json['state'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      _snapshot = GameSnapshot.fromJson(stateJson);
-      if (isGameInitialized) {
-        _autoStartRequested = false;
-      }
-      _syncSelectedCardWithSnapshot();
-      _status = type == 'CommandApplied'
-          ? 'Applied: ${((json['command'] as Map<String, dynamic>? ?? <String, dynamic>{})['type'] ?? '').toString()}'
-          : 'Snapshot loaded.';
-      _updateDerivedRoundState(
-        previousSnapshot,
-        _snapshot,
-        establishBaselineOnly: !_hasEstablishedSnapshotBaseline,
-      );
-      _hasEstablishedSnapshotBaseline = true;
-      notifyListeners();
+    if (type == 'CommandApplied') {
+      _pendingCommandMessages.add(json);
+      unawaited(_processCommandQueue());
+      return;
+    }
+
+    if (type == 'GameSnapshot') {
+      _pendingCommandMessages.clear();
+      _cancelAppliedMovesReplay();
+      _applyStateMessage(json);
       return;
     }
 
@@ -393,6 +423,242 @@ class GameController extends ChangeNotifier {
       _status = json['error'].toString();
       notifyListeners();
     }
+  }
+
+  Future<void> _processCommandQueue() async {
+    if (_processingCommandQueue) {
+      return;
+    }
+
+    _processingCommandQueue = true;
+    try {
+      while (_pendingCommandMessages.isNotEmpty) {
+        if (_disposed) {
+          return;
+        }
+        final json = _pendingCommandMessages.removeFirst();
+        _applyStateMessage(json);
+        if (_pendingCommandMessages.isNotEmpty && _isAiCommandMessage(json)) {
+          await Future<void>.delayed(const Duration(milliseconds: 700));
+        }
+      }
+    } finally {
+      _processingCommandQueue = false;
+    }
+  }
+
+  void _applyStateMessage(Map<String, dynamic> json) {
+    if (_disposed) {
+      return;
+    }
+
+    final type = (json['type'] ?? '').toString();
+    final previousSnapshot = _snapshot;
+    final stateJson =
+        json['state'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    _snapshot = GameSnapshot.fromJson(stateJson);
+    final collectingTrick = type == 'CommandApplied'
+        ? _buildCollectingTrickForTransition(previousSnapshot, _snapshot)
+        : null;
+    final replayStarted = type == 'CommandApplied'
+        ? _startAppliedMovesReplay(previousSnapshot, _snapshot, collectingTrick)
+        : false;
+    if (!replayStarted && type != 'CommandApplied') {
+      _visibleTrickReplay = null;
+    }
+    if (isGameInitialized) {
+      _autoStartRequested = false;
+    }
+    _syncSelectedCardWithSnapshot();
+    _status = type == 'CommandApplied'
+        ? 'Applied: ${((json['command'] as Map<String, dynamic>? ?? <String, dynamic>{})['type'] ?? '').toString()}'
+        : 'Snapshot loaded.';
+    _updateDerivedRoundState(
+      previousSnapshot,
+      _snapshot,
+      establishBaselineOnly: !_hasEstablishedSnapshotBaseline,
+      deferRoundOverPopup: replayStarted || collectingTrick != null,
+    );
+    if (!replayStarted) {
+      if (collectingTrick != null) {
+        _startCollectAnimation(collectingTrick);
+      } else if (type != 'CommandApplied') {
+        _cancelCollectAnimation();
+        _publishDeferredRoundOver();
+      } else {
+        _publishDeferredRoundOver();
+      }
+    }
+    _hasEstablishedSnapshotBaseline = true;
+    notifyListeners();
+    return;
+  }
+
+  bool _isAiCommandMessage(Map<String, dynamic> json) {
+    final commandJson = json['command'] as Map<String, dynamic>?;
+    final commandPlayerId = (commandJson?['playerId'] ?? '').toString();
+    if (commandPlayerId.isEmpty || commandPlayerId == playerId) {
+      return false;
+    }
+
+    return singlePlayerAiPlayers.any(
+      (SinglePlayerAiConfig config) => config.name == commandPlayerId,
+    );
+  }
+
+  bool _startAppliedMovesReplay(
+    GameSnapshot? previousSnapshot,
+    GameSnapshot? currentSnapshot,
+    TrickCollectViewModel? collectingTrick,
+  ) {
+    final appliedMoves = currentSnapshot?.appliedMoves ?? const <TrickMove>[];
+    if (appliedMoves.length <= 1) {
+      _cancelAppliedMovesReplay();
+      return false;
+    }
+
+    final baseTrick = previousSnapshot?.trick ?? const <TrickMove>[];
+    final generation = ++_appliedMovesReplayGeneration;
+    _visibleTrickReplay = List<TrickMove>.unmodifiable(<TrickMove>[
+      ...baseTrick,
+      appliedMoves.first,
+    ]);
+    unawaited(
+      _replayAppliedMoves(generation, baseTrick, appliedMoves, collectingTrick),
+    );
+    return true;
+  }
+
+  Future<void> _replayAppliedMoves(
+    int generation,
+    List<TrickMove> baseTrick,
+    List<TrickMove> appliedMoves,
+    TrickCollectViewModel? collectingTrick,
+  ) async {
+    for (var index = 1; index < appliedMoves.length; index++) {
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      if (_disposed || generation != _appliedMovesReplayGeneration) {
+        return;
+      }
+
+      _visibleTrickReplay = List<TrickMove>.unmodifiable(<TrickMove>[
+        ...baseTrick,
+        ...appliedMoves.take(index + 1),
+      ]);
+      notifyListeners();
+    }
+
+    if (collectingTrick != null) {
+      await Future<void>.delayed(const Duration(milliseconds: 450));
+      if (_disposed || generation != _appliedMovesReplayGeneration) {
+        return;
+      }
+
+      _visibleTrickReplay = null;
+      _startCollectAnimation(collectingTrick);
+      return;
+    }
+
+    _publishDeferredRoundOver();
+  }
+
+  void _cancelAppliedMovesReplay() {
+    _appliedMovesReplayGeneration++;
+    _visibleTrickReplay = null;
+  }
+
+  TrickCollectViewModel? _buildCollectingTrickForTransition(
+    GameSnapshot? previousSnapshot,
+    GameSnapshot? currentSnapshot,
+  ) {
+    if (currentSnapshot == null || currentSnapshot.trick.isNotEmpty) {
+      return null;
+    }
+
+    final completedTrick =
+        <TrickMove>[
+              ...(previousSnapshot?.trick ?? const <TrickMove>[]),
+              ...currentSnapshot.appliedMoves,
+            ]
+            .where(
+              (TrickMove move) => _moveCardLabels(move.description).isNotEmpty,
+            )
+            .toList(growable: false);
+    if (completedTrick.isEmpty) {
+      return null;
+    }
+
+    final winnerPlayerId = _resolveCollectWinnerPlayerId(
+      completedTrick,
+      fallbackPlayerId: currentSnapshot.currentPlayerId,
+    );
+    final winnerIndex = currentSnapshot.players.indexWhere(
+      (GamePlayer player) => player.id == winnerPlayerId,
+    );
+    final cards = completedTrick
+        .expand((TrickMove move) => _moveCardLabels(move.description))
+        .toList(growable: false);
+
+    return TrickCollectViewModel(
+      winnerPlayerId: winnerPlayerId,
+      winnerIndex: winnerIndex < 0 ? 0 : winnerIndex,
+      playerCount: currentSnapshot.players.length,
+      cards: List<String>.unmodifiable(cards),
+    );
+  }
+
+  String _resolveCollectWinnerPlayerId(
+    List<TrickMove> completedTrick, {
+    required String fallbackPlayerId,
+  }) {
+    TrickMove? bestNonBombMove;
+    for (final TrickMove move in completedTrick) {
+      final description = move.description.trim().toUpperCase();
+      if (description.isEmpty ||
+          description == 'PASS' ||
+          description == 'PASS[]' ||
+          description.startsWith('BOMB[')) {
+        continue;
+      }
+
+      bestNonBombMove = move;
+    }
+
+    return bestNonBombMove?.playerId ?? fallbackPlayerId;
+  }
+
+  void _startCollectAnimation(TrickCollectViewModel collectingTrick) {
+    final generation = ++_collectAnimationGeneration;
+    _collectingTrick = collectingTrick;
+    notifyListeners();
+    unawaited(_clearCollectAnimation(generation));
+  }
+
+  Future<void> _clearCollectAnimation(int generation) async {
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (_disposed || generation != _collectAnimationGeneration) {
+      return;
+    }
+
+    _collectingTrick = null;
+    _publishDeferredRoundOver();
+    notifyListeners();
+  }
+
+  void _cancelCollectAnimation() {
+    _collectAnimationGeneration++;
+    _collectingTrick = null;
+  }
+
+  void _publishDeferredRoundOver() {
+    final roundOver = _deferredRoundOver;
+    if (roundOver == null) {
+      return;
+    }
+
+    _deferredRoundOver = null;
+    roundOverController.setLastRound(roundOver);
+    notifyListeners();
   }
 
   void _tryAutoStartGame() {
@@ -403,10 +669,55 @@ class GameController extends ChangeNotifier {
     startGame();
   }
 
+  List<GamePlayer> _orderedPlayers(
+    List<GamePlayer> players,
+    String currentPlayerId,
+  ) {
+    if (players.isEmpty || currentPlayerId.isEmpty) {
+      return players;
+    }
+
+    final currentIndex = players.indexWhere(
+      (GamePlayer player) => player.id == currentPlayerId,
+    );
+    if (currentIndex <= 0) {
+      return players;
+    }
+
+    return List<GamePlayer>.unmodifiable(<GamePlayer>[
+      ...players.skip(currentIndex),
+      ...players.take(currentIndex),
+    ]);
+  }
+
+  List<TrickMove> _resolveVisibleCurrentTrick(
+    List<TrickMove> visibleTrick,
+    List<TrickMove> snapshotTrick,
+  ) {
+    if (visibleTrick.isEmpty || snapshotTrick.isEmpty) {
+      return const <TrickMove>[];
+    }
+
+    for (var length = snapshotTrick.length; length >= 1; length--) {
+      if (visibleTrick.length < length) {
+        continue;
+      }
+
+      final visibleSuffix = visibleTrick.sublist(visibleTrick.length - length);
+      final snapshotPrefix = snapshotTrick.take(length).toList(growable: false);
+      if (_sameTrickMoves(visibleSuffix, snapshotPrefix)) {
+        return List<TrickMove>.unmodifiable(visibleSuffix);
+      }
+    }
+
+    return const <TrickMove>[];
+  }
+
   void _updateDerivedRoundState(
     GameSnapshot? previousSnapshot,
     GameSnapshot? currentSnapshot, {
     bool establishBaselineOnly = false,
+    bool deferRoundOverPopup = false,
   }) {
     if (establishBaselineOnly) {
       return;
@@ -418,7 +729,11 @@ class GameController extends ChangeNotifier {
     );
     if (completedRound != null) {
       _completedRounds.add(completedRound);
-      roundOverController.setLastRound(completedRound);
+      if (deferRoundOverPopup) {
+        _deferredRoundOver = completedRound;
+      } else {
+        roundOverController.setLastRound(completedRound);
+      }
     }
 
     final scoreHistory = _buildScoreHistory();
@@ -748,6 +1063,34 @@ List<String> _extractSelectionCardsFromAction(String action) {
   return selectedCards;
 }
 
+List<String> _moveCardLabels(String action) {
+  final labels = <String>[];
+  for (final String token in _extractActionParts(action)) {
+    final wildMatch = RegExp(
+      r'^([JQK])(?:\[([^\]]+)\])?$',
+      caseSensitive: false,
+    ).firstMatch(token);
+    if (wildMatch != null) {
+      labels.add(
+        (wildMatch.group(2)?.trim().isNotEmpty ?? false)
+            ? wildMatch.group(2)!.trim().toUpperCase()
+            : wildMatch.group(1)!.trim().toUpperCase(),
+      );
+      continue;
+    }
+
+    final normalMatch = RegExp(
+      r'^(10|[2-9A])[BGROY]$',
+      caseSensitive: false,
+    ).firstMatch(token);
+    if (normalMatch != null) {
+      labels.add(token.toUpperCase());
+    }
+  }
+
+  return List<String>.unmodifiable(labels);
+}
+
 String? _extractWildAssignment(String action, String wildCard) {
   final parts = _extractActionParts(action);
   for (final String token in parts) {
@@ -817,6 +1160,21 @@ bool _sameCards(List<String> left, List<String> right) {
 
   for (var index = 0; index < left.length; index++) {
     if (left[index] != right[index]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool _sameTrickMoves(List<TrickMove> left, List<TrickMove> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+
+  for (var index = 0; index < left.length; index++) {
+    if (left[index].playerId != right[index].playerId ||
+        left[index].description != right[index].description) {
       return false;
     }
   }

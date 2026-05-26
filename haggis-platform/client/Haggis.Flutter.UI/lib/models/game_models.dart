@@ -26,19 +26,22 @@ class GameSnapshot {
             (dynamic item) => TrickMove.fromJson(item as Map<String, dynamic>),
           )
           .toList(),
-      possibleActions: (data['possibleActions'] as List<dynamic>? ?? <dynamic>[])
-          .map(
-            (dynamic item) =>
-                PossibleAction.fromJson(item as Map<String, dynamic>),
-          )
-          .toList(),
+      possibleActions:
+          (data['possibleActions'] as List<dynamic>? ?? <dynamic>[])
+              .map(
+                (dynamic item) =>
+                    PossibleAction.fromJson(item as Map<String, dynamic>),
+              )
+              .toList(),
       appliedMoves: (data['appliedMoves'] as List<dynamic>? ?? <dynamic>[])
           .map(
             (dynamic item) => TrickMove.fromJson(item as Map<String, dynamic>),
           )
           .toList(),
       previousRound: data['previousRound'] is Map<String, dynamic>
-          ? PreviousRound.fromJson(data['previousRound'] as Map<String, dynamic>)
+          ? PreviousRound.fromJson(
+              data['previousRound'] as Map<String, dynamic>,
+            )
           : null,
     );
   }
@@ -60,6 +63,7 @@ class GamePlayer {
     required this.handCount,
     required this.hand,
     required this.finished,
+    required this.finishPosition,
   });
 
   factory GamePlayer.fromJson(Map<String, dynamic> json) {
@@ -71,6 +75,7 @@ class GamePlayer {
           .map((dynamic item) => item.toString())
           .toList(growable: false),
       finished: json['finished'] == true,
+      finishPosition: (json['finishPosition'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -79,13 +84,11 @@ class GamePlayer {
   final int handCount;
   final List<String> hand;
   final bool finished;
+  final int finishPosition;
 }
 
 class TrickMove {
-  TrickMove({
-    required this.playerId,
-    required this.description,
-  });
+  TrickMove({required this.playerId, required this.description});
 
   factory TrickMove.fromJson(Map<String, dynamic> json) {
     return TrickMove(
@@ -99,10 +102,7 @@ class TrickMove {
 }
 
 class PossibleAction {
-  PossibleAction({
-    required this.type,
-    required this.displayAction,
-  });
+  PossibleAction({required this.type, required this.displayAction});
 
   factory PossibleAction.fromJson(Map<String, dynamic> json) {
     return PossibleAction(
@@ -137,9 +137,8 @@ class PreviousRound {
           .toList(),
       playerScores: (json['playerScores'] as List<dynamic>? ?? <dynamic>[])
           .map(
-            (dynamic item) => PreviousRoundPlayerScore.fromJson(
-              item as Map<String, dynamic>,
-            ),
+            (dynamic item) =>
+                PreviousRoundPlayerScore.fromJson(item as Map<String, dynamic>),
           )
           .toList(),
     );

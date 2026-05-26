@@ -31,8 +31,6 @@ Widget buildGamePageView({
   required Future<void> Function(String card) onCardTap,
 }) {
   final viewModel = controller.viewModel;
-  final ownPlayer = resolveOwnPlayer(viewModel);
-  final opponents = resolveOpponents(viewModel);
   final handSplit = splitHandByGroupedCards(
     hand: viewModel.hand,
     groupedCards: savedGroup,
@@ -70,8 +68,7 @@ Widget buildGamePageView({
                     children: [
                       TopRibbon(
                         viewModel: viewModel,
-                        ownPlayer: ownPlayer,
-                        opponents: opponents,
+                        players: viewModel.players,
                         onLeave: onLeave,
                         hasLastRound:
                             controller.roundOverController.hasLastRound,
@@ -80,10 +77,10 @@ Widget buildGamePageView({
                         onRefresh: controller.requestSnapshot,
                         onOpenHandTuning: onOpenHandTuning,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
                       Expanded(
                         child: SurfaceCard(
-                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+                          padding: const EdgeInsets.fromLTRB(18, 4, 18, 14),
                           backgroundColor: Colors.transparent,
                           borderColor: Colors.transparent,
                           boxShadow: const [],
@@ -125,8 +122,7 @@ Widget buildGamePageView({
                   children: [
                     TopRibbon(
                       viewModel: viewModel,
-                      ownPlayer: ownPlayer,
-                      opponents: opponents,
+                      players: viewModel.players,
                       onLeave: onLeave,
                       hasLastRound: controller.roundOverController.hasLastRound,
                       onOpenLastRound: onOpenLastRound,
@@ -134,10 +130,10 @@ Widget buildGamePageView({
                       onRefresh: controller.requestSnapshot,
                       onOpenHandTuning: onOpenHandTuning,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 4),
                     Expanded(
                       child: SurfaceCard(
-                        padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+                        padding: const EdgeInsets.fromLTRB(18, 4, 18, 14),
                         backgroundColor: Colors.transparent,
                         borderColor: Colors.transparent,
                         boxShadow: const [],
