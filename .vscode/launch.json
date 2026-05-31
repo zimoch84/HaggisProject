@@ -17,6 +17,38 @@
       }
     },
     {
+      "name": "Haggis Game Engine Tests (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build HaggisTests",
+      "program": "dotnet",
+      "args": [
+        "test",
+        "${workspaceFolder}/haggis-platform/backend/tests/Game.Engine.Tests/HaggisTests.csproj",
+        "--no-build"
+      ],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Haggis AI Benchmark Tests (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build HaggisTests",
+      "program": "dotnet",
+      "args": [
+        "test",
+        "${workspaceFolder}/haggis-platform/backend/tests/Game.Engine.Tests/HaggisTests.csproj",
+        "--no-build",
+        "--filter",
+        "AiBenchmarkTests"
+      ],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
       "name": "Flutter Android 1",
       "type": "dart",
       "request": "launch",

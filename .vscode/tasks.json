@@ -32,6 +32,16 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "build HaggisTests",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/haggis-platform/backend/tests/Game.Engine.Tests/HaggisTests.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "start Android Emulator 1",
       "type": "process",
       "command": "powershell",
