@@ -32,19 +32,24 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Haggis AI Benchmark Tests (.NET)",
+      "name": "Haggis AI Benchmark (.NET)",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build HaggisTests",
-      "program": "dotnet",
+      "preLaunchTask": "build Haggis.AiBenchmark",
+      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
       "args": [
-        "test",
-        "${workspaceFolder}/haggis-platform/backend/tests/Game.Engine.Tests/HaggisTests.csproj",
-        "--no-build",
-        "--filter",
-        "AiBenchmarkTests"
+        "--games=100",
+        "--players=3",
+        "--seed-start=1",
+        "--game-over-score=250",
+        "--strategy=normal",
+        "--opponent=normal",
+        "--rotate=true",
+        "--max-moves=10000",
+        "--log=outcomes.txt",
+        "--csv=results.csv"
       ],
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/haggis-platform/backend",
       "stopAtEntry": false,
       "console": "integratedTerminal"
     },

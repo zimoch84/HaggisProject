@@ -42,6 +42,16 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "build Haggis.AiBenchmark",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/Haggis.AiBenchmark.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "start Android Emulator 1",
       "type": "process",
       "command": "powershell",

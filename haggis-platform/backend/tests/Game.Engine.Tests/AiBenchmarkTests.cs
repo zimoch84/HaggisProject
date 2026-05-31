@@ -98,6 +98,23 @@ namespace HaggisTests
         }
 
         [Test]
+        public void OutputPath_ShouldAppendTimestampAndStrategiesBeforeExtension()
+        {
+            var options = new AiBenchmarkOptions
+            {
+                Strategy = "normal",
+                Opponent = "montecarlo-fast"
+            };
+
+            var path = AiBenchmarkOutputPath.WithRunSuffix(
+                "reports/results.csv",
+                options,
+                new System.DateTime(2026, 5, 31, 14, 5, 6, 789));
+
+            Assert.That(path.Replace('\\', '/'), Is.EqualTo("reports/results_20260531_140506_normal-vs-montecarlo-fast.csv"));
+        }
+
+        [Test]
         public void Run_ShouldCaptureGameLogLines()
         {
             var options = new AiBenchmarkOptions

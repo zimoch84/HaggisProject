@@ -9,18 +9,21 @@ try
 
     Console.WriteLine(summary.Format());
 
+    var outputTimestamp = DateTime.Now;
     if (!string.IsNullOrWhiteSpace(options.CsvPath))
     {
-        AiBenchmarkCsvWriter.Write(options.CsvPath, results);
+        var csvPath = AiBenchmarkOutputPath.WithRunSuffix(options.CsvPath, options, outputTimestamp);
+        AiBenchmarkCsvWriter.Write(csvPath, results);
         Console.WriteLine();
-        Console.WriteLine($"CSV written: {options.CsvPath}");
+        Console.WriteLine($"CSV written: {csvPath}");
     }
 
     if (!string.IsNullOrWhiteSpace(options.LogPath))
     {
-        AiBenchmarkGameLogWriter.Write(options.LogPath, results);
+        var logPath = AiBenchmarkOutputPath.WithRunSuffix(options.LogPath, options, outputTimestamp);
+        AiBenchmarkGameLogWriter.Write(logPath, results);
         Console.WriteLine();
-        Console.WriteLine($"Game log written: {options.LogPath}");
+        Console.WriteLine($"Game log written: {logPath}");
     }
 
     Environment.ExitCode = summary.FailedGames == 0 ? 0 : 1;
