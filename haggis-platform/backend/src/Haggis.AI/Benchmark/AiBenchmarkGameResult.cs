@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MonteCarlo;
 
 namespace Haggis.AI.Benchmark
 {
@@ -16,5 +17,6 @@ namespace Haggis.AI.Benchmark
         public List<string> LogLines { get; set; } = new List<string>();
         public Dictionary<string, int> Scores { get; set; } = new Dictionary<string, int>();
         public Dictionary<string, string> StrategiesByPlayer { get; set; } = new Dictionary<string, string>();
+        public MctsTimingResult Timing { get; set; }
     }
 }

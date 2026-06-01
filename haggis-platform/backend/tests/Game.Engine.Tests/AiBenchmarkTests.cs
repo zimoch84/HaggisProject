@@ -249,6 +249,8 @@ namespace HaggisTests
             Assert.That(header, Does.Contain("rootChildren="));
             Assert.That(header, Does.Contain("scheduledRollouts="));
             Assert.That(header, Does.Contain("completedRollouts="));
+            Assert.That(result.Timing, Is.Not.Null);
+            Assert.That(result.LogLines.Any(line => line.Contains("timing:") && line.Contains("searchMs=") && line.Contains("cloneStateMs=") && line.Contains("moveGenerationMs=")), Is.True);
             Assert.That(
                 result.LogLines.Any(line =>
                     line.Contains("1. action=") &&
@@ -256,6 +258,34 @@ namespace HaggisTests
                     line.Contains("wins=") &&
                     line.Contains("winRate=")),
                 Is.True);
+        }
+
+        [Test]
+        public void Summary_ShouldIncludeAverageTimingWhenAvailable()
+        {
+            var results = new[]
+            {
+                new AiBenchmarkGameResult
+                {
+                    Completed = true,
+                    Timing = new MonteCarlo.MctsTimingResult
+                    {
+                        SearchMs = 10,
+                        SchedulerMs = 2,
+                        CloneStateMs = 1,
+                        MoveGenerationMs = 3,
+                        SelectionMs = 1,
+                        ExpansionMs = 1,
+                        RolloutMs = 1,
+                        BackpropagationMs = 1
+                    }
+                }
+            };
+
+            var summary = new AiBenchmarkSummary(results);
+
+            Assert.That(summary.Format(), Does.Contain("MCTS timing"));
+            Assert.That(summary.Format(), Does.Contain("scheduler/task overhead"));
         }
     }
 }

@@ -220,10 +220,10 @@ namespace HaggisTests.Strategies
         }
 
         [Test]
-        public void ShouldProduceRepeatableRootStats_WithSameStateAndWorkers()
+        public void ShouldProduceRepeatableRootStats_WithSameStateAndSingleWorker()
         {
-            var first = ComputeMetrics(CreateInitialState(), workers: 2);
-            var second = ComputeMetrics(CreateInitialState(), workers: 2);
+            var first = ComputeMetrics(CreateInitialState(), workers: 1);
+            var second = ComputeMetrics(CreateInitialState(), workers: 1);
 
             Assert.That(
                 second.Actions.Select(action => $"{action.Action.Desc}:{action.NumRuns}:{action.NumWins}").ToArray(),

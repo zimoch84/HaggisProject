@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using MonteCarlo;
 
 namespace Haggis.AI.Benchmark
 {
@@ -18,6 +19,7 @@ namespace Haggis.AI.Benchmark
             AverageFinalScore = CalculateAverageFinalScore(Results);
             WinRateByStrategy = CalculateStrategyWinRates(Results);
             WinRateBySeat = CalculateSeatWinRates(Results);
+            AverageTiming = CalculateAverageTiming(Results);
         }
 
         public IReadOnlyList<AiBenchmarkGameResult> Results { get; }
@@ -29,6 +31,7 @@ namespace Haggis.AI.Benchmark
         public double AverageFinalScore { get; }
         public IReadOnlyDictionary<string, double> WinRateByStrategy { get; }
         public IReadOnlyDictionary<int, double> WinRateBySeat { get; }
+        public MctsTimingResult AverageTiming { get; }
 
         public string Format()
         {
@@ -55,6 +58,20 @@ namespace Haggis.AI.Benchmark
             foreach (var item in WinRateBySeat.OrderBy(item => item.Key))
             {
                 lines.Add($"  p{item.Key}: {item.Value.ToString("0.00", CultureInfo.InvariantCulture)}%");
+            }
+
+            if (AverageTiming != null)
+            {
+                lines.Add(string.Empty);
+                lines.Add("MCTS timing (average per completed game):");
+                lines.Add($"  search: {AverageTiming.SearchMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  scheduler/task overhead: {AverageTiming.SchedulerMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  clone state: {AverageTiming.CloneStateMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  move generation: {AverageTiming.MoveGenerationMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  selection: {AverageTiming.SelectionMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  expansion: {AverageTiming.ExpansionMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  rollout: {AverageTiming.RolloutMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  backpropagation: {AverageTiming.BackpropagationMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
             }
 
             if (FailedGames > 0)
@@ -109,6 +126,30 @@ namespace Haggis.AI.Benchmark
                 .ToList();
 
             return scores.Count == 0 ? 0 : scores.Average();
+        }
+
+        private static MctsTimingResult CalculateAverageTiming(IReadOnlyList<AiBenchmarkGameResult> results)
+        {
+            var completedWithTiming = results
+                .Where(result => result.Completed && result.Timing != null)
+                .ToList();
+
+            if (completedWithTiming.Count == 0)
+            {
+                return null;
+            }
+
+            return new MctsTimingResult
+            {
+                SearchMs = completedWithTiming.Average(result => result.Timing.SearchMs),
+                SchedulerMs = completedWithTiming.Average(result => result.Timing.SchedulerMs),
+                CloneStateMs = completedWithTiming.Average(result => result.Timing.CloneStateMs),
+                MoveGenerationMs = completedWithTiming.Average(result => result.Timing.MoveGenerationMs),
+                SelectionMs = completedWithTiming.Average(result => result.Timing.SelectionMs),
+                ExpansionMs = completedWithTiming.Average(result => result.Timing.ExpansionMs),
+                RolloutMs = completedWithTiming.Average(result => result.Timing.RolloutMs),
+                BackpropagationMs = completedWithTiming.Average(result => result.Timing.BackpropagationMs)
+            };
         }
     }
 }

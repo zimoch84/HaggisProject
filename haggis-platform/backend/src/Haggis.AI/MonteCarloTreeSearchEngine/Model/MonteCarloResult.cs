@@ -1,4 +1,5 @@
-﻿using Haggis.Domain.Interfaces;
+using Haggis.Domain.Interfaces;
+using MonteCarlo;
 using System.Collections.Generic;
 
 namespace Haggis.AI.Model
@@ -15,6 +16,6 @@ namespace Haggis.AI.Model
         public int Workers { get; set; }
         public int ScheduledRollouts { get; set; }
         public int CompletedRollouts { get; set; }
+        public MctsTimingResult Timing { get; set; }
     }
 }
-

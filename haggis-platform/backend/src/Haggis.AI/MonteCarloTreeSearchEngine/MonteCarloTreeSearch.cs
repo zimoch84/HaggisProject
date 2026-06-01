@@ -17,6 +17,7 @@ namespace MonteCarlo
         public int Seed { get; set; }
         public Action<MctsTraceEvent> Trace { get; set; }
         public string TraceContext { get; set; }
+        public MctsTimingCollector Timing { get; set; }
     }
 
     public sealed class MctsTraceEvent
@@ -48,6 +49,7 @@ namespace MonteCarlo
         public int ScheduledRollouts { get; set; }
         public int CompletedRollouts { get; set; }
         public int Workers { get; set; }
+        public MctsTimingResult Timing { get; set; }
     }
 
     public class MonteCarloTreeSearch
@@ -145,6 +147,7 @@ namespace MonteCarlo
                 var nextNodeId = 1;
                 var timer = Stopwatch.StartNew();
                 var pending = new List<RolloutWork<TPlayer, TAction>>();
+                var completedResults = new Dictionary<int, RolloutResult<TPlayer, TAction>>();
                 var cancellation = new CancellationTokenSource();
 
                 while (shouldContinue(scheduledRollouts, timer.ElapsedMilliseconds) || pending.Count > 0)
@@ -152,14 +155,17 @@ namespace MonteCarlo
                     while (pending.Count < workers &&
                            shouldContinue(scheduledRollouts, timer.ElapsedMilliseconds))
                     {
+                        var scheduleStart = Stopwatch.GetTimestamp();
                         pending.Add(ScheduleRollout(
                             scheduledRollouts,
                             options.Seed,
                             scheduledRollouts % workers,
                             options.TraceContext,
                             options.Trace != null,
+                            options.Timing,
                             ref nextNodeId,
                             cancellation.Token));
+                        options.Timing?.AddScheduler(Stopwatch.GetTimestamp() - scheduleStart);
                         scheduledRollouts++;
                     }
 
@@ -172,10 +178,12 @@ namespace MonteCarlo
                         ? -1
                         : Math.Max(0, options.TimeBudgetMs - timer.ElapsedMilliseconds);
                     
+                    var waitStart = Stopwatch.GetTimestamp();
                     var tasks = pending.Select(w => w.Task).ToArray();
                     var completedIndex = Task.WaitAny(
                         tasks,
                         remainingBudgetMs < 0 ? -1 : (int)Math.Min(int.MaxValue, remainingBudgetMs));
+                    options.Timing?.AddScheduler(Stopwatch.GetTimestamp() - waitStart);
                     
                     if (completedIndex == -1)
                     {
@@ -183,12 +191,24 @@ namespace MonteCarlo
                         break;
                     }
 
+                    var collectStart = Stopwatch.GetTimestamp();
                     var nextWork = pending[completedIndex];
                     var rolloutResult = nextWork.Task.GetAwaiter().GetResult();
-                    ApplyRolloutResult(rolloutResult);
-                    EmitTrace(options.Trace, rolloutResult.TraceEvents);
                     pending.RemoveAt(completedIndex);
+                    completedResults[nextWork.Iteration] = rolloutResult;
                     completedRollouts++;
+
+                    while (completedResults.TryGetValue(nextResultToApply, out var readyResult))
+                    {
+                        completedResults.Remove(nextResultToApply);
+                        var backpropStart = Stopwatch.GetTimestamp();
+                        ApplyRolloutResult(readyResult);
+                        options.Timing?.AddBackpropagation(Stopwatch.GetTimestamp() - backpropStart);
+                        EmitTrace(options.Trace, readyResult.TraceEvents);
+                        nextResultToApply++;
+                    }
+
+                    options.Timing?.AddScheduler(Stopwatch.GetTimestamp() - collectStart);
                 }
 
                 if (pending.Count > 0)
@@ -205,16 +225,29 @@ namespace MonteCarlo
                 int workerIndex,
                 string traceContext,
                 bool traceEnabled,
+                MctsTimingCollector timing,
                 ref int nextNodeId,
                 CancellationToken cancellationToken)
             {
                 var node = this;
+                var selectionGenerationStart = Stopwatch.GetTimestamp();
                 var state = State.Clone();
+                timing?.AddCloneState(Stopwatch.GetTimestamp() - selectionGenerationStart);
                 var selectionRandom = CreateRandom(seed, iteration, 0);
                 var traceEvents = traceEnabled ? new List<MctsTraceEvent>() : null;
 
-                while (!node.UntriedActions.Any() && node.Actions.Any())
+                while (!node.UntriedActions.Any())
                 {
+                    var selectionActionsStart = Stopwatch.GetTimestamp();
+                    var selectionActions = node.Actions;
+                    timing?.AddMoveGeneration(Stopwatch.GetTimestamp() - selectionActionsStart);
+
+                    if (selectionActions.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var selectionStart = Stopwatch.GetTimestamp();
                     node = node.SelectChild();
                     AddTrace(traceEvents, new MctsTraceEvent
                     {
@@ -230,14 +263,19 @@ namespace MonteCarlo
                         Uct = node.UCT
                     });
                     state.ApplyAction(node.Action);
+                    timing?.AddSelection(Stopwatch.GetTimestamp() - selectionStart);
                 }
 
                 if (node.UntriedActions.Any())
                 {
+                    var expansionStart = Stopwatch.GetTimestamp();
                     var action = node.UntriedActions.RandomChoice(selectionRandom);
                     var parent = node;
                     state.ApplyAction(action);
-                    node = node.AddChild(action, state.Clone(), nextNodeId++);
+                    var childCloneStart = Stopwatch.GetTimestamp();
+                    var childState = state.Clone();
+                    timing?.AddCloneState(Stopwatch.GetTimestamp() - childCloneStart);
+                    node = node.AddChild(action, childState, nextNodeId++);
                     AddTrace(traceEvents, new MctsTraceEvent
                     {
                         Type = "expand",
@@ -250,9 +288,12 @@ namespace MonteCarlo
                         Action = FormatAction(action),
                         UntriedRemaining = parent.UntriedActions.Count
                     });
+                    timing?.AddExpansion(Stopwatch.GetTimestamp() - expansionStart);
                 }
 
+                var rolloutCloneStart = Stopwatch.GetTimestamp();
                 var rolloutState = state.Clone();
+                timing?.AddCloneState(Stopwatch.GetTimestamp() - rolloutCloneStart);
                 var rolloutRandom = CreateRandom(seed, iteration, 1);
                 var rootPlayer = Player;
                 AddTrace(traceEvents, new MctsTraceEvent
@@ -268,11 +309,21 @@ namespace MonteCarlo
                 });
                 var task = Task.Run(() =>
                 {
+                    var rolloutStart = Stopwatch.GetTimestamp();
                     var ply = 0;
-                    while (!cancellationToken.IsCancellationRequested && rolloutState.Actions.Any())
+                    while (!cancellationToken.IsCancellationRequested)
                     {
+                        var rolloutActionsStart = Stopwatch.GetTimestamp();
+                        var rolloutActions = rolloutState.Actions;
+                        timing?.AddMoveGeneration(Stopwatch.GetTimestamp() - rolloutActionsStart);
+
+                        if (rolloutActions.Count == 0)
+                        {
+                            break;
+                        }
+
                         var player = rolloutState.CurrentPlayer;
-                        var action = rolloutState.Actions.RandomChoice(rolloutRandom);
+                        var action = rolloutActions.RandomChoice(rolloutRandom);
                         rolloutState.ApplyAction(action);
                         AddTrace(traceEvents, new MctsTraceEvent
                         {
@@ -291,6 +342,7 @@ namespace MonteCarlo
                     }
 
                     var result = rolloutState.GetResult(rootPlayer);
+                    timing?.AddRollout(Stopwatch.GetTimestamp() - rolloutStart);
                     var finalScores = BuildScoreSnapshot(rolloutState);
                     var finalOpponentRemainingCards = BuildOpponentRemainingCardsSnapshot(rolloutState);
                     AddTrace(traceEvents, new MctsTraceEvent
@@ -479,13 +531,14 @@ namespace MonteCarlo
             }).TopActions;
         }
 
-        public static MctsSearchResult<TAction> Search<TPlayer, TAction>(
+            public static MctsSearchResult<TAction> Search<TPlayer, TAction>(
             IState<TPlayer, TAction> state,
             MctsOptions options)
             where TPlayer : IPlayer
             where TAction : IAction
         {
             options = options ?? new MctsOptions();
+            var searchTimer = Stopwatch.StartNew();
             var root = new Node<TPlayer, TAction>(state);
 
             if (root.Actions.Count <= 1)
@@ -505,7 +558,8 @@ namespace MonteCarlo
                         .ToList(),
                     ScheduledRollouts = 0,
                     CompletedRollouts = 0,
-                    Workers = 0
+                    Workers = 0,
+                    Timing = options.Timing?.Snapshot(searchTimer.ElapsedTicks, 0, 0, 0)
                 };
             }
 
@@ -523,7 +577,8 @@ namespace MonteCarlo
                     .ToList(),
                 ScheduledRollouts = stats.ScheduledRollouts,
                 CompletedRollouts = stats.CompletedRollouts,
-                Workers = stats.Workers
+                Workers = stats.Workers,
+                Timing = options.Timing?.Snapshot(searchTimer.ElapsedTicks, stats.ScheduledRollouts, stats.CompletedRollouts, stats.Workers)
             };
         }
     }

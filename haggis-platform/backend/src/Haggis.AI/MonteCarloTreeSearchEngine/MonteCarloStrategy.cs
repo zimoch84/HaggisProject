@@ -22,6 +22,7 @@ namespace Haggis.AI.Strategies
         public event Action<MonteCarloResult> OnComputed;
         public event Action<MctsTraceEvent> OnTrace;
         public string TraceContext { get; set; }
+        public bool CaptureTiming { get; set; }
 
         private static JsonSerializerSettings JsonSettings = new JsonSerializerSettings
         {
@@ -52,7 +53,8 @@ namespace Haggis.AI.Strategies
                 unchecked((int)gameState.MoveIteration),
                 TraceContext,
                 OnTrace,
-                ActionSelectionStrategy);
+                ActionSelectionStrategy,
+                CaptureTiming);
             timer.Stop();
             var actions = searchResult.TopActions.Select(a => new MonteCarloActionInfo
             {
@@ -72,7 +74,8 @@ namespace Haggis.AI.Strategies
                 RootChildrenCount = actions.Count,
                 Workers = searchResult.Workers,
                 ScheduledRollouts = searchResult.ScheduledRollouts,
-                CompletedRollouts = searchResult.CompletedRollouts
+                CompletedRollouts = searchResult.CompletedRollouts,
+                Timing = searchResult.Timing
             };
 
             OnComputed?.Invoke(result);
@@ -91,7 +94,7 @@ namespace Haggis.AI.Strategies
             long timeBudget,
             IMonteCarloActionSelectionStrategy actionSelectionStrategy)
         {
-            return Search(gameState, maxIteration, timeBudget, 1, unchecked((int)gameState.MoveIteration), null, null, actionSelectionStrategy)
+            return Search(gameState, maxIteration, timeBudget, 1, unchecked((int)gameState.MoveIteration), null, null, actionSelectionStrategy, false)
                 .TopActions
                 .ToList();
         }
@@ -111,7 +114,8 @@ namespace Haggis.AI.Strategies
             int seed,
             string traceContext,
             Action<MctsTraceEvent> trace,
-            IMonteCarloActionSelectionStrategy actionSelectionStrategy)
+            IMonteCarloActionSelectionStrategy actionSelectionStrategy,
+            bool captureTiming)
         {
             var gameStateClone = gameState.Clone();
             var monteCarloState = new MonteCarloHaggisState(gameStateClone, actionSelectionStrategy);
@@ -124,7 +128,8 @@ namespace Haggis.AI.Strategies
                     Workers = workers,
                     Seed = seed,
                     TraceContext = traceContext,
-                    Trace = trace
+                    Trace = trace,
+                    Timing = captureTiming ? new MctsTimingCollector() : null
                 });
         }
     }

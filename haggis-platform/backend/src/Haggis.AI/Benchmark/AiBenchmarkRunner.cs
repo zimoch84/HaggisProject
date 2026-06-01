@@ -6,6 +6,7 @@ using Haggis.AI.Model;
 using Haggis.AI.Strategies;
 using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
+using MonteCarlo;
 
 namespace Haggis.AI.Benchmark
 {
@@ -56,9 +57,10 @@ namespace Haggis.AI.Benchmark
             int rotation,
             List<string> logLines)
         {
+            var aggregatedTiming = new MctsTimingResult();
             var strategiesByPlayer = BuildStrategiesByPlayer(options, rotation);
             var players = strategiesByPlayer
-                .Select(item => (IHaggisPlayer)CreatePlayer(item.Key, item.Value, logLines))
+                .Select(item => (IHaggisPlayer)CreatePlayer(item.Key, item.Value, logLines, aggregatedTiming))
                 .ToList();
 
             var game = new HaggisGame(
@@ -133,7 +135,8 @@ namespace Haggis.AI.Benchmark
                 Moves = moves,
                 LogLines = logLines,
                 Scores = scores,
-                StrategiesByPlayer = strategiesByPlayer
+                StrategiesByPlayer = strategiesByPlayer,
+                Timing = HasTiming(aggregatedTiming) ? aggregatedTiming : null
             };
             LogGameEnd(logLines, winner.Key, strategiesByPlayer[winner.Key], scores, moves, game.ScoringTable.Count);
             return result;
@@ -142,12 +145,14 @@ namespace Haggis.AI.Benchmark
         private static AIPlayer CreatePlayer(
             string playerName,
             string strategyName,
-            List<string> logLines)
+            List<string> logLines,
+            MctsTimingResult aggregatedTiming)
         {
             var strategy = AiBenchmarkStrategyFactory.Create(strategyName);
             if (strategy is MonteCarloStrategy monteCarloStrategy)
             {
-                monteCarloStrategy.OnComputed += result => LogMonteCarloResult(logLines, result);
+                monteCarloStrategy.CaptureTiming = true;
+                monteCarloStrategy.OnComputed += result => LogMonteCarloResult(logLines, result, aggregatedTiming);
             }
 
             return new AIPlayer(playerName, strategy);
@@ -155,7 +160,8 @@ namespace Haggis.AI.Benchmark
 
         private static void LogMonteCarloResult(
             List<string> logLines,
-            MonteCarloResult result)
+            MonteCarloResult result,
+            MctsTimingResult aggregatedTiming)
         {
             if (result == null)
             {
@@ -164,6 +170,12 @@ namespace Haggis.AI.Benchmark
 
             logLines.Add(
                 $"    mcts: player={result.Player?.Name} iterations={result.Iterations} budgetMs={result.BudgetMs} elapsedMs={result.ElapsedMs} workers={result.Workers} legalActions={result.LegalActionsCount} rootChildren={result.RootChildrenCount} scheduledRollouts={result.ScheduledRollouts} completedRollouts={result.CompletedRollouts}");
+
+            if (result.Timing != null)
+            {
+                logLines.Add($"      timing: {FormatTiming(result.Timing)}");
+                AccumulateTiming(aggregatedTiming, result.Timing);
+            }
 
             var actions = result.Actions ?? new List<MonteCarloActionInfo>();
             for (var index = 0; index < actions.Count; index++)
@@ -174,6 +186,51 @@ namespace Haggis.AI.Benchmark
                 logLines.Add(
                     $"      {index + 1}. action={action.Action?.Desc} runs={action.NumRuns} wins={wins} winRate={winRate}%");
             }
+        }
+
+        private static string FormatTiming(MctsTimingResult timing)
+        {
+            return string.Join(", ", new[]
+            {
+                $"searchMs={timing.SearchMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"schedulerMs={timing.SchedulerMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"cloneStateMs={timing.CloneStateMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationMs={timing.MoveGenerationMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"selectionMs={timing.SelectionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"expansionMs={timing.ExpansionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"rolloutMs={timing.RolloutMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"backpropagationMs={timing.BackpropagationMs.ToString("0.000", CultureInfo.InvariantCulture)}"
+            });
+        }
+
+        private static void AccumulateTiming(MctsTimingResult target, MctsTimingResult source)
+        {
+            if (target == null || source == null)
+            {
+                return;
+            }
+
+            target.SearchMs += source.SearchMs;
+            target.SchedulerMs += source.SchedulerMs;
+            target.CloneStateMs += source.CloneStateMs;
+            target.MoveGenerationMs += source.MoveGenerationMs;
+            target.SelectionMs += source.SelectionMs;
+            target.ExpansionMs += source.ExpansionMs;
+            target.RolloutMs += source.RolloutMs;
+            target.BackpropagationMs += source.BackpropagationMs;
+        }
+
+        private static bool HasTiming(MctsTimingResult timing)
+        {
+            return timing != null &&
+                   (timing.SearchMs > 0 ||
+                    timing.SchedulerMs > 0 ||
+                    timing.CloneStateMs > 0 ||
+                    timing.MoveGenerationMs > 0 ||
+                    timing.SelectionMs > 0 ||
+                    timing.ExpansionMs > 0 ||
+                    timing.RolloutMs > 0 ||
+                    timing.BackpropagationMs > 0);
         }
 
         private static void SetInitialRoundStartingPlayer(RoundState state, int rotation)
