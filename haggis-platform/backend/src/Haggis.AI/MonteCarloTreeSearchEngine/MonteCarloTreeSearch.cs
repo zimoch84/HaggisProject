@@ -39,6 +39,7 @@ namespace MonteCarlo
         public int? Seed { get; set; }
         public double? Result { get; set; }
         public IDictionary<string, int> Scores { get; set; }
+        public IDictionary<string, int> OpponentRemainingCardsOnFinish { get; set; }
     }
 
     public sealed class MctsSearchResult<TAction> where TAction : IAction
@@ -283,13 +284,15 @@ namespace MonteCarlo
                             Ply = ply,
                             Player = FormatPlayer(player),
                             Action = FormatAction(action),
-                            Scores = BuildScoreSnapshot(rolloutState)
+                            Scores = BuildScoreSnapshot(rolloutState),
+                            OpponentRemainingCardsOnFinish = BuildOpponentRemainingCardsSnapshot(rolloutState)
                         });
                         ply++;
                     }
 
                     var result = rolloutState.GetResult(rootPlayer);
                     var finalScores = BuildScoreSnapshot(rolloutState);
+                    var finalOpponentRemainingCards = BuildOpponentRemainingCardsSnapshot(rolloutState);
                     AddTrace(traceEvents, new MctsTraceEvent
                     {
                         Type = "rollout_end",
@@ -299,7 +302,8 @@ namespace MonteCarlo
                         NodeId = node.Id,
                         Plies = ply,
                         Result = result,
-                        Scores = finalScores
+                        Scores = finalScores,
+                        OpponentRemainingCardsOnFinish = finalOpponentRemainingCards
                     });
 
                     return new RolloutResult<TPlayer, TAction>
@@ -374,6 +378,19 @@ namespace MonteCarlo
                 }
 
                 return BuildRoundPointsByPlayer(monteCarloState.DomainState);
+            }
+
+            private static IDictionary<string, int> BuildOpponentRemainingCardsSnapshot(IState<TPlayer, TAction> rolloutState)
+            {
+                if (!(rolloutState is MonteCarloHaggisState monteCarloState) || monteCarloState.DomainState == null)
+                {
+                    return new Dictionary<string, int>();
+                }
+
+                return monteCarloState.DomainState.Players.ToDictionary(
+                    player => player.Name,
+                    player => player.OpponentRemainingCardsOnFinish,
+                    StringComparer.OrdinalIgnoreCase);
             }
 
             private static IDictionary<string, int> BuildRoundPointsByPlayer(Haggis.Domain.Model.RoundState state)

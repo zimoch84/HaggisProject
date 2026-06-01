@@ -97,6 +97,11 @@ namespace Haggis.MctsRunAnalyzer
                 {
                     builder.AppendLine(
                         $"    {traceEvent.Ply}. player={traceEvent.Player} action={traceEvent.Action}");
+                    if (ShouldWriteOpponentRemaining(traceEvent))
+                    {
+                        builder.AppendLine(
+                            $"      opponent-remaining: {FormatScores(traceEvent.OpponentRemainingCardsOnFinish)}");
+                    }
                     if (traceEvent.Scores != null && traceEvent.Scores.Count > 0)
                     {
                         builder.AppendLine($"      scores: {FormatScores(traceEvent.Scores)}");
@@ -130,6 +135,15 @@ namespace Haggis.MctsRunAnalyzer
         private static string FormatScores(IDictionary<string, int> scores)
         {
             return string.Join(", ", scores.OrderBy(item => item.Key).Select(item => $"{item.Key}={item.Value}"));
+        }
+
+        private static bool ShouldWriteOpponentRemaining(MctsTraceEvent traceEvent)
+        {
+            return traceEvent != null &&
+                   !string.IsNullOrWhiteSpace(traceEvent.Action) &&
+                   traceEvent.Action.StartsWith("Final ", StringComparison.Ordinal) &&
+                   traceEvent.OpponentRemainingCardsOnFinish != null &&
+                   traceEvent.OpponentRemainingCardsOnFinish.Count > 0;
         }
     }
 }

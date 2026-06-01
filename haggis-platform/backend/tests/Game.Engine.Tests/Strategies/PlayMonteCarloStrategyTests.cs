@@ -142,6 +142,53 @@ namespace HaggisTests.Strategies
         }
 
         [Test]
+        public void AIPlayerCloneShouldPreserveOpponentRemainingCardsOnFinish()
+        {
+            var player = new AIPlayer("CloneTarget");
+            player.OpponentRemainingCardsOnFinish = -1;
+
+            var cloned = (AIPlayer)player.Clone();
+
+            Assert.That(cloned.OpponentRemainingCardsOnFinish, Is.EqualTo(-1));
+            Assert.That(cloned.GUID, Is.EqualTo(player.GUID));
+            Assert.That(cloned.Name, Is.EqualTo(player.Name));
+        }
+
+        [Test]
+        public void ShouldIncludeRunOutPointsInMonteCarloRolloutScoring()
+        {
+            var scoring = new EveryCardOnePointScoringStrategy(runOutMultiplier: 5);
+            var alice = new HaggisPlayer("Alice")
+            {
+                Hand = new List<Card>(),
+                Discard = new List<Card>(),
+                OpponentRemainingCardsOnFinish = 1
+            };
+            var bob = new HaggisPlayer("Bob")
+            {
+                Hand = Cards("2Y"),
+                Discard = Cards("3Y")
+            };
+            var carol = new HaggisPlayer("Carol")
+            {
+                Hand = new List<Card>(),
+                Discard = new List<Card>()
+            };
+
+            var state = new RoundState(new List<IHaggisPlayer> { alice, bob, carol }, scoring);
+            var roundResult = new Haggis.Domain.Services.ScoringTableService().BuildRoundScoringResult(state);
+            var aliceScore = roundResult.PlayerScores.First(score => score.PlayerName == "Alice");
+            var bobScore = roundResult.PlayerScores.First(score => score.PlayerName == "Bob");
+            var mctsState = new MonteCarloHaggisState(state);
+
+            Assert.That(state.RoundOver(), Is.True);
+            Assert.That(aliceScore.OpponentsRemainingCardsPoints, Is.EqualTo(5));
+            Assert.That(aliceScore.RoundPoints, Is.EqualTo(5));
+            Assert.That(bobScore.RoundPoints, Is.EqualTo(1));
+            Assert.That(mctsState.GetResult(new MonteCarloHaggisPlayer(alice)), Is.EqualTo(1));
+        }
+
+        [Test]
         public void ShouldWriteReadableTraceForOneMonteCarloDecision()
         {
             var tracePath = Path.Combine(
