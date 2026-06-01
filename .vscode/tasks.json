@@ -52,6 +52,16 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "build Haggis.MctsRunAnalyzer",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/haggis-platform/backend/tools/Haggis.MctsRunAnalyzer/Haggis.MctsRunAnalyzer.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "start Android Emulator 1",
       "type": "process",
       "command": "powershell",

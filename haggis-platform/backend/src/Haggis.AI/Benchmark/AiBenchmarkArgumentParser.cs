@@ -38,8 +38,9 @@ namespace Haggis.AI.Benchmark
                 "--players=3",
                 "--seed-start=1",
                 "--game-over-score=250",
-                "--strategy=normal",
-                "--opponent=normal",
+                "--ai1=normal",
+                "--ai2=montecarlo:800:100:4",
+                "--ai3=normal",
                 "--rotate=true",
                 "--csv=path",
                 "--log=path",
@@ -63,11 +64,14 @@ namespace Haggis.AI.Benchmark
                 case "game-over-score":
                     options.GameOverScore = ParseInt(key, value);
                     break;
-                case "strategy":
-                    options.Strategy = value;
+                case "ai1":
+                    options.Ai1Strategy = value;
                     break;
-                case "opponent":
-                    options.Opponent = value;
+                case "ai2":
+                    options.Ai2Strategy = value;
+                    break;
+                case "ai3":
+                    options.Ai3Strategy = value;
                     break;
                 case "rotate":
                     options.Rotate = ParseBool(key, value);
@@ -108,8 +112,9 @@ namespace Haggis.AI.Benchmark
                 throw new ArgumentException("--max-moves must be greater than zero.");
             }
 
-            AiBenchmarkStrategyFactory.EnsureSupported(options.Strategy);
-            AiBenchmarkStrategyFactory.EnsureSupported(options.Opponent);
+            AiBenchmarkStrategyFactory.EnsureSupported(options.Ai1Strategy);
+            AiBenchmarkStrategyFactory.EnsureSupported(options.Ai2Strategy);
+            AiBenchmarkStrategyFactory.EnsureSupported(options.Ai3Strategy);
         }
 
         private static int ParseInt(string key, string value)

@@ -16,8 +16,9 @@ namespace HaggisTests
                 Players = 3,
                 SeedStart = 1,
                 GameOverScore = 40,
-                Strategy = "normal",
-                Opponent = "normal",
+                Ai1Strategy = "normal",
+                Ai2Strategy = "normal",
+                Ai3Strategy = "normal",
                 Rotate = false,
                 MaxMovesPerGame = 2000
             };
@@ -39,8 +40,9 @@ namespace HaggisTests
                 Players = 3,
                 SeedStart = 2,
                 GameOverScore = 40,
-                Strategy = "normal",
-                Opponent = "random",
+                Ai1Strategy = "normal",
+                Ai2Strategy = "random",
+                Ai3Strategy = "normal",
                 Rotate = true,
                 MaxMovesPerGame = 10000
             };
@@ -77,23 +79,37 @@ namespace HaggisTests
         }
 
         [Test]
+        public void StrategyFactory_ShouldSupportParameterizedMonteCarlo()
+        {
+            Assert.DoesNotThrow(() => AiBenchmarkStrategyFactory.EnsureSupported("montecarlo:800:100"));
+            Assert.DoesNotThrow(() => AiBenchmarkStrategyFactory.EnsureSupported("montecarlo:800:100:4"));
+            Assert.That(AiBenchmarkStrategyFactory.Create("montecarlo:800:100"), Is.TypeOf<Haggis.AI.Strategies.MonteCarloStrategy>());
+            Assert.Throws<System.ArgumentException>(() => AiBenchmarkStrategyFactory.EnsureSupported("montecarlo:0:100"));
+            Assert.Throws<System.ArgumentException>(() => AiBenchmarkStrategyFactory.EnsureSupported("montecarlo:800:0"));
+            Assert.Throws<System.ArgumentException>(() => AiBenchmarkStrategyFactory.EnsureSupported("montecarlo:800:100:0"));
+        }
+
+        [Test]
         public void ArgumentParser_ShouldUseDefaultsAndOverrideValues()
         {
             var defaults = AiBenchmarkArgumentParser.Parse(new string[0]);
             var custom = AiBenchmarkArgumentParser.Parse(new[]
             {
                 "--games=12",
-                "--strategy=random",
-                "--opponent=montecarlo-fast",
+                "--ai1=random",
+                "--ai2=montecarlo:800:100:4",
+                "--ai3=normal",
                 "--log=games.log"
             });
 
             Assert.That(defaults.Games, Is.EqualTo(1000));
-            Assert.That(defaults.Strategy, Is.EqualTo("normal"));
-            Assert.That(defaults.Opponent, Is.EqualTo("normal"));
+            Assert.That(defaults.Ai1Strategy, Is.EqualTo("normal"));
+            Assert.That(defaults.Ai2Strategy, Is.EqualTo("normal"));
+            Assert.That(defaults.Ai3Strategy, Is.EqualTo("normal"));
             Assert.That(custom.Games, Is.EqualTo(12));
-            Assert.That(custom.Strategy, Is.EqualTo("random"));
-            Assert.That(custom.Opponent, Is.EqualTo("montecarlo-fast"));
+            Assert.That(custom.Ai1Strategy, Is.EqualTo("random"));
+            Assert.That(custom.Ai2Strategy, Is.EqualTo("montecarlo:800:100:4"));
+            Assert.That(custom.Ai3Strategy, Is.EqualTo("normal"));
             Assert.That(custom.LogPath, Is.EqualTo("games.log"));
         }
 
@@ -102,8 +118,9 @@ namespace HaggisTests
         {
             var options = new AiBenchmarkOptions
             {
-                Strategy = "normal",
-                Opponent = "montecarlo-fast"
+                Ai1Strategy = "normal",
+                Ai2Strategy = "montecarlo:800:100:4",
+                Ai3Strategy = "normal"
             };
 
             var path = AiBenchmarkOutputPath.WithRunSuffix(
@@ -111,7 +128,7 @@ namespace HaggisTests
                 options,
                 new System.DateTime(2026, 5, 31, 14, 5, 6, 789));
 
-            Assert.That(path.Replace('\\', '/'), Is.EqualTo("reports/results_20260531_140506_normal-vs-montecarlo-fast.csv"));
+            Assert.That(path.Replace('\\', '/'), Is.EqualTo("reports/results_20260531_140506_normal-vs-montecarlo-800-100-4-vs-normal.csv"));
         }
 
         [Test]
@@ -123,8 +140,9 @@ namespace HaggisTests
                 Players = 3,
                 SeedStart = 1,
                 GameOverScore = 40,
-                Strategy = "normal",
-                Opponent = "random",
+                Ai1Strategy = "normal",
+                Ai2Strategy = "random",
+                Ai3Strategy = "normal",
                 Rotate = false,
                 MaxMovesPerGame = 2000
             };
@@ -135,12 +153,12 @@ namespace HaggisTests
             Assert.That(result.LogLines, Has.Some.Contains("ROUND 1 START current=p1"));
             Assert.That(result.LogLines, Has.Some.Contains("hand p1: 2R 2B 2G"));
             Assert.That(result.LogLines, Has.Some.Contains("TRICK 1 START current=p1"));
-            Assert.That(result.LogLines, Has.Some.Contains("move 1: round=1 trick=1"));
+            Assert.That(result.LogLines, Has.Some.Contains("move 1: player=p1"));
             Assert.That(result.LogLines, Has.Some.Contains("GAME END"));
         }
 
         [Test]
-        public void Run_WithRotation_ShouldStartEachGameFromSeatOne()
+        public void Run_WithRotation_ShouldRotateInitialStartingPlayer()
         {
             var options = new AiBenchmarkOptions
             {
@@ -148,8 +166,9 @@ namespace HaggisTests
                 Players = 3,
                 SeedStart = 3,
                 GameOverScore = 40,
-                Strategy = "normal",
-                Opponent = "random",
+                Ai1Strategy = "normal",
+                Ai2Strategy = "random",
+                Ai3Strategy = "normal",
                 Rotate = true,
                 MaxMovesPerGame = 10000
             };
@@ -158,7 +177,84 @@ namespace HaggisTests
 
             Assert.That(results, Has.Count.EqualTo(3));
             Assert.That(
-                results.All(result => result.LogLines.Any(line => line.Contains("ROUND 1 START current=p1"))),
+                results.Select(result =>
+                    result.LogLines.Single(line => line.Contains("ROUND 1 START current=")).Trim()).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    "ROUND 1 START current=p1",
+                    "ROUND 1 START current=p2",
+                    "ROUND 1 START current=p3"
+                }));
+            Assert.That(
+                results.Select(result => result.LogLines.First(line => line.Contains("move 1:"))).ToArray(),
+                Is.Unique);
+        }
+
+        [Test]
+        public void Run_WithSeatStrategies_ShouldKeepStrategiesOnConfiguredSeats()
+        {
+            var options = new AiBenchmarkOptions
+            {
+                Games = 1,
+                Players = 3,
+                SeedStart = 1,
+                GameOverScore = 40,
+                Ai1Strategy = "heuristic-continuations",
+                Ai2Strategy = "random",
+                Ai3Strategy = "normal",
+                Rotate = true,
+                MaxMovesPerGame = 10000
+            };
+
+            var results = new AiBenchmarkRunner().Run(options);
+
+            Assert.That(results, Has.Count.EqualTo(3));
+            Assert.That(results[0].StrategiesByPlayer["p1"], Is.EqualTo("heuristic-continuations"));
+            Assert.That(results[0].StrategiesByPlayer["p2"], Is.EqualTo("random"));
+            Assert.That(results[0].StrategiesByPlayer["p3"], Is.EqualTo("normal"));
+            Assert.That(results[1].StrategiesByPlayer["p1"], Is.EqualTo("heuristic-continuations"));
+            Assert.That(results[1].StrategiesByPlayer["p2"], Is.EqualTo("random"));
+            Assert.That(results[1].StrategiesByPlayer["p3"], Is.EqualTo("normal"));
+            Assert.That(results[2].StrategiesByPlayer["p1"], Is.EqualTo("heuristic-continuations"));
+            Assert.That(results[2].StrategiesByPlayer["p2"], Is.EqualTo("random"));
+            Assert.That(results[2].StrategiesByPlayer["p3"], Is.EqualTo("normal"));
+        }
+
+        [Test]
+        public void Run_WithMonteCarloStrategy_ShouldLogMctsRootStats()
+        {
+            var options = new AiBenchmarkOptions
+            {
+                Games = 1,
+                Players = 3,
+                SeedStart = 1,
+                GameOverScore = 40,
+                Ai1Strategy = "normal",
+                Ai2Strategy = "montecarlo:20:1",
+                Ai3Strategy = "normal",
+                Rotate = false,
+                MaxMovesPerGame = 10000
+            };
+
+            var result = new AiBenchmarkRunner().Run(options).Single();
+            var header = result.LogLines.FirstOrDefault(line => line.Contains("mcts:"));
+
+            Assert.That(result.Completed, Is.True, result.Error);
+            Assert.That(header, Is.Not.Null);
+            Assert.That(header, Does.Contain("iterations="));
+            Assert.That(header, Does.Contain("budgetMs="));
+            Assert.That(header, Does.Contain("elapsedMs="));
+            Assert.That(header, Does.Contain("workers="));
+            Assert.That(header, Does.Contain("legalActions="));
+            Assert.That(header, Does.Contain("rootChildren="));
+            Assert.That(header, Does.Contain("scheduledRollouts="));
+            Assert.That(header, Does.Contain("completedRollouts="));
+            Assert.That(
+                result.LogLines.Any(line =>
+                    line.Contains("1. action=") &&
+                    line.Contains("runs=") &&
+                    line.Contains("wins=") &&
+                    line.Contains("winRate=")),
                 Is.True);
         }
     }

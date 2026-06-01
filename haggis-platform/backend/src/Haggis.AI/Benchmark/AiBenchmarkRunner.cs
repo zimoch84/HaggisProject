@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Haggis.AI.Model;
+using Haggis.AI.Strategies;
 using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
 
@@ -56,7 +58,7 @@ namespace Haggis.AI.Benchmark
         {
             var strategiesByPlayer = BuildStrategiesByPlayer(options, rotation);
             var players = strategiesByPlayer
-                .Select(item => (IHaggisPlayer)new AIPlayer(item.Key, AiBenchmarkStrategyFactory.Create(item.Value)))
+                .Select(item => (IHaggisPlayer)CreatePlayer(item.Key, item.Value, logLines))
                 .ToList();
 
             var game = new HaggisGame(
@@ -65,7 +67,7 @@ namespace Haggis.AI.Benchmark
             game.SetSeed(seed);
 
             var state = game.NewRound();
-            EnsureInitialRoundStartsAtSeatOne(state);
+            SetInitialRoundStartingPlayer(state, rotation);
             var moves = 0;
             var trickNumber = 0;
             LogGameStart(logLines, seed, rotation, strategiesByPlayer);
@@ -85,14 +87,20 @@ namespace Haggis.AI.Benchmark
                         throw new InvalidOperationException("Benchmark supports AI players only.");
                     }
 
-                    var action = ResolveAction(state, aiPlayer.GetPlayingAction(state));
+                    if (aiPlayer.PlayStrategy is MonteCarloStrategy monteCarloStrategy)
+                    {
+                        monteCarloStrategy.TraceContext =
+                            $"seed={seed} rotation={rotation} round={state.RoundNumber} move={moves + 1} player={state.CurrentPlayer.Name}";
+                    }
+
+                    var action = aiPlayer.GetPlayingAction(state);
                     if (state.CurrentTrickPlay.Actions.Count == 0)
                     {
                         trickNumber++;
                         LogTrickStart(logLines, state, trickNumber);
                     }
 
-                    LogMove(logLines, moves, trickNumber, state, action, strategiesByPlayer);
+                    LogMove(logLines, moves, state, action);
                     state.ApplyAction(action);
                 }
 
@@ -131,43 +139,52 @@ namespace Haggis.AI.Benchmark
             return result;
         }
 
-        private static HaggisAction ResolveAction(RoundState state, HaggisAction proposedAction)
+        private static AIPlayer CreatePlayer(
+            string playerName,
+            string strategyName,
+            List<string> logLines)
         {
-            var possibleActions = state.PossibleActions;
-            var startsEmptyTrickWithPass = proposedAction != null &&
-                                          proposedAction.IsPass &&
-                                          !state.CurrentTrickPlay.NotPassActions.Any();
-
-            if (proposedAction != null &&
-                !startsEmptyTrickWithPass &&
-                possibleActions.Any(action => action.Equals(proposedAction)))
+            var strategy = AiBenchmarkStrategyFactory.Create(strategyName);
+            if (strategy is MonteCarloStrategy monteCarloStrategy)
             {
-                return proposedAction;
+                monteCarloStrategy.OnComputed += result => LogMonteCarloResult(logLines, result);
             }
 
-            var fallback = possibleActions.FirstOrDefault(action => !action.IsPass) ??
-                           possibleActions.FirstOrDefault();
-            if (fallback == null)
-            {
-                throw new InvalidOperationException("AI did not produce a move and no legal fallback exists.");
-            }
-
-            return fallback;
+            return new AIPlayer(playerName, strategy);
         }
 
-        private static void EnsureInitialRoundStartsAtSeatOne(RoundState state)
+        private static void LogMonteCarloResult(
+            List<string> logLines,
+            MonteCarloResult result)
         {
-            if (state.RoundNumber != 1)
+            if (result == null)
             {
                 return;
             }
 
-            var seatOne = state.Players.FirstOrDefault(player =>
-                string.Equals(player.Name, "p1", StringComparison.OrdinalIgnoreCase));
-            if (seatOne != null)
+            logLines.Add(
+                $"    mcts: player={result.Player?.Name} iterations={result.Iterations} budgetMs={result.BudgetMs} elapsedMs={result.ElapsedMs} workers={result.Workers} legalActions={result.LegalActionsCount} rootChildren={result.RootChildrenCount} scheduledRollouts={result.ScheduledRollouts} completedRollouts={result.CompletedRollouts}");
+
+            var actions = result.Actions ?? new List<MonteCarloActionInfo>();
+            for (var index = 0; index < actions.Count; index++)
             {
-                state.SetCurrentPlayer(seatOne);
+                var action = actions[index];
+                var winRate = (action.WinRate * 100).ToString("0.0", CultureInfo.InvariantCulture);
+                var wins = action.NumWins.ToString("0.###", CultureInfo.InvariantCulture);
+                logLines.Add(
+                    $"      {index + 1}. action={action.Action?.Desc} runs={action.NumRuns} wins={wins} winRate={winRate}%");
             }
+        }
+
+        private static void SetInitialRoundStartingPlayer(RoundState state, int rotation)
+        {
+            if (state.RoundNumber != 1 || state.Players.Count == 0)
+            {
+                return;
+            }
+
+            var startIndex = Math.Abs(rotation) % state.Players.Count;
+            state.SetCurrentPlayer(state.Players[startIndex]);
         }
 
         private static void LogGameStart(
@@ -201,21 +218,11 @@ namespace Haggis.AI.Benchmark
         private static void LogMove(
             List<string> logLines,
             int moveNumber,
-            int trickNumber,
             RoundState state,
-            HaggisAction action,
-            IReadOnlyDictionary<string, string> strategiesByPlayer)
+            HaggisAction action)
         {
-            var strategy = strategiesByPlayer.TryGetValue(state.CurrentPlayer.Name, out var value)
-                ? value
-                : string.Empty;
-            var currentTrick = state.CurrentTrickPlay.Actions.Count == 0
-                ? "(empty)"
-                : string.Join(" | ", state.CurrentTrickPlay.Actions.Select(a => $"{a.PlayerName}:{a.Desc}"));
-
             logLines.Add(
-                $"    move {moveNumber}: round={state.RoundNumber} trick={trickNumber} player={state.CurrentPlayer.Name} strategy={strategy} hand={state.CurrentPlayer.Hand.Count} action={action.Desc}");
-            logLines.Add($"      trick-before: {currentTrick}");
+                $"    move {moveNumber}: player={state.CurrentPlayer.Name} action={action.Desc}");
         }
 
         private static void LogTrickStart(
@@ -282,14 +289,11 @@ namespace Haggis.AI.Benchmark
         private static Dictionary<string, string> BuildStrategiesByPlayer(AiBenchmarkOptions options, int rotation)
         {
             var strategies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var testedSeatIndex = options.Rotate ? rotation : 0;
 
             for (var index = 0; index < options.Players; index++)
             {
                 var playerName = $"p{index + 1}";
-                strategies[playerName] = index == testedSeatIndex
-                    ? options.Strategy
-                    : options.Opponent;
+                strategies[playerName] = options.GetSeatStrategy(index + 1);
             }
 
             return strategies;
