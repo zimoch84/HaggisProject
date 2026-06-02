@@ -28,6 +28,7 @@ namespace HaggisTests
             Assert.That(result.Completed, Is.True, result.Error);
             Assert.That(result.Moves, Is.GreaterThan(0));
             Assert.That(result.Rounds, Is.GreaterThan(0));
+            Assert.That(result.GameElapsedMs, Is.GreaterThanOrEqualTo(0));
             Assert.That(result.Winner, Is.Not.Empty);
         }
 
@@ -270,6 +271,7 @@ namespace HaggisTests
                     Completed = true,
                     Timing = new MonteCarlo.MctsTimingResult
                     {
+                        CompletedRollouts = 5,
                         SearchMs = 10,
                         SchedulerMs = 2,
                         CloneStateMs = 1,
@@ -286,6 +288,8 @@ namespace HaggisTests
 
             Assert.That(summary.Format(), Does.Contain("MCTS timing"));
             Assert.That(summary.Format(), Does.Contain("scheduler/task overhead"));
+            Assert.That(summary.Format(), Does.Contain("move generation per iteration"));
+            Assert.That(summary.Format(), Does.Contain("Total simulated game time"));
         }
     }
 }

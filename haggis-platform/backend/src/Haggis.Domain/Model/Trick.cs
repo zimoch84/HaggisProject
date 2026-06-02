@@ -23,10 +23,24 @@ namespace Haggis.Domain.Model
         public BombType? Bomb { get => _cards.GetBombType(); }
 
         public Trick(TrickType type, List<Card> cards)
+            : this(type, cards, copyCards: true, sortCards: true)
+        {
+        }
+
+        private Trick(TrickType type, List<Card> cards, bool copyCards, bool sortCards)
         {
             Type = type;
-            Cards = cards?.DeepCopy().ToList();
-            Cards.Sort();
+            Cards = copyCards ? cards?.DeepCopy().ToList() : cards;
+
+            if (sortCards)
+            {
+                Cards.Sort();
+            }
+        }
+
+        internal static Trick FromGeneratedCards(TrickType type, List<Card> cards)
+        {
+            return new Trick(type, cards, copyCards: false, sortCards: false);
         }
 
         public Card FirstCard()

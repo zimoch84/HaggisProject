@@ -16,6 +16,8 @@ namespace Haggis.AI.Benchmark
             FailedGames = TotalGames - CompletedGames;
             AverageRounds = CompletedGames == 0 ? 0 : Results.Where(r => r.Completed).Average(r => r.Rounds);
             AverageMoves = CompletedGames == 0 ? 0 : Results.Where(r => r.Completed).Average(r => r.Moves);
+            AverageGameElapsedMs = CompletedGames == 0 ? 0 : Results.Where(r => r.Completed).Average(r => r.GameElapsedMs);
+            TotalGameElapsedMs = Results.Where(r => r.Completed).Sum(r => r.GameElapsedMs);
             AverageFinalScore = CalculateAverageFinalScore(Results);
             WinRateByStrategy = CalculateStrategyWinRates(Results);
             WinRateBySeat = CalculateSeatWinRates(Results);
@@ -28,6 +30,8 @@ namespace Haggis.AI.Benchmark
         public int FailedGames { get; }
         public double AverageRounds { get; }
         public double AverageMoves { get; }
+        public double AverageGameElapsedMs { get; }
+        public long TotalGameElapsedMs { get; }
         public double AverageFinalScore { get; }
         public IReadOnlyDictionary<string, double> WinRateByStrategy { get; }
         public IReadOnlyDictionary<int, double> WinRateBySeat { get; }
@@ -43,6 +47,8 @@ namespace Haggis.AI.Benchmark
                 $"Errors/timeouts: {FailedGames}",
                 $"Average rounds: {AverageRounds.ToString("0.00", CultureInfo.InvariantCulture)}",
                 $"Average moves: {AverageMoves.ToString("0.00", CultureInfo.InvariantCulture)}",
+                $"Average game duration: {AverageGameElapsedMs.ToString("0.000", CultureInfo.InvariantCulture)} ms",
+                $"Total simulated game time: {TotalGameElapsedMs.ToString(CultureInfo.InvariantCulture)} ms",
                 $"Average final score: {AverageFinalScore.ToString("0.00", CultureInfo.InvariantCulture)}",
                 string.Empty,
                 "Win rate by strategy:"
@@ -64,14 +70,23 @@ namespace Haggis.AI.Benchmark
             {
                 lines.Add(string.Empty);
                 lines.Add("MCTS timing (average per completed game):");
+                lines.Add($"  completed rollouts: {AverageTiming.CompletedRollouts.ToString("0.000", CultureInfo.InvariantCulture)}");
                 lines.Add($"  search: {AverageTiming.SearchMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  search per iteration: {AverageTiming.SearchMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  scheduler/task overhead: {AverageTiming.SchedulerMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  scheduler/task overhead per iteration: {AverageTiming.SchedulerMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  clone state: {AverageTiming.CloneStateMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  clone state per iteration: {AverageTiming.CloneStateMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  move generation: {AverageTiming.MoveGenerationMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  move generation per iteration: {AverageTiming.MoveGenerationMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  selection: {AverageTiming.SelectionMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  selection per iteration: {AverageTiming.SelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  expansion: {AverageTiming.ExpansionMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  expansion per iteration: {AverageTiming.ExpansionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  rollout: {AverageTiming.RolloutMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  rollout per iteration: {AverageTiming.RolloutMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  backpropagation: {AverageTiming.BackpropagationMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"  backpropagation per iteration: {AverageTiming.BackpropagationMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
             }
 
             if (FailedGames > 0)
@@ -141,6 +156,8 @@ namespace Haggis.AI.Benchmark
 
             return new MctsTimingResult
             {
+                ScheduledRollouts = (int)Math.Round(completedWithTiming.Average(result => result.Timing.ScheduledRollouts)),
+                CompletedRollouts = (int)Math.Round(completedWithTiming.Average(result => result.Timing.CompletedRollouts)),
                 SearchMs = completedWithTiming.Average(result => result.Timing.SearchMs),
                 SchedulerMs = completedWithTiming.Average(result => result.Timing.SchedulerMs),
                 CloneStateMs = completedWithTiming.Average(result => result.Timing.CloneStateMs),

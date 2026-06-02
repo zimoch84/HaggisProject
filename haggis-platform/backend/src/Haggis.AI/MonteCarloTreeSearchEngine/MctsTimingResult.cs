@@ -25,6 +25,20 @@ namespace MonteCarlo
             ExpansionMs +
             RolloutMs +
             BackpropagationMs;
+
+        public double SearchMsPerIteration => PerIteration(SearchMs);
+        public double SchedulerMsPerIteration => PerIteration(SchedulerMs);
+        public double CloneStateMsPerIteration => PerIteration(CloneStateMs);
+        public double MoveGenerationMsPerIteration => PerIteration(MoveGenerationMs);
+        public double SelectionMsPerIteration => PerIteration(SelectionMs);
+        public double ExpansionMsPerIteration => PerIteration(ExpansionMs);
+        public double RolloutMsPerIteration => PerIteration(RolloutMs);
+        public double BackpropagationMsPerIteration => PerIteration(BackpropagationMs);
+
+        private double PerIteration(double totalMs)
+        {
+            return CompletedRollouts > 0 ? totalMs / CompletedRollouts : 0;
+        }
     }
 
     public sealed class MctsTimingCollector

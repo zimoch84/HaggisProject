@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Diagnostics;
 using Haggis.AI.Model;
 using Haggis.AI.Strategies;
 using Haggis.Domain.Interfaces;
@@ -57,6 +58,7 @@ namespace Haggis.AI.Benchmark
             int rotation,
             List<string> logLines)
         {
+            var gameTimer = Stopwatch.StartNew();
             var aggregatedTiming = new MctsTimingResult();
             var strategiesByPlayer = BuildStrategiesByPlayer(options, rotation);
             var players = strategiesByPlayer
@@ -133,12 +135,13 @@ namespace Haggis.AI.Benchmark
                 WinnerSeat = SeatNumber(winner.Key),
                 Rounds = game.ScoringTable.Count,
                 Moves = moves,
+                GameElapsedMs = gameTimer.ElapsedMilliseconds,
                 LogLines = logLines,
                 Scores = scores,
                 StrategiesByPlayer = strategiesByPlayer,
                 Timing = HasTiming(aggregatedTiming) ? aggregatedTiming : null
             };
-            LogGameEnd(logLines, winner.Key, strategiesByPlayer[winner.Key], scores, moves, game.ScoringTable.Count);
+            LogGameEnd(logLines, winner.Key, strategiesByPlayer[winner.Key], scores, moves, game.ScoringTable.Count, result.GameElapsedMs);
             return result;
         }
 
@@ -192,14 +195,23 @@ namespace Haggis.AI.Benchmark
         {
             return string.Join(", ", new[]
             {
+                $"completedRollouts={timing.CompletedRollouts}",
                 $"searchMs={timing.SearchMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"searchMsPerIteration={timing.SearchMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"schedulerMs={timing.SchedulerMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"schedulerMsPerIteration={timing.SchedulerMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"cloneStateMs={timing.CloneStateMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"cloneStateMsPerIteration={timing.CloneStateMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"moveGenerationMs={timing.MoveGenerationMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationMsPerIteration={timing.MoveGenerationMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"selectionMs={timing.SelectionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"selectionMsPerIteration={timing.SelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"expansionMs={timing.ExpansionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"expansionMsPerIteration={timing.ExpansionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"rolloutMs={timing.RolloutMs.ToString("0.000", CultureInfo.InvariantCulture)}",
-                $"backpropagationMs={timing.BackpropagationMs.ToString("0.000", CultureInfo.InvariantCulture)}"
+                $"rolloutMsPerIteration={timing.RolloutMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"backpropagationMs={timing.BackpropagationMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"backpropagationMsPerIteration={timing.BackpropagationMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}"
             });
         }
 
@@ -210,6 +222,8 @@ namespace Haggis.AI.Benchmark
                 return;
             }
 
+            target.ScheduledRollouts += source.ScheduledRollouts;
+            target.CompletedRollouts += source.CompletedRollouts;
             target.SearchMs += source.SearchMs;
             target.SchedulerMs += source.SchedulerMs;
             target.CloneStateMs += source.CloneStateMs;
@@ -315,9 +329,10 @@ namespace Haggis.AI.Benchmark
             string winnerStrategy,
             IReadOnlyDictionary<string, int> scores,
             int moves,
-            int rounds)
+            int rounds,
+            long gameElapsedMs)
         {
-            logLines.Add($"  GAME END winner={winner} strategy={winnerStrategy} rounds={rounds} moves={moves}");
+            logLines.Add($"  GAME END winner={winner} strategy={winnerStrategy} rounds={rounds} moves={moves} gameElapsedMs={gameElapsedMs}");
             logLines.Add($"    final-scores: {FormatScores(scores)}");
         }
 
