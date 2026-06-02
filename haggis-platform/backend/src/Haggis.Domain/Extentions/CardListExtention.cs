@@ -193,6 +193,7 @@ namespace Haggis.Domain.Extentions
         public static List<Trick> FindTheSameCardsWithWildCards(this HandIndex handIndex, TrickType wildTrickType)
         {
             var wildTricks = new List<Trick>();
+            var seenTricks = new HashSet<int>();
 
             if (wildTrickType == TrickType.SINGLE)
             {
@@ -223,30 +224,35 @@ namespace Haggis.Domain.Extentions
                         continue;
                     }
 
-                    var baseTricks = GetKCombinationsByRankAndSuit(sameRankCards, nonWildCardCount)
-                        .Select(combination => combination.ToList())
-                        .ToList();
-                    var wildCombinations = GetKCombinationsByRank(wildCards, requiredWildCards)
-                        .Select(combination => combination.ToList())
-                        .ToList();
-
-                    foreach (var baseTrick in baseTricks)
+                    foreach (var baseCombination in GetKCombinationsByRankAndSuit(sameRankCards, nonWildCardCount))
                     {
-                        foreach (var wildCombination in wildCombinations)
+                        foreach (var wildCombination in GetKCombinationsByRank(wildCards, requiredWildCards))
                         {
-                            var wildcardReplacements = wildCombination
-                                .Select(wild => wild.WildAs(baseTrick.Last()))
-                                .ToList();
-                            var trickCards = new List<Card>(baseTrick);
-                            trickCards.AddRange(wildcardReplacements);
+                            Card lastBaseCard = null;
+                            var trickCards = new List<Card>(requiredCardCount);
 
-                            wildTricks.Add(new Trick(wildTrickType, trickCards));
+                            foreach (var baseCard in baseCombination)
+                            {
+                                trickCards.Add(baseCard);
+                                lastBaseCard = baseCard;
+                            }
+
+                            foreach (var wild in wildCombination)
+                            {
+                                trickCards.Add(wild.WildAs(lastBaseCard));
+                            }
+
+                            var trick = new Trick(wildTrickType, trickCards);
+                            if (seenTricks.Add(BuildTrickKey(trick)))
+                            {
+                                wildTricks.Add(trick);
+                            }
                         }
                     }
                 }
             }
 
-            return DistinctTricks(wildTricks);
+            return wildTricks;
         }
 
         public static bool IsSequence(this List<Card> sequence)
@@ -421,15 +427,24 @@ namespace Haggis.Domain.Extentions
             }
 
             var wildCards = handIndex.WildCards;
-            bombs.AddRange(GetKCombinationsByRank(wildCards, 2)
-                .Select(combination => combination.ToList())
-                .Where(cards => cards.IsBomb())
-                .Select(cards => new Trick(TrickType.BOMB, cards)));
+            for (var first = 0; first < wildCards.Count - 1; first++)
+            {
+                for (var second = first + 1; second < wildCards.Count; second++)
+                {
+                    bombs.Add(new Trick(TrickType.BOMB, new List<Card> { wildCards[first], wildCards[second] }));
+                }
+            }
 
-            bombs.AddRange(GetKCombinationsByRank(wildCards, 3)
-                .Select(combination => combination.ToList())
-                .Where(cards => cards.IsBomb())
-                .Select(cards => new Trick(TrickType.BOMB, cards)));
+            for (var first = 0; first < wildCards.Count - 2; first++)
+            {
+                for (var second = first + 1; second < wildCards.Count - 1; second++)
+                {
+                    for (var third = second + 1; third < wildCards.Count; third++)
+                    {
+                        bombs.Add(new Trick(TrickType.BOMB, new List<Card> { wildCards[first], wildCards[second], wildCards[third] }));
+                    }
+                }
+            }
 
             return bombs;
         }
@@ -516,9 +531,9 @@ namespace Haggis.Domain.Extentions
                                 continue;
                             }
 
-                            var trick = new Trick(stairType, stairCards);
-                            if (seenTricks.Add(BuildTrickKey(trick)))
+                            if (seenTricks.Add(BuildTrickKey(stairType, stairCards)))
                             {
+                                var trick = new Trick(stairType, stairCards);
                                 tricks.Add(trick);
                             }
                         }
@@ -574,9 +589,9 @@ namespace Haggis.Domain.Extentions
                         continue;
                     }
 
-                    var trick = new Trick(stairType, stairCards);
-                    if (seenTricks.Add(BuildTrickKey(trick)))
+                    if (seenTricks.Add(BuildTrickKey(stairType, stairCards)))
                     {
+                        var trick = new Trick(stairType, stairCards);
                         tricks.Add(trick);
                     }
                 }
@@ -731,37 +746,60 @@ namespace Haggis.Domain.Extentions
             return false;
         }
 
-        private static List<Trick> DistinctTricks(List<Trick> tricks)
-        {
-            var distinct = new List<Trick>();
-            var seen = new HashSet<int>();
-
-            foreach (var trick in tricks)
-            {
-                if (seen.Add(BuildTrickKey(trick)))
-                {
-                    distinct.Add(trick);
-                }
-            }
-
-            return distinct;
-        }
-
         private static int BuildTrickKey(Trick trick)
         {
-            var hash = 17;
-            hash = hash * 31 + trick.Type.GetHashCode();
-
-            foreach (var card in trick.Cards)
+            unchecked
             {
-                hash = hash * 31 + card.GetHashCode();
+                var hash = 17;
+                hash = hash * 31 + trick.Type.GetHashCode();
+
+                foreach (var card in trick.Cards)
+                {
+                    hash = hash * 31 + BuildCardKey(card);
+                }
+
+                return hash;
+            }
+        }
+
+        private static int BuildTrickKey(TrickType trickType, List<Card> cards)
+        {
+            unchecked
+            {
+                var sum = 0;
+                var xor = 0;
+                var sumSquares = 0;
+
+                foreach (var card in cards)
+                {
+                    var cardKey = BuildCardKey(card);
+                    sum += cardKey;
+                    xor ^= cardKey;
+                    sumSquares += cardKey * cardKey;
+                }
+
+                var hash = 17;
+                hash = hash * 31 + trickType.GetHashCode();
+                hash = hash * 31 + cards.Count;
+                hash = hash * 31 + sum;
+                hash = hash * 31 + xor;
+                hash = hash * 31 + sumSquares;
+                return hash;
+            }
+        }
+
+        private static int BuildCardKey(Card card)
+        {
+            unchecked
+            {
+                var hash = card.GetHashCode();
                 if (card.IsWild)
                 {
                     hash = hash * 31 + card.Rank.GetHashCode();
                 }
-            }
 
-            return hash;
+                return hash;
+            }
         }
 
         private static int CountBits(int value)
