@@ -12,7 +12,13 @@ namespace Haggis.Domain.Services
     {
         private static HashSet<TrickType> SameCardTypes { get; } = new HashSet<TrickType> { SINGLE, PAIR, TRIPLE, QUAD, FIVED, SIXED };
         private static HashSet<TrickType> SequenceTypes { get; } = new HashSet<TrickType> { SEQ3, SEQ4, SEQ5, SEQ6, SEQ7 };
-        private static HashSet<TrickType> PairedSequenceType { get; } = new HashSet<TrickType> { PAIRSEQ2, PAIRSEQ3, PAIRSEQ4, PAIRSEQ5, PAIRSEQ6, PAIRSEQ7 };
+        private static HashSet<TrickType> StairTypes { get; } = new HashSet<TrickType>
+        {
+            PAIRSEQ2, PAIRSEQ3, PAIRSEQ4, PAIRSEQ5, PAIRSEQ6, PAIRSEQ7,
+            TRIPLESTAIR2, TRIPLESTAIR3, TRIPLESTAIR4, TRIPLESTAIR5,
+            QUADSTAIR2, QUADSTAIR3, QUADSTAIR4,
+            FIVEDSTAIR2, FIVEDSTAIR3
+        };
 
         protected List<Trick> BuildAllPossibleTricks(IHaggisPlayer player, TrickType? lastTrickType)
         {
@@ -27,14 +33,16 @@ namespace Haggis.Domain.Services
                     tricks.AddRange(handIndex.FindTheSameCardsWithWildCards(trickType));
                 }
 
+                var allSequences = handIndex.FindAllCardSequences();
                 foreach (var trickType in SequenceTypes)
                 {
-                    tricks.AddRange(handIndex.FindCardSequences(trickType));
+                    tricks.AddRange(allSequences.Where(trick => trick.Type == trickType));
                 }
 
-                foreach (var trickType in PairedSequenceType)
+                var allStairs = handIndex.FindAllStairs();
+                foreach (var trickType in StairTypes)
                 {
-                    tricks.AddRange(handIndex.FindPairedSequences(trickType));
+                    tricks.AddRange(allStairs.Where(trick => trick.Type == trickType));
                 }
             }
             else
@@ -50,9 +58,9 @@ namespace Haggis.Domain.Services
                     tricks.AddRange(handIndex.FindCardSequences(lastTrickType.Value));
                 }
 
-                if (PairedSequenceType.Contains(lastTrickType.Value))
+                if (StairTypes.Contains(lastTrickType.Value))
                 {
-                    tricks.AddRange(handIndex.FindPairedSequences(lastTrickType.Value));
+                    tricks.AddRange(handIndex.FindStairs(lastTrickType.Value));
                 }
             }
 

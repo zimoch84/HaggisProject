@@ -74,16 +74,6 @@ namespace Haggis.Domain.Extentions
                 nonWildCardsBySuit[suit].Sort();
             }
 
-            foreach (var group in allCardsByRank.Values)
-            {
-                group.Sort((left, right) => left.CompareBySuitAndRank(right));
-            }
-
-            foreach (var group in nonWildCardsByRank.Values)
-            {
-                group.Sort((left, right) => left.CompareBySuitAndRank(right));
-            }
-
             wildCards.Sort((left, right) => left.BaseRank.CompareTo(right.BaseRank));
             nonWildCards.Sort((left, right) => left.CompareBySuitAndRank(right));
 

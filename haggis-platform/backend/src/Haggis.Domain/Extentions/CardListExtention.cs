@@ -11,7 +11,13 @@ namespace Haggis.Domain.Extentions
     {
         private static readonly HashSet<TrickType> SameCardTypes = new HashSet<TrickType> { SINGLE, PAIR, TRIPLE, QUAD, FIVED, SIXED };
         private static readonly HashSet<TrickType> SequenceTypes = new HashSet<TrickType> { SEQ3, SEQ4, SEQ5, SEQ6, SEQ7 };
-        private static readonly HashSet<TrickType> PairedSequenceTypes = new HashSet<TrickType> { PAIRSEQ2, PAIRSEQ3, PAIRSEQ4, PAIRSEQ5, PAIRSEQ6, PAIRSEQ7 };
+        private static readonly HashSet<TrickType> StairTypes = new HashSet<TrickType>
+        {
+            PAIRSEQ2, PAIRSEQ3, PAIRSEQ4, PAIRSEQ5, PAIRSEQ6, PAIRSEQ7,
+            TRIPLESTAIR2, TRIPLESTAIR3, TRIPLESTAIR4, TRIPLESTAIR5,
+            QUADSTAIR2, QUADSTAIR3, QUADSTAIR4,
+            FIVEDSTAIR2, FIVEDSTAIR3
+        };
         private static readonly Suit[] AllSuits = Enum.GetValues(typeof(Suit)).Cast<Suit>().ToArray();
 
         public static List<Trick> FindCardSequences(this List<Card> cards, TrickType sequenceType)
@@ -21,13 +27,19 @@ namespace Haggis.Domain.Extentions
 
         public static List<Trick> FindCardSequences(this HandIndex handIndex, TrickType sequenceType)
         {
-            var tricks = new List<Trick>();
             if (!SequenceTypes.Contains(sequenceType))
             {
-                return tricks;
+                return new List<Trick>();
             }
 
-            var sequenceLength = (int)((int)sequenceType - 2) / 10;
+            return handIndex.FindAllCardSequences()
+                .Where(trick => trick.Type == sequenceType)
+                .ToList();
+        }
+
+        public static List<Trick> FindAllCardSequences(this HandIndex handIndex)
+        {
+            var tricks = new List<Trick>();
 
             foreach (var suit in AllSuits)
             {
@@ -37,20 +49,27 @@ namespace Haggis.Domain.Extentions
                     continue;
                 }
 
-                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - sequenceLength + 1; startRank++)
+                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - 2; startRank++)
                 {
-                    var sequence = BuildSequenceWithWilds(
-                        handIndex,
-                        suit,
-                        (Rank)startRank,
-                        sequenceLength);
-
-                    if (sequence.Count == sequenceLength &&
-                        sequence.Any(card => !card.IsWild) &&
-                        sequence.IsSequence() &&
-                        !IsBomb(sequence))
+                    for (var sequenceLength = 3; sequenceLength <= 7 && startRank + sequenceLength - 1 <= (int)Rank.KING; sequenceLength++)
                     {
-                        tricks.Add(new Trick(sequenceType, sequence));
+                        var sequence = BuildSequenceWithWilds(
+                            handIndex,
+                            suit,
+                            (Rank)startRank,
+                            sequenceLength);
+
+                        if (sequence.Count == sequenceLength &&
+                            sequence.Any(card => !card.IsWild) &&
+                            sequence.IsSequence() &&
+                            !IsBomb(sequence))
+                        {
+                            var trickType = (TrickType)(sequenceLength * 10 + 2);
+                            tricks.Add(new Trick(trickType, sequence));
+                            continue;
+                        }
+
+                        break;
                     }
                 }
             }
@@ -320,65 +339,95 @@ namespace Haggis.Domain.Extentions
             return cards.Contains(card.ToCard());
         }
 
-        public static List<Trick> FindPairedSequences(this List<Card> cards, TrickType sequenceType)
+        public static List<Trick> FindStairs(this List<Card> cards, TrickType stairType)
         {
-            return HandIndex.Build(cards).FindPairedSequences(sequenceType);
+            return HandIndex.Build(cards).FindStairs(stairType);
         }
 
-        public static List<Trick> FindPairedSequences(this HandIndex handIndex, TrickType sequenceType)
+        public static List<Trick> FindPairedSequences(this List<Card> cards, TrickType sequenceType)
         {
-            if (sequenceType.Class() != TrickClass.SEQUENCE_OF_PAIRS)
+            return HandIndex.Build(cards).FindStairs(sequenceType);
+        }
+
+        public static List<Trick> FindStairs(this HandIndex handIndex, TrickType stairType)
+        {
+            if (!StairTypes.Contains(stairType))
             {
-                return null;
+                return new List<Trick>();
             }
 
-            var pairSequenceLength = ((int)sequenceType - 4) / 20;
+            return handIndex.FindAllStairs()
+                .Where(trick => trick.Type == stairType)
+                .ToList();
+        }
+
+        public static List<Trick> FindAllStairs(this HandIndex handIndex)
+        {
             var tricks = new List<Trick>();
+            var seenTricks = new HashSet<string>();
 
-            for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - pairSequenceLength + 1; startRank++)
+            for (var groupSize = 2; groupSize <= 5; groupSize++)
             {
-                for (var firstSuitIndex = 0; firstSuitIndex < AllSuits.Length; firstSuitIndex++)
+                var maxLength = GetMaxStairLength(groupSize);
+                if (maxLength < 2)
                 {
-                    for (var secondSuitIndex = firstSuitIndex + 1; secondSuitIndex < AllSuits.Length; secondSuitIndex++)
+                    continue;
+                }
+
+                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - 1; startRank++)
+                {
+                    var upperLength = Math.Min(maxLength, (int)Rank.KING - startRank + 1);
+                    for (var stairLength = 2; stairLength <= upperLength; stairLength++)
                     {
-                        var availableWilds = new Queue<Card>(handIndex.WildCards);
-                        var firstSequence = BuildSuitedSequenceWithSharedWilds(
-                            handIndex,
-                            availableWilds,
-                            (Rank)startRank,
-                            pairSequenceLength,
-                            AllSuits[firstSuitIndex]);
-                        if (firstSequence.Count != pairSequenceLength)
+                        if (!TryGetStairType(groupSize, stairLength, out var stairType))
                         {
                             continue;
                         }
 
-                        var secondSequence = BuildSuitedSequenceWithSharedWilds(
-                            handIndex,
-                            availableWilds,
-                            (Rank)startRank,
-                            pairSequenceLength,
-                            AllSuits[secondSuitIndex]);
-                        if (secondSequence.Count != pairSequenceLength)
+                        foreach (var selectedSuits in GetSuitCombinations(groupSize))
                         {
-                            continue;
-                        }
+                            var availableWilds = new Queue<Card>(handIndex.WildCards);
+                            var stairCards = new List<Card>();
+                            var succeeded = true;
 
-                        var pairedSequenceCards = new List<Card>();
-                        pairedSequenceCards.AddRange(firstSequence);
-                        pairedSequenceCards.AddRange(secondSequence);
-                        if (pairedSequenceCards.Any(card => !card.IsWild))
-                        {
-                            tricks.Add(new Trick(sequenceType, pairedSequenceCards));
+                            foreach (var suit in selectedSuits)
+                            {
+                                var sequence = BuildSuitedSequenceWithSharedWilds(
+                                    handIndex,
+                                    availableWilds,
+                                    (Rank)startRank,
+                                    stairLength,
+                                    suit);
+                                if (sequence.Count != stairLength)
+                                {
+                                    succeeded = false;
+                                    break;
+                                }
+
+                                stairCards.AddRange(sequence);
+                            }
+
+                            if (!succeeded || !stairCards.Any(card => !card.IsWild))
+                            {
+                                continue;
+                            }
+
+                            var trick = new Trick(stairType, stairCards);
+                            if (seenTricks.Add(trick.ToString()))
+                            {
+                                tricks.Add(trick);
+                            }
                         }
                     }
                 }
             }
 
-            return tricks
-                .GroupBy(trick => trick.ToString())
-                .Select(group => group.First())
-                .ToList();
+            return tricks;
+        }
+
+        public static List<Trick> FindPairedSequences(this HandIndex handIndex, TrickType sequenceType)
+        {
+            return FindStairs(handIndex, sequenceType);
         }
 
         private static List<Card> BuildSuitedSequenceWithSharedWilds(
@@ -408,6 +457,99 @@ namespace Haggis.Domain.Extentions
             }
 
             return sequence;
+        }
+
+        private static IEnumerable<IReadOnlyList<Suit>> GetSuitCombinations(int length)
+        {
+            var combination = new Suit[length];
+
+            foreach (var result in GetSuitCombinationsRecursive(0, 0, length, combination))
+            {
+                yield return result;
+            }
+        }
+
+        private static IEnumerable<IReadOnlyList<Suit>> GetSuitCombinationsRecursive(int startIndex, int depth, int length, Suit[] combination)
+        {
+            if (depth == length)
+            {
+                var result = new Suit[length];
+                Array.Copy(combination, result, length);
+                yield return result;
+                yield break;
+            }
+
+            for (var index = startIndex; index <= AllSuits.Length - (length - depth); index++)
+            {
+                combination[depth] = AllSuits[index];
+                foreach (var result in GetSuitCombinationsRecursive(index + 1, depth + 1, length, combination))
+                {
+                    yield return result;
+                }
+            }
+        }
+
+        private static int GetMaxStairLength(int groupSize)
+        {
+            switch (groupSize)
+            {
+                case 2:
+                    return 7;
+                case 3:
+                    return 5;
+                case 4:
+                    return 4;
+                case 5:
+                    return 3;
+                default:
+                    return 0;
+            }
+        }
+
+        private static bool TryGetStairType(int groupSize, int stairLength, out TrickType stairType)
+        {
+            stairType = default;
+
+            switch (groupSize)
+            {
+                case 2:
+                    switch (stairLength)
+                    {
+                        case 2: stairType = PAIRSEQ2; return true;
+                        case 3: stairType = PAIRSEQ3; return true;
+                        case 4: stairType = PAIRSEQ4; return true;
+                        case 5: stairType = PAIRSEQ5; return true;
+                        case 6: stairType = PAIRSEQ6; return true;
+                        case 7: stairType = PAIRSEQ7; return true;
+                    }
+                    break;
+                case 3:
+                    switch (stairLength)
+                    {
+                        case 2: stairType = TRIPLESTAIR2; return true;
+                        case 3: stairType = TRIPLESTAIR3; return true;
+                        case 4: stairType = TRIPLESTAIR4; return true;
+                        case 5: stairType = TRIPLESTAIR5; return true;
+                    }
+                    break;
+                case 4:
+                    switch (stairLength)
+                    {
+                        case 2: stairType = QUADSTAIR2; return true;
+                        case 3: stairType = QUADSTAIR3; return true;
+                        case 4: stairType = QUADSTAIR4; return true;
+                    }
+                    break;
+                case 5:
+                    switch (stairLength)
+                    {
+                        case 2: stairType = FIVEDSTAIR2; return true;
+                        case 3: stairType = FIVEDSTAIR3; return true;
+                    }
+                    break;
+            }
+
+            return false;
         }
     }
 }

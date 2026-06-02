@@ -1,5 +1,6 @@
 using Haggis.Domain.Enums;
 using Haggis.Domain.Extentions;
+using Haggis.Domain.Model;
 using NUnit.Framework;
 using System.Linq;
 
@@ -48,6 +49,32 @@ namespace HaggisTests
             Assert.That(
                 combinations[0].Cards.Select(card => card.ToString()),
                 Is.EqualTo(new[] { "J[3]", "3G", "4B", "Q[4]" }));
+        }
+
+        [Test]
+        public void FindStairs_ShouldFind_TripleStair()
+        {
+            var cards = new[] { "3R", "3B", "3G", "4R", "4B", "4G", "5R", "5B", "5G" };
+
+            var combinations = cards.ToCards().FindStairs(TrickType.TRIPLESTAIR3);
+
+            var expected = new Trick(TrickType.TRIPLESTAIR3, cards.ToCards());
+
+            Assert.That(combinations.Count, Is.EqualTo(1));
+            Assert.That(combinations[0], Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void FindStairs_ShouldFind_QuadStair()
+        {
+            var cards = new[] { "3R", "3B", "3G", "3Y", "4R", "4B", "4G", "4Y" };
+
+            var combinations = cards.ToCards().FindStairs(TrickType.QUADSTAIR2);
+
+            var expected = new Trick(TrickType.QUADSTAIR2, cards.ToCards());
+
+            Assert.That(combinations.Count, Is.EqualTo(1));
+            Assert.That(combinations[0], Is.EqualTo(expected));
         }
 
         [Test]

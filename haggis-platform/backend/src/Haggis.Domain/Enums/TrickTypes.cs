@@ -24,6 +24,24 @@ namespace Haggis.Domain.Enums
         PAIRSEQ4 = 84,
         PAIRSEQ5 = 104,
         PAIRSEQ6 = 124,
-        PAIRSEQ7 = 144
+        PAIRSEQ7 = 144,
+        TRIPLESTAIR2 = 46,
+        TRIPLESTAIR3 = 66,
+        TRIPLESTAIR4 = 86,
+        TRIPLESTAIR5 = 106,
+        TRIPLESTAIR6 = 126,
+        TRIPLESTAIR7 = 146,
+        QUADSTAIR2 = 48,
+        QUADSTAIR3 = 68,
+        QUADSTAIR4 = 88,
+        QUADSTAIR5 = 108,
+        QUADSTAIR6 = 128,
+        QUADSTAIR7 = 148,
+        FIVEDSTAIR2 = 50,
+        FIVEDSTAIR3 = 70,
+        FIVEDSTAIR4 = 90,
+        FIVEDSTAIR5 = 110,
+        FIVEDSTAIR6 = 130,
+        FIVEDSTAIR7 = 150
     }
  }
