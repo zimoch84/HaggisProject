@@ -168,17 +168,24 @@ namespace Haggis.Domain.Extentions
 
             var numberOfTheSameCards = (int)trickType / 10;
 
-            foreach (var rankGroup in handIndex.AllCardsByRank.Values)
+            if (numberOfTheSameCards == 1)
             {
-                if (rankGroup.Count < numberOfTheSameCards)
+                foreach (var rank in handIndex.GetRanksWithAtLeastNAll(1))
                 {
-                    continue;
+                    foreach (var card in handIndex.GetAllCardsByRank(rank))
+                    {
+                        tricks.Add(Trick.FromGeneratedCards(trickType, new List<Card>(1) { card }));
+                    }
                 }
 
-                var combinations = GetKCombinationsByRankAndSuit(rankGroup, numberOfTheSameCards);
-                foreach (var combination in combinations)
+                return tricks;
+            }
+
+            foreach (var rank in handIndex.GetRanksWithAtLeastNNonWild(numberOfTheSameCards))
+            {
+                foreach (var combination in handIndex.GetSameRankCombinations(rank, numberOfTheSameCards))
                 {
-                    tricks.Add(Trick.FromGeneratedCards(trickType, combination.ToList()));
+                    tricks.Add(Trick.FromGeneratedCards(trickType, new List<Card>(combination)));
                 }
             }
 
@@ -201,15 +208,16 @@ namespace Haggis.Domain.Extentions
             }
 
             var wildCards = handIndex.WildCards;
-            if (wildCards.Count == 0)
+            if (handIndex.WildCardCount == 0)
             {
                 return wildTricks;
             }
 
             var requiredCardCount = (int)wildTrickType / 10;
 
-            foreach (var sameRankCards in handIndex.NonWildCardsByRank.Values)
+            foreach (var rank in handIndex.GetRanksWithAtLeastNNonWild(1))
             {
+                var sameRankCards = handIndex.GetNonWildCardsByRank(rank);
                 var maxNonWildCards = Math.Min(sameRankCards.Count, requiredCardCount - 1);
                 if (maxNonWildCards <= 0)
                 {
@@ -219,12 +227,12 @@ namespace Haggis.Domain.Extentions
                 for (var nonWildCardCount = 1; nonWildCardCount <= maxNonWildCards; nonWildCardCount++)
                 {
                     var requiredWildCards = requiredCardCount - nonWildCardCount;
-                    if (requiredWildCards <= 0 || requiredWildCards > wildCards.Count)
+                    if (requiredWildCards <= 0 || requiredWildCards > handIndex.WildCardCount)
                     {
                         continue;
                     }
 
-                    foreach (var baseCombination in GetKCombinationsByRankAndSuit(sameRankCards, nonWildCardCount))
+                    foreach (var baseCombination in handIndex.GetSameRankCombinations(rank, nonWildCardCount))
                     {
                         foreach (var wildCombination in GetKCombinationsByRank(wildCards, requiredWildCards))
                         {
@@ -331,17 +339,12 @@ namespace Haggis.Domain.Extentions
             return sequence.All(card => card.IsWild);
         }
 
-        public static IEnumerable<IEnumerable<Card>> GetKCombinationsByRankAndSuit(this List<Card> list, int length)
-        {
-            return GetKCombinations(list, length);
-        }
-
         public static IEnumerable<IEnumerable<Card>> GetKCombinationsByRank(this List<Card> list, int length)
         {
-            return GetKCombinations(list, length);
+            return GetKCombinationsCore(list, length);
         }
 
-        private static IEnumerable<IEnumerable<Card>> GetKCombinations(List<Card> list, int length)
+        private static IEnumerable<IEnumerable<Card>> GetKCombinationsCore(List<Card> list, int length)
         {
             if (list == null || length < 1 || list.Count < length)
             {
@@ -349,13 +352,13 @@ namespace Haggis.Domain.Extentions
             }
 
             var buffer = new Card[length];
-            foreach (var combination in GetKCombinations(list, length, 0, buffer))
+            foreach (var combination in GetKCombinationsCore(list, length, 0, buffer))
             {
                 yield return combination;
             }
         }
 
-        private static IEnumerable<IEnumerable<Card>> GetKCombinations(List<Card> list, int length, int depth, Card[] buffer)
+        private static IEnumerable<IEnumerable<Card>> GetKCombinationsCore(List<Card> list, int length, int depth, Card[] buffer)
         {
             if (depth == length)
             {
@@ -374,7 +377,7 @@ namespace Haggis.Domain.Extentions
                 }
 
                 buffer[depth] = candidate;
-                foreach (var result in GetKCombinations(list, length, depth + 1, buffer))
+                foreach (var result in GetKCombinationsCore(list, length, depth + 1, buffer))
                 {
                     yield return result;
                 }

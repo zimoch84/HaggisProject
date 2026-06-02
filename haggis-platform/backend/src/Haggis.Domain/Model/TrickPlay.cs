@@ -15,8 +15,10 @@ namespace Haggis.Domain.Model
         private int _numberOfPlayers;
 
         public List<HaggisAction> Actions => _actions;
-        public HaggisAction LastAction => _actions.Count() > 0 ? _actions.Last() : null;
+        public HaggisAction LastAction => _actions.Count > 0 ? _actions[_actions.Count - 1] : null;
         public HaggisAction SecondToLastAction => _actions.GetSecondToLast();
+        public HaggisAction LastNotPassAction => FindLastNotPassAction();
+        public Trick LastNotPassTrick => LastNotPassAction?.Trick;
         public int NumberOfPlayers => _numberOfPlayers;
         public bool IsEmpty => _actions.Count == 0;
         public List<HaggisAction> NotPassActions => _actions.Where(a => !a.IsPass).ToList();
@@ -46,7 +48,7 @@ namespace Haggis.Domain.Model
                 if (LastAction == null)
                     return false;
 
-                var hasFinalTrick = NotPassActions.Where(a => a.IsFinal).Any();
+                var hasFinalTrick = HasFinalNonPassAction();
 
                 if (hasFinalTrick && SecondToLastAction != null) {
                     /*First pass after another player finishes does let the third player play trick
@@ -80,17 +82,34 @@ namespace Haggis.Domain.Model
             return new TrickPlay(_numberOfPlayers, new List<HaggisAction>(_actions.DeepCopy()));
         }
 
+        public bool HasFinalNonPassAction()
+        {
+            for (var index = _actions.Count - 1; index >= 0; index--)
+            {
+                var action = _actions[index];
+                if (!action.IsPass && action.IsFinal)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public IHaggisPlayer Taking()
         {
-            var lastNotPassAction = NotPassActions.Last();
+            var lastNotPassAction = LastNotPassAction;
+            if (lastNotPassAction == null)
+            {
+                return null;
+            }
+
             if (lastNotPassAction.Trick?.Type != TrickType.BOMB)
             {
                 return lastNotPassAction.Player;
             }
 
-            var previousBestAction = NotPassActions
-                .Where(a => a.Trick?.Type != TrickType.BOMB)
-                .LastOrDefault();
+            var previousBestAction = FindLastNonBombAction();
 
             /* If the trick starts with a bomb there is no earlier best trick. */
             return previousBestAction?.Player ?? lastNotPassAction.Player;
@@ -135,6 +154,34 @@ namespace Haggis.Domain.Model
                 sb.Append(", ");
             }
             return sb.ToString();
+        }
+
+        private HaggisAction FindLastNotPassAction()
+        {
+            for (var index = _actions.Count - 1; index >= 0; index--)
+            {
+                var action = _actions[index];
+                if (!action.IsPass)
+                {
+                    return action;
+                }
+            }
+
+            return null;
+        }
+
+        private HaggisAction FindLastNonBombAction()
+        {
+            for (var index = _actions.Count - 1; index >= 0; index--)
+            {
+                var action = _actions[index];
+                if (!action.IsPass && action.Trick?.Type != TrickType.BOMB)
+                {
+                    return action;
+                }
+            }
+
+            return null;
         }
     }
 }

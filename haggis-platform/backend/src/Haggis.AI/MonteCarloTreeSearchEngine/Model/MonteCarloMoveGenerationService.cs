@@ -26,7 +26,7 @@ namespace MonteCarlo
             }
 
             var actions = new List<MonteCarloHaggisAction>();
-            var lastTrick = state.CurrentTrickPlay.NotPassActions.LastOrDefault()?.Trick;
+            var lastTrick = state.CurrentTrickPlay.LastNotPassTrick;
             var generatedTricks = lastTrick == null
                 ? BuildPossibleOpeningTricks(state.CurrentPlayer)
                 : BuildPossibleContinuationTricks(state.CurrentPlayer, lastTrick);
