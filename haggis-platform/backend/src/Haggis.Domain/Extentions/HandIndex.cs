@@ -17,7 +17,8 @@ namespace Haggis.Domain.Extentions
             Dictionary<Rank, List<Card>> allCardsByRank,
             Dictionary<Rank, List<Card>> nonWildCardsByRank,
             Dictionary<Suit, List<Card>> nonWildCardsBySuit,
-            Dictionary<Suit, Dictionary<Rank, Card>> nonWildCardsBySuitAndRank)
+            Dictionary<Suit, Dictionary<Rank, Card>> nonWildCardsBySuitAndRank,
+            Card[,] nonWildCardsBySuitRankLookup)
         {
             Cards = cards;
             WildCards = wildCards;
@@ -26,6 +27,7 @@ namespace Haggis.Domain.Extentions
             NonWildCardsByRank = nonWildCardsByRank;
             NonWildCardsBySuit = nonWildCardsBySuit;
             NonWildCardsBySuitAndRank = nonWildCardsBySuitAndRank;
+            NonWildCardsBySuitRankLookup = nonWildCardsBySuitRankLookup;
         }
 
         public List<Card> Cards { get; }
@@ -35,6 +37,7 @@ namespace Haggis.Domain.Extentions
         public Dictionary<Rank, List<Card>> NonWildCardsByRank { get; }
         public Dictionary<Suit, List<Card>> NonWildCardsBySuit { get; }
         public Dictionary<Suit, Dictionary<Rank, Card>> NonWildCardsBySuitAndRank { get; }
+        private Card[,] NonWildCardsBySuitRankLookup { get; }
 
         public static HandIndex Build(IEnumerable<Card> cards)
         {
@@ -45,6 +48,7 @@ namespace Haggis.Domain.Extentions
             var nonWildCardsByRank = new Dictionary<Rank, List<Card>>();
             var nonWildCardsBySuit = new Dictionary<Suit, List<Card>>();
             var nonWildCardsBySuitAndRank = new Dictionary<Suit, Dictionary<Rank, Card>>();
+            var nonWildCardsBySuitRankLookup = new Card[6, 14];
 
             foreach (var suit in AllSuits)
             {
@@ -63,6 +67,7 @@ namespace Haggis.Domain.Extentions
                     nonWildCards.Add(card);
                     nonWildCardsBySuit[card.Suit].Add(card);
                     nonWildCardsBySuitAndRank[card.Suit][card.Rank] = card;
+                    nonWildCardsBySuitRankLookup[(int)card.Suit, (int)card.Rank] = card;
                     AddToRankIndex(nonWildCardsByRank, card);
                 }
 
@@ -84,7 +89,8 @@ namespace Haggis.Domain.Extentions
                 allCardsByRank,
                 nonWildCardsByRank,
                 nonWildCardsBySuit,
-                nonWildCardsBySuitAndRank);
+                nonWildCardsBySuitAndRank,
+                nonWildCardsBySuitRankLookup);
         }
 
         public bool ContainsNonWildCards(Rank rank, int minimumCount)
@@ -109,9 +115,8 @@ namespace Haggis.Domain.Extentions
 
         public bool TryGetNonWildCard(Suit suit, Rank rank, out Card card)
         {
-            card = null;
-            return NonWildCardsBySuitAndRank.TryGetValue(suit, out var byRank) &&
-                   byRank.TryGetValue(rank, out card);
+            card = NonWildCardsBySuitRankLookup[(int)suit, (int)rank];
+            return card != null;
         }
 
         private static void AddToRankIndex(Dictionary<Rank, List<Card>> index, Card card)

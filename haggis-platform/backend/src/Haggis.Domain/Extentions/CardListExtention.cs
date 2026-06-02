@@ -19,6 +19,10 @@ namespace Haggis.Domain.Extentions
             FIVEDSTAIR2, FIVEDSTAIR3
         };
         private static readonly Suit[] AllSuits = Enum.GetValues(typeof(Suit)).Cast<Suit>().ToArray();
+        private static readonly IReadOnlyList<Suit>[] SuitCombinations2 = BuildSuitCombinations(2);
+        private static readonly IReadOnlyList<Suit>[] SuitCombinations3 = BuildSuitCombinations(3);
+        private static readonly IReadOnlyList<Suit>[] SuitCombinations4 = BuildSuitCombinations(4);
+        private static readonly IReadOnlyList<Suit>[] SuitCombinations5 = BuildSuitCombinations(5);
 
         public static List<Trick> FindCardSequences(this List<Card> cards, TrickType sequenceType)
         {
@@ -622,33 +626,45 @@ namespace Haggis.Domain.Extentions
             return true;
         }
 
-        private static IEnumerable<IReadOnlyList<Suit>> GetSuitCombinations(int length)
+        private static IReadOnlyList<Suit>[] GetSuitCombinations(int length)
         {
-            var combination = new Suit[length];
-
-            foreach (var result in GetSuitCombinationsRecursive(0, 0, length, combination))
+            switch (length)
             {
-                yield return result;
+                case 2:
+                    return SuitCombinations2;
+                case 3:
+                    return SuitCombinations3;
+                case 4:
+                    return SuitCombinations4;
+                case 5:
+                    return SuitCombinations5;
+                default:
+                    return Array.Empty<IReadOnlyList<Suit>>();
             }
         }
 
-        private static IEnumerable<IReadOnlyList<Suit>> GetSuitCombinationsRecursive(int startIndex, int depth, int length, Suit[] combination)
+        private static IReadOnlyList<Suit>[] BuildSuitCombinations(int length)
+        {
+            var combinations = new List<IReadOnlyList<Suit>>();
+            var combination = new Suit[length];
+            BuildSuitCombinations(0, 0, length, combination, combinations);
+            return combinations.ToArray();
+        }
+
+        private static void BuildSuitCombinations(int startIndex, int depth, int length, Suit[] combination, List<IReadOnlyList<Suit>> results)
         {
             if (depth == length)
             {
                 var result = new Suit[length];
                 Array.Copy(combination, result, length);
-                yield return result;
-                yield break;
+                results.Add(result);
+                return;
             }
 
             for (var index = startIndex; index <= AllSuits.Length - (length - depth); index++)
             {
                 combination[depth] = AllSuits[index];
-                foreach (var result in GetSuitCombinationsRecursive(index + 1, depth + 1, length, combination))
-                {
-                    yield return result;
-                }
+                BuildSuitCombinations(index + 1, depth + 1, length, combination, results);
             }
         }
 
