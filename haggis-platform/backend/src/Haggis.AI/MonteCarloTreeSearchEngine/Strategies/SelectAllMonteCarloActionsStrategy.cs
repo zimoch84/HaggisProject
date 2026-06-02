@@ -7,7 +7,7 @@ namespace MonteCarlo
 {
     public sealed class SelectAllMonteCarloActionsStrategy : IMonteCarloActionSelectionStrategy
     {
-        public IList<HaggisAction> Select(RoundState state, IList<HaggisAction> generatedActions)
+        public IList<MonteCarloHaggisAction> Select(RoundState state, IList<MonteCarloHaggisAction> generatedActions)
         {
             return generatedActions.ToList();
         }

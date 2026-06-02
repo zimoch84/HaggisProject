@@ -5,6 +5,6 @@ namespace MonteCarlo
 {
     public interface IMonteCarloActionSelectionStrategy
     {
-        IList<HaggisAction> Select(RoundState state, IList<HaggisAction> generatedActions);
+        IList<MonteCarloHaggisAction> Select(RoundState state, IList<MonteCarloHaggisAction> generatedActions);
     }
 }

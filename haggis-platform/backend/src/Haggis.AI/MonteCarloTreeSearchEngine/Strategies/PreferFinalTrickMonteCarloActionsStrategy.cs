@@ -7,7 +7,7 @@ namespace MonteCarlo
 {
     public sealed class PreferFinalTrickMonteCarloActionsStrategy : IMonteCarloActionSelectionStrategy
     {
-        public IList<HaggisAction> Select(RoundState state, IList<HaggisAction> generatedActions)
+        public IList<MonteCarloHaggisAction> Select(RoundState state, IList<MonteCarloHaggisAction> generatedActions)
         {
             var finalActions = generatedActions
                 .Where(action => !action.IsPass && action.Trick != null && action.Trick.Cards.Count == action.Player.Hand.Count)

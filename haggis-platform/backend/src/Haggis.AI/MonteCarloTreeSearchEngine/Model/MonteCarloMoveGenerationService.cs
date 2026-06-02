@@ -25,22 +25,17 @@ namespace MonteCarlo
                 return new List<MonteCarloHaggisAction>();
             }
 
-            var actions = new List<MonteCarloHaggisAction>();
             var lastTrick = state.CurrentTrickPlay.LastNotPassTrick;
             var generatedTricks = lastTrick == null
                 ? BuildPossibleOpeningTricks(state.CurrentPlayer)
                 : BuildPossibleContinuationTricks(state.CurrentPlayer, lastTrick);
 
-            var possibleTricks = TrickSelectionStrategy
+            var generatedActions = TrickSelectionStrategy
                 .Select(state, generatedTricks, lastTrick == null)
+                .Select(trick => MonteCarloHaggisAction.FromTrick(trick, state.CurrentPlayer))
                 .ToList();
 
-            possibleTricks.ForEach(trick => actions.Add(MonteCarloHaggisAction.FromTrick(trick, state.CurrentPlayer)));
-
-            var selectedDomainActions = ActionSelectionStrategy.Select(state, actions.Cast<HaggisAction>().ToList());
-            var selectedActions = selectedDomainActions
-                .Select(MonteCarloHaggisAction.FromHaggisAction)
-                .ToList();
+            var selectedActions = ActionSelectionStrategy.Select(state, generatedActions).ToList();
             var hasFinalAction = selectedActions.Any(action => !action.IsPass && action.Trick != null && action.Trick.IsFinal);
             if (state.CurrentTrickPlay.LastAction != null && !hasFinalAction)
             {

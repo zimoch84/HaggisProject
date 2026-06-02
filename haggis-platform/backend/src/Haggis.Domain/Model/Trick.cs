@@ -16,11 +16,20 @@ namespace Haggis.Domain.Model
     {
         private TrickType _type;
         private List<Card> _cards;
+        private BombType? _bomb;
 
         public bool IsFinal;
         public TrickType Type { get => _type; set => _type = value; }
-        public List<Card> Cards { get => _cards; set => _cards = value; }
-        public BombType? Bomb { get => _cards.GetBombType(); }
+        public List<Card> Cards
+        {
+            get => _cards;
+            set
+            {
+                _cards = value;
+                _bomb = _cards?.GetBombType();
+            }
+        }
+        public BombType? Bomb => _bomb;
 
         public Trick(TrickType type, List<Card> cards)
             : this(type, cards, copyCards: true, sortCards: true)
@@ -45,36 +54,43 @@ namespace Haggis.Domain.Model
 
         public Card FirstCard()
         {
-            return Cards.First();
+            return Cards[0];
         }
         public Card LastCard()
         {
-            return Cards.Last();
+            return Cards[Cards.Count - 1];
         }
 
         public int CompareTo(object obj)
         {
             var incomingTrick = (Trick)obj;
-            if (Type != TrickType.BOMB && incomingTrick.Type != TrickType.BOMB) {
+            var thisType = Type;
+            var incomingType = incomingTrick.Type;
+            var thisIsBomb = thisType == TrickType.BOMB;
+            var incomingIsBomb = incomingType == TrickType.BOMB;
 
-                int typeComparison = Type.CompareTo(incomingTrick.Type);
+            if (!thisIsBomb && !incomingIsBomb)
+            {
+                var typeComparison = ((int)thisType).CompareTo((int)incomingType);
                 if (typeComparison != 0)
                 {
                     return typeComparison;
                 }
- 
-                return FirstCard().CompareTo(incomingTrick.FirstCard());
+
+                return ((int)Cards[0].Rank).CompareTo((int)incomingTrick.Cards[0].Rank);
             }
-            
 
-            if (Type != TrickType.BOMB && incomingTrick.Type == TrickType.BOMB)
+            if (!thisIsBomb && incomingIsBomb)
+            {
                 return -1;
+            }
 
-            if (Type == TrickType.BOMB && incomingTrick.Type != TrickType.BOMB)
+            if (thisIsBomb && !incomingIsBomb)
+            {
                 return 1;
+            }
 
-            return Bomb.Value.CompareTo(incomingTrick.Bomb.Value);
-
+            return ((int)Bomb.Value).CompareTo((int)incomingTrick.Bomb.Value);
         }
 
         override public string ToString()
