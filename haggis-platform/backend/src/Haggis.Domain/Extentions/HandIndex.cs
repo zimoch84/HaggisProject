@@ -10,21 +10,21 @@ namespace Haggis.Domain.Extentions
     {
         private static readonly Suit[] AllSuits = Enum.GetValues(typeof(Suit)).Cast<Suit>().ToArray();
         private static readonly IReadOnlyList<Rank> EmptyRanks = Array.Empty<Rank>();
+        private static readonly IReadOnlyList<Card> EmptyCards = Array.Empty<Card>();
         private static readonly IReadOnlyList<Card[]> EmptyCombinations = Array.Empty<Card[]>();
 
         private HandIndex(
             List<Card> cards,
             List<Card> wildCards,
             List<Card> nonWildCards,
-            Dictionary<Rank, List<Card>> allCardsByRank,
-            Dictionary<Rank, List<Card>> nonWildCardsByRank,
-            Dictionary<Suit, List<Card>> nonWildCardsBySuit,
-            Dictionary<Suit, Dictionary<Rank, Card>> nonWildCardsBySuitAndRank,
+            IReadOnlyList<Card>[] allCardsByRank,
+            IReadOnlyList<Card>[] nonWildCardsByRank,
+            IReadOnlyList<Card>[] nonWildCardsBySuit,
             Card[,] nonWildCardsBySuitRankLookup,
             int[,] nonWildPrefixCountsBySuitRank,
             IReadOnlyList<Rank>[] ranksWithAtLeastNNonWild,
             IReadOnlyList<Rank>[] ranksWithAtLeastNAll,
-            Dictionary<Rank, IReadOnlyDictionary<int, IReadOnlyList<Card[]>>> sameRankCombinationsByRankAndSize)
+            IReadOnlyList<Card[]>[,] sameRankCombinationsByRankAndSize)
         {
             Cards = cards;
             WildCards = wildCards;
@@ -32,7 +32,6 @@ namespace Haggis.Domain.Extentions
             AllCardsByRank = allCardsByRank;
             NonWildCardsByRank = nonWildCardsByRank;
             NonWildCardsBySuit = nonWildCardsBySuit;
-            NonWildCardsBySuitAndRank = nonWildCardsBySuitAndRank;
             NonWildCardsBySuitRankLookup = nonWildCardsBySuitRankLookup;
             NonWildPrefixCountsBySuitRank = nonWildPrefixCountsBySuitRank;
             RanksWithAtLeastNNonWild = ranksWithAtLeastNNonWild;
@@ -44,36 +43,37 @@ namespace Haggis.Domain.Extentions
         public List<Card> WildCards { get; }
         public int WildCardCount => WildCards.Count;
         public List<Card> NonWildCards { get; }
-        public Dictionary<Rank, List<Card>> AllCardsByRank { get; }
-        public Dictionary<Rank, List<Card>> NonWildCardsByRank { get; }
-        public Dictionary<Suit, List<Card>> NonWildCardsBySuit { get; }
-        public Dictionary<Suit, Dictionary<Rank, Card>> NonWildCardsBySuitAndRank { get; }
+        private IReadOnlyList<Card>[] AllCardsByRank { get; }
+        private IReadOnlyList<Card>[] NonWildCardsByRank { get; }
+        private IReadOnlyList<Card>[] NonWildCardsBySuit { get; }
         public IReadOnlyList<Rank>[] RanksWithAtLeastNNonWild { get; }
         public IReadOnlyList<Rank>[] RanksWithAtLeastNAll { get; }
-        public IReadOnlyDictionary<Rank, IReadOnlyDictionary<int, IReadOnlyList<Card[]>>> SameRankCombinationsByRankAndSize { get; }
+        private IReadOnlyList<Card[]>[,] SameRankCombinationsByRankAndSize { get; }
         private Card[,] NonWildCardsBySuitRankLookup { get; }
         private int[,] NonWildPrefixCountsBySuitRank { get; }
 
         public static HandIndex Build(IEnumerable<Card> cards)
         {
-            var cardList = (cards ?? Array.Empty<Card>()).ToList();
+            var cardList = cards as List<Card> ?? (cards ?? Array.Empty<Card>()).ToList();
             var wildCards = new List<Card>();
             var nonWildCards = new List<Card>();
-            var allCardsByRank = new Dictionary<Rank, List<Card>>();
-            var nonWildCardsByRank = new Dictionary<Rank, List<Card>>();
-            var nonWildCardsBySuit = new Dictionary<Suit, List<Card>>();
-            var nonWildCardsBySuitAndRank = new Dictionary<Suit, Dictionary<Rank, Card>>();
+            var allCardsByRank = new List<Card>[14];
+            var nonWildCardsByRank = new List<Card>[14];
+            var nonWildCardsBySuit = new List<Card>[6];
             var nonWildCardsBySuitRankLookup = new Card[6, 14];
             var nonWildPrefixCountsBySuitRank = new int[6, 14];
+            var nonWildCountsByRank = new int[14];
+            var allCountsByRank = new int[14];
 
             foreach (var suit in AllSuits)
             {
-                nonWildCardsBySuit[suit] = new List<Card>();
-                nonWildCardsBySuitAndRank[suit] = new Dictionary<Rank, Card>();
+                nonWildCardsBySuit[(int)suit] = new List<Card>();
             }
 
             foreach (var card in cardList)
             {
+                AddToRankIndex(allCardsByRank, allCountsByRank, card);
+
                 if (card.IsWild)
                 {
                     wildCards.Add(card);
@@ -81,26 +81,25 @@ namespace Haggis.Domain.Extentions
                 else
                 {
                     nonWildCards.Add(card);
-                    nonWildCardsBySuit[card.Suit].Add(card);
-                    nonWildCardsBySuitAndRank[card.Suit][card.Rank] = card;
+                    nonWildCardsBySuit[(int)card.Suit].Add(card);
                     nonWildCardsBySuitRankLookup[(int)card.Suit, (int)card.Rank] = card;
-                    AddToRankIndex(nonWildCardsByRank, card);
+                    AddToRankIndex(nonWildCardsByRank, nonWildCountsByRank, card);
                 }
-
-                AddToRankIndex(allCardsByRank, card);
             }
 
             foreach (var suit in AllSuits)
             {
-                nonWildCardsBySuit[suit].Sort();
+                nonWildCardsBySuit[(int)suit].Sort();
             }
 
             wildCards.Sort((left, right) => left.BaseRank.CompareTo(right.BaseRank));
             nonWildCards.Sort((left, right) => left.CompareBySuitAndRank(right));
+            SortRankBuckets(allCardsByRank);
+            SortRankBuckets(nonWildCardsByRank);
 
             BuildSuitRankPrefixCounts(nonWildCardsBySuitRankLookup, nonWildPrefixCountsBySuitRank);
-            var ranksWithAtLeastNNonWild = BuildRanksWithAtLeastN(nonWildCardsByRank);
-            var ranksWithAtLeastNAll = BuildRanksWithAtLeastN(allCardsByRank);
+            var ranksWithAtLeastNNonWild = BuildRanksWithAtLeastN(nonWildCountsByRank);
+            var ranksWithAtLeastNAll = BuildRanksWithAtLeastN(allCountsByRank);
             var sameRankCombinationsByRankAndSize = BuildSameRankCombinations(nonWildCardsByRank);
 
             return new HandIndex(
@@ -110,7 +109,6 @@ namespace Haggis.Domain.Extentions
                 allCardsByRank,
                 nonWildCardsByRank,
                 nonWildCardsBySuit,
-                nonWildCardsBySuitAndRank,
                 nonWildCardsBySuitRankLookup,
                 nonWildPrefixCountsBySuitRank,
                 ranksWithAtLeastNNonWild,
@@ -120,22 +118,23 @@ namespace Haggis.Domain.Extentions
 
         public bool ContainsNonWildCards(Rank rank, int minimumCount)
         {
-            return NonWildCardsByRank.TryGetValue(rank, out var cards) && cards.Count >= minimumCount;
+            var cards = NonWildCardsByRank[(int)rank];
+            return cards != null && cards.Count >= minimumCount;
         }
 
-        public List<Card> GetAllCardsByRank(Rank rank)
+        public IReadOnlyList<Card> GetAllCardsByRank(Rank rank)
         {
-            return AllCardsByRank.TryGetValue(rank, out var cards) ? cards : new List<Card>();
+            return AllCardsByRank[(int)rank] ?? EmptyCards;
         }
 
-        public List<Card> GetNonWildCardsByRank(Rank rank)
+        public IReadOnlyList<Card> GetNonWildCardsByRank(Rank rank)
         {
-            return NonWildCardsByRank.TryGetValue(rank, out var cards) ? cards : new List<Card>();
+            return NonWildCardsByRank[(int)rank] ?? EmptyCards;
         }
 
-        public List<Card> GetNonWildCardsBySuit(Suit suit)
+        public IReadOnlyList<Card> GetNonWildCardsBySuit(Suit suit)
         {
-            return NonWildCardsBySuit.TryGetValue(suit, out var cards) ? cards : new List<Card>();
+            return NonWildCardsBySuit[(int)suit] ?? EmptyCards;
         }
 
         public bool TryGetNonWildCard(Suit suit, Rank rank, out Card card)
@@ -177,25 +176,34 @@ namespace Haggis.Domain.Extentions
 
         public IReadOnlyList<Card[]> GetSameRankCombinations(Rank rank, int size)
         {
-            if (!SameRankCombinationsByRankAndSize.TryGetValue(rank, out var combinationsBySize))
+            if (size < 1 || size >= SameRankCombinationsByRankAndSize.GetLength(1))
             {
                 return EmptyCombinations;
             }
 
-            return combinationsBySize.TryGetValue(size, out var combinations)
-                ? combinations
-                : EmptyCombinations;
+            return SameRankCombinationsByRankAndSize[(int)rank, size] ?? EmptyCombinations;
         }
 
-        private static void AddToRankIndex(Dictionary<Rank, List<Card>> index, Card card)
+        private static void AddToRankIndex(List<Card>[] index, int[] countsByRank, Card card)
         {
-            if (!index.TryGetValue(card.Rank, out var cards))
+            var rankIndex = (int)card.Rank;
+            var cards = index[rankIndex];
+            if (cards == null)
             {
                 cards = new List<Card>();
-                index[card.Rank] = cards;
+                index[rankIndex] = cards;
             }
 
             cards.Add(card);
+            countsByRank[rankIndex]++;
+        }
+
+        private static void SortRankBuckets(List<Card>[] cardsByRank)
+        {
+            for (var rankValue = (int)Rank.TWO; rankValue <= (int)Rank.KING; rankValue++)
+            {
+                cardsByRank[rankValue]?.Sort((left, right) => left.CompareBySuitAndRank(right));
+            }
         }
 
         private static void BuildSuitRankPrefixCounts(Card[,] nonWildCardsBySuitRankLookup, int[,] nonWildPrefixCountsBySuitRank)
@@ -217,7 +225,7 @@ namespace Haggis.Domain.Extentions
             }
         }
 
-        private static IReadOnlyList<Rank>[] BuildRanksWithAtLeastN(Dictionary<Rank, List<Card>> cardsByRank)
+        private static IReadOnlyList<Rank>[] BuildRanksWithAtLeastN(int[] countsByRank)
         {
             var ranksWithAtLeastN = new IReadOnlyList<Rank>[7];
             var buckets = new List<Rank>[7];
@@ -227,12 +235,12 @@ namespace Haggis.Domain.Extentions
                 buckets[size] = new List<Rank>();
             }
 
-            foreach (var item in cardsByRank)
+            for (var rankValue = (int)Rank.TWO; rankValue <= (int)Rank.KING; rankValue++)
             {
-                var upperBound = Math.Min(item.Value.Count, buckets.Length - 1);
+                var upperBound = Math.Min(countsByRank[rankValue], buckets.Length - 1);
                 for (var size = 1; size <= upperBound; size++)
                 {
-                    buckets[size].Add(item.Key);
+                    buckets[size].Add((Rank)rankValue);
                 }
             }
 
@@ -244,22 +252,24 @@ namespace Haggis.Domain.Extentions
             return ranksWithAtLeastN;
         }
 
-        private static Dictionary<Rank, IReadOnlyDictionary<int, IReadOnlyList<Card[]>>> BuildSameRankCombinations(
-            Dictionary<Rank, List<Card>> cardsByRank)
+        private static IReadOnlyList<Card[]>[,] BuildSameRankCombinations(List<Card>[] cardsByRank)
         {
-            var result = new Dictionary<Rank, IReadOnlyDictionary<int, IReadOnlyList<Card[]>>>();
+            var result = new IReadOnlyList<Card[]>[14, 7];
 
-            foreach (var item in cardsByRank)
+            for (var rankValue = (int)Rank.TWO; rankValue <= (int)Rank.KING; rankValue++)
             {
-                var combinationsBySize = new Dictionary<int, IReadOnlyList<Card[]>>();
-                var maxCombinationSize = Math.Min(6, item.Value.Count);
+                var cards = cardsByRank[rankValue];
+                if (cards == null)
+                {
+                    continue;
+                }
+
+                var maxCombinationSize = Math.Min(6, cards.Count);
 
                 for (var size = 1; size <= maxCombinationSize; size++)
                 {
-                    combinationsBySize[size] = BuildCardCombinations(item.Value, size);
+                    result[rankValue, size] = BuildCardCombinations(cards, size);
                 }
-
-                result[item.Key] = combinationsBySize;
             }
 
             return result;
@@ -274,13 +284,14 @@ namespace Haggis.Domain.Extentions
             }
 
             var buffer = new Card[length];
-            BuildCardCombinations(cards, length, 0, buffer, combinations);
+            BuildCardCombinations(cards, length, 0, 0, buffer, combinations);
             return combinations;
         }
 
         private static void BuildCardCombinations(
             List<Card> cards,
             int length,
+            int startIndex,
             int depth,
             Card[] buffer,
             List<Card[]> combinations)
@@ -293,16 +304,10 @@ namespace Haggis.Domain.Extentions
                 return;
             }
 
-            for (var index = 0; index < cards.Count; index++)
+            for (var index = startIndex; index <= cards.Count - (length - depth); index++)
             {
-                var candidate = cards[index];
-                if (depth > 0 && candidate.CompareBySuitAndRank(buffer[depth - 1]) <= 0)
-                {
-                    continue;
-                }
-
-                buffer[depth] = candidate;
-                BuildCardCombinations(cards, length, depth + 1, buffer, combinations);
+                buffer[depth] = cards[index];
+                BuildCardCombinations(cards, length, index + 1, depth + 1, buffer, combinations);
             }
         }
     }
