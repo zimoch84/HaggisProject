@@ -584,82 +584,60 @@ namespace Haggis.Domain.Extentions
             stairCards = null;
             hasNonWildCard = false;
 
-            var wildIndex = 0;
-            var sequences = new List<List<Card>>(selectedSuits.Count);
-
-            foreach (var suit in selectedSuits)
-            {
-                if (!TryBuildSuitedSequenceWithSharedWilds(
-                    handIndex,
-                    ref wildIndex,
-                    firstRank,
-                    stairLength,
-                    suit,
-                    out var sequence))
-                {
-                    return false;
-                }
-
-                sequences.Add(sequence);
-            }
-
-            stairCards = new List<Card>(selectedSuits.Count * stairLength);
-            for (var rankOffset = 0; rankOffset < stairLength; rankOffset++)
-            {
-                foreach (var sequence in sequences)
-                {
-                    var card = sequence[rankOffset];
-                    if (!card.IsWild)
-                    {
-                        hasNonWildCard = true;
-                    }
-
-                    stairCards.Add(card);
-                }
-            }
-
-            return true;
-        }
-
-        private static bool TryBuildSuitedSequenceWithSharedWilds(
-            HandIndex handIndex,
-            ref int wildIndex,
-            Rank firstRank,
-            int sequenceLength,
-            Suit suit,
-            out List<Card> sequence)
-        {
-            sequence = null;
-
-            var missingCards = 0;
-            for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
-            {
-                if (!handIndex.TryGetNonWildCard(suit, (Rank)rankValue, out _))
-                {
-                    missingCards++;
-                }
-            }
-
-            if (wildIndex + missingCards > handIndex.WildCards.Count)
+            if (!TryPrepareStair(handIndex, selectedSuits, firstRank, stairLength, out hasNonWildCard))
             {
                 return false;
             }
 
-            sequence = new List<Card>(sequenceLength);
+            var groupSize = selectedSuits.Count;
+            var stairCardsBuffer = new Card[groupSize * stairLength];
+            var wildIndex = 0;
 
-            for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
+            for (var suitIndex = 0; suitIndex < groupSize; suitIndex++)
             {
-                var rank = (Rank)rankValue;
-                if (handIndex.TryGetNonWildCard(suit, rank, out var matchingCard))
+                var suit = selectedSuits[suitIndex];
+                for (var rankOffset = 0; rankOffset < stairLength; rankOffset++)
                 {
-                    sequence.Add(matchingCard);
-                    continue;
-                }
+                    var rank = (Rank)((int)firstRank + rankOffset);
+                    var targetIndex = rankOffset * groupSize + suitIndex;
+                    if (handIndex.TryGetNonWildCard(suit, rank, out var matchingCard))
+                    {
+                        stairCardsBuffer[targetIndex] = matchingCard;
+                        continue;
+                    }
 
-                sequence.Add(handIndex.WildCards[wildIndex++].WildAs(new Card(rank, suit)));
+                    stairCardsBuffer[targetIndex] = handIndex.WildCards[wildIndex++].WildAs(new Card(rank, suit));
+                }
             }
 
+            stairCards = new List<Card>(stairCardsBuffer);
             return true;
+        }
+
+        private static bool TryPrepareStair(
+            HandIndex handIndex,
+            IReadOnlyList<Suit> selectedSuits,
+            Rank firstRank,
+            int stairLength,
+            out bool hasNonWildCard)
+        {
+            hasNonWildCard = false;
+            var totalMissingCards = 0;
+
+            for (var suitIndex = 0; suitIndex < selectedSuits.Count; suitIndex++)
+            {
+                var suit = selectedSuits[suitIndex];
+                var nonWildCount = handIndex.GetNonWildCountInRange(suit, firstRank, stairLength);
+                totalMissingCards += stairLength - nonWildCount;
+                hasNonWildCard |= nonWildCount > 0;
+
+                if (totalMissingCards > handIndex.WildCardCount)
+                {
+                    return false;
+                }
+            }
+
+            return hasNonWildCard;
         }
 
         private static IReadOnlyList<Suit>[] GetSuitCombinations(int length)

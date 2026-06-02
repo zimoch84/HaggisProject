@@ -204,6 +204,28 @@ namespace Haggis.AI.Benchmark
                 $"cloneStateMsPerIteration={timing.CloneStateMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"moveGenerationMs={timing.MoveGenerationMs.ToString("0.000", CultureInfo.InvariantCulture)}",
                 $"moveGenerationMsPerIteration={timing.MoveGenerationMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationHandIndexMs={timing.MoveGenerationHandIndexMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationHandIndexMsPerIteration={timing.MoveGenerationHandIndexMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationSameCardsMs={timing.MoveGenerationSameCardsMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationSameCardsMsPerIteration={timing.MoveGenerationSameCardsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationSameCardsWithWildsMs={timing.MoveGenerationSameCardsWithWildsMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationSameCardsWithWildsMsPerIteration={timing.MoveGenerationSameCardsWithWildsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationSequencesMs={timing.MoveGenerationSequencesMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationSequencesMsPerIteration={timing.MoveGenerationSequencesMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationStairsMs={timing.MoveGenerationStairsMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationStairsMsPerIteration={timing.MoveGenerationStairsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationBombsMs={timing.MoveGenerationBombsMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationBombsMsPerIteration={timing.MoveGenerationBombsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationContinuationFilterMs={timing.MoveGenerationContinuationFilterMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationContinuationFilterMsPerIteration={timing.MoveGenerationContinuationFilterMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationTrickSelectionMs={timing.MoveGenerationTrickSelectionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationTrickSelectionMsPerIteration={timing.MoveGenerationTrickSelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationActionWrappingMs={timing.MoveGenerationActionWrappingMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationActionWrappingMsPerIteration={timing.MoveGenerationActionWrappingMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationActionSelectionMs={timing.MoveGenerationActionSelectionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationActionSelectionMsPerIteration={timing.MoveGenerationActionSelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationPassAppendMs={timing.MoveGenerationPassAppendMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationPassAppendMsPerIteration={timing.MoveGenerationPassAppendMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"selectionMs={timing.SelectionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
                 $"selectionMsPerIteration={timing.SelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"expansionMs={timing.ExpansionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
@@ -228,6 +250,17 @@ namespace Haggis.AI.Benchmark
             target.SchedulerMs += source.SchedulerMs;
             target.CloneStateMs += source.CloneStateMs;
             target.MoveGenerationMs += source.MoveGenerationMs;
+            target.MoveGenerationHandIndexMs += source.MoveGenerationHandIndexMs;
+            target.MoveGenerationSameCardsMs += source.MoveGenerationSameCardsMs;
+            target.MoveGenerationSameCardsWithWildsMs += source.MoveGenerationSameCardsWithWildsMs;
+            target.MoveGenerationSequencesMs += source.MoveGenerationSequencesMs;
+            target.MoveGenerationStairsMs += source.MoveGenerationStairsMs;
+            target.MoveGenerationBombsMs += source.MoveGenerationBombsMs;
+            target.MoveGenerationContinuationFilterMs += source.MoveGenerationContinuationFilterMs;
+            target.MoveGenerationTrickSelectionMs += source.MoveGenerationTrickSelectionMs;
+            target.MoveGenerationActionWrappingMs += source.MoveGenerationActionWrappingMs;
+            target.MoveGenerationActionSelectionMs += source.MoveGenerationActionSelectionMs;
+            target.MoveGenerationPassAppendMs += source.MoveGenerationPassAppendMs;
             target.SelectionMs += source.SelectionMs;
             target.ExpansionMs += source.ExpansionMs;
             target.RolloutMs += source.RolloutMs;
@@ -241,6 +274,17 @@ namespace Haggis.AI.Benchmark
                     timing.SchedulerMs > 0 ||
                     timing.CloneStateMs > 0 ||
                     timing.MoveGenerationMs > 0 ||
+                    timing.MoveGenerationHandIndexMs > 0 ||
+                    timing.MoveGenerationSameCardsMs > 0 ||
+                    timing.MoveGenerationSameCardsWithWildsMs > 0 ||
+                    timing.MoveGenerationSequencesMs > 0 ||
+                    timing.MoveGenerationStairsMs > 0 ||
+                    timing.MoveGenerationBombsMs > 0 ||
+                    timing.MoveGenerationContinuationFilterMs > 0 ||
+                    timing.MoveGenerationTrickSelectionMs > 0 ||
+                    timing.MoveGenerationActionWrappingMs > 0 ||
+                    timing.MoveGenerationActionSelectionMs > 0 ||
+                    timing.MoveGenerationPassAppendMs > 0 ||
                     timing.SelectionMs > 0 ||
                     timing.ExpansionMs > 0 ||
                     timing.RolloutMs > 0 ||

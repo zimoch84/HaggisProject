@@ -118,7 +118,8 @@ namespace Haggis.AI.Strategies
             bool captureTiming)
         {
             var gameStateClone = gameState.Clone();
-            var monteCarloState = new MonteCarloHaggisState(gameStateClone, actionSelectionStrategy);
+            var timing = captureTiming ? new MctsTimingCollector() : null;
+            var monteCarloState = new MonteCarloHaggisState(gameStateClone, actionSelectionStrategy, timing);
             return MonteCarloTreeSearch.Search<MonteCarloHaggisPlayer, MonteCarloHaggisAction>(
                 monteCarloState,
                 new MctsOptions
@@ -129,7 +130,7 @@ namespace Haggis.AI.Strategies
                     Seed = seed,
                     TraceContext = traceContext,
                     Trace = trace,
-                    Timing = captureTiming ? new MctsTimingCollector() : null
+                    Timing = timing
                 });
         }
     }

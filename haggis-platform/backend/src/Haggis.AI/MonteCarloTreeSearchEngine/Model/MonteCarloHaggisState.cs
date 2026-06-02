@@ -11,14 +11,17 @@ namespace MonteCarlo
         public RoundState DomainState { get; }
         private IMonteCarloActionSelectionStrategy ActionSelectionStrategy { get; }
         private MonteCarloMoveGenerationService MoveGenerationService { get; }
+        private MctsTimingCollector Timing { get; }
 
         public MonteCarloHaggisState(
             RoundState domainState,
-            IMonteCarloActionSelectionStrategy actionSelectionStrategy = null)
+            IMonteCarloActionSelectionStrategy actionSelectionStrategy = null,
+            MctsTimingCollector timing = null)
         {
             DomainState = domainState;
             ActionSelectionStrategy = actionSelectionStrategy;
-            MoveGenerationService = new MonteCarloMoveGenerationService(ActionSelectionStrategy);
+            Timing = timing;
+            MoveGenerationService = new MonteCarloMoveGenerationService(ActionSelectionStrategy, null, timing);
         }
 
         public MonteCarloHaggisPlayer CurrentPlayer => new MonteCarloHaggisPlayer(DomainState.CurrentPlayer);
@@ -32,7 +35,7 @@ namespace MonteCarlo
 
         public IState<MonteCarloHaggisPlayer, MonteCarloHaggisAction> Clone()
         {
-            return new MonteCarloHaggisState(DomainState.Clone(), ActionSelectionStrategy);
+            return new MonteCarloHaggisState(DomainState.Clone(), ActionSelectionStrategy, Timing);
         }
 
         public double GetResult(MonteCarloHaggisPlayer forPlayer)

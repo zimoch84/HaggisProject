@@ -79,6 +79,28 @@ namespace Haggis.AI.Benchmark
                 lines.Add($"  clone state per iteration: {AverageTiming.CloneStateMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  move generation: {AverageTiming.MoveGenerationMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  move generation per iteration: {AverageTiming.MoveGenerationMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    hand index: {AverageTiming.MoveGenerationHandIndexMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    hand index per iteration: {AverageTiming.MoveGenerationHandIndexMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    same cards: {AverageTiming.MoveGenerationSameCardsMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    same cards per iteration: {AverageTiming.MoveGenerationSameCardsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    same cards with wilds: {AverageTiming.MoveGenerationSameCardsWithWildsMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    same cards with wilds per iteration: {AverageTiming.MoveGenerationSameCardsWithWildsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    sequences: {AverageTiming.MoveGenerationSequencesMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    sequences per iteration: {AverageTiming.MoveGenerationSequencesMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    stairs: {AverageTiming.MoveGenerationStairsMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    stairs per iteration: {AverageTiming.MoveGenerationStairsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    bombs: {AverageTiming.MoveGenerationBombsMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    bombs per iteration: {AverageTiming.MoveGenerationBombsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    continuation filter: {AverageTiming.MoveGenerationContinuationFilterMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    continuation filter per iteration: {AverageTiming.MoveGenerationContinuationFilterMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    trick selection: {AverageTiming.MoveGenerationTrickSelectionMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    trick selection per iteration: {AverageTiming.MoveGenerationTrickSelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    action wrapping: {AverageTiming.MoveGenerationActionWrappingMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    action wrapping per iteration: {AverageTiming.MoveGenerationActionWrappingMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    action selection: {AverageTiming.MoveGenerationActionSelectionMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    action selection per iteration: {AverageTiming.MoveGenerationActionSelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    pass append: {AverageTiming.MoveGenerationPassAppendMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    pass append per iteration: {AverageTiming.MoveGenerationPassAppendMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  selection: {AverageTiming.SelectionMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  selection per iteration: {AverageTiming.SelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  expansion: {AverageTiming.ExpansionMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
@@ -162,6 +184,17 @@ namespace Haggis.AI.Benchmark
                 SchedulerMs = completedWithTiming.Average(result => result.Timing.SchedulerMs),
                 CloneStateMs = completedWithTiming.Average(result => result.Timing.CloneStateMs),
                 MoveGenerationMs = completedWithTiming.Average(result => result.Timing.MoveGenerationMs),
+                MoveGenerationHandIndexMs = completedWithTiming.Average(result => result.Timing.MoveGenerationHandIndexMs),
+                MoveGenerationSameCardsMs = completedWithTiming.Average(result => result.Timing.MoveGenerationSameCardsMs),
+                MoveGenerationSameCardsWithWildsMs = completedWithTiming.Average(result => result.Timing.MoveGenerationSameCardsWithWildsMs),
+                MoveGenerationSequencesMs = completedWithTiming.Average(result => result.Timing.MoveGenerationSequencesMs),
+                MoveGenerationStairsMs = completedWithTiming.Average(result => result.Timing.MoveGenerationStairsMs),
+                MoveGenerationBombsMs = completedWithTiming.Average(result => result.Timing.MoveGenerationBombsMs),
+                MoveGenerationContinuationFilterMs = completedWithTiming.Average(result => result.Timing.MoveGenerationContinuationFilterMs),
+                MoveGenerationTrickSelectionMs = completedWithTiming.Average(result => result.Timing.MoveGenerationTrickSelectionMs),
+                MoveGenerationActionWrappingMs = completedWithTiming.Average(result => result.Timing.MoveGenerationActionWrappingMs),
+                MoveGenerationActionSelectionMs = completedWithTiming.Average(result => result.Timing.MoveGenerationActionSelectionMs),
+                MoveGenerationPassAppendMs = completedWithTiming.Average(result => result.Timing.MoveGenerationPassAppendMs),
                 SelectionMs = completedWithTiming.Average(result => result.Timing.SelectionMs),
                 ExpansionMs = completedWithTiming.Average(result => result.Timing.ExpansionMs),
                 RolloutMs = completedWithTiming.Average(result => result.Timing.RolloutMs),

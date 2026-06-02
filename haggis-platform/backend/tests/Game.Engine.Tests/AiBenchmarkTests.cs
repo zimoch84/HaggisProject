@@ -276,6 +276,17 @@ namespace HaggisTests
                         SchedulerMs = 2,
                         CloneStateMs = 1,
                         MoveGenerationMs = 3,
+                        MoveGenerationHandIndexMs = 0.4,
+                        MoveGenerationSameCardsMs = 0.5,
+                        MoveGenerationSameCardsWithWildsMs = 0.6,
+                        MoveGenerationSequencesMs = 0.7,
+                        MoveGenerationStairsMs = 0.8,
+                        MoveGenerationBombsMs = 0.9,
+                        MoveGenerationContinuationFilterMs = 1.1,
+                        MoveGenerationTrickSelectionMs = 0.2,
+                        MoveGenerationActionWrappingMs = 0.3,
+                        MoveGenerationActionSelectionMs = 0.4,
+                        MoveGenerationPassAppendMs = 0.1,
                         SelectionMs = 1,
                         ExpansionMs = 1,
                         RolloutMs = 1,
@@ -289,6 +300,8 @@ namespace HaggisTests
             Assert.That(summary.Format(), Does.Contain("MCTS timing"));
             Assert.That(summary.Format(), Does.Contain("scheduler/task overhead"));
             Assert.That(summary.Format(), Does.Contain("move generation per iteration"));
+            Assert.That(summary.Format(), Does.Contain("same cards with wilds"));
+            Assert.That(summary.Format(), Does.Contain("action wrapping"));
             Assert.That(summary.Format(), Does.Contain("Total simulated game time"));
         }
     }

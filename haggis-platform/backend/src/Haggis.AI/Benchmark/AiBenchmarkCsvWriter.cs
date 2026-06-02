@@ -11,7 +11,7 @@ namespace Haggis.AI.Benchmark
         {
             var lines = new List<string>
             {
-                "seed,rotation,winner,winnerStrategy,rounds,moves,gameElapsedMs,p1Score,p2Score,p3Score,mctsCompletedRollouts,mctsSearchMs,mctsSearchMsPerIteration,mctsSchedulerMs,mctsSchedulerMsPerIteration,mctsCloneStateMs,mctsCloneStateMsPerIteration,mctsMoveGenerationMs,mctsMoveGenerationMsPerIteration,mctsSelectionMs,mctsSelectionMsPerIteration,mctsExpansionMs,mctsExpansionMsPerIteration,mctsRolloutMs,mctsRolloutMsPerIteration,mctsBackpropagationMs,mctsBackpropagationMsPerIteration"
+                "seed,rotation,winner,winnerStrategy,rounds,moves,gameElapsedMs,p1Score,p2Score,p3Score,mctsCompletedRollouts,mctsSearchMs,mctsSearchMsPerIteration,mctsSchedulerMs,mctsSchedulerMsPerIteration,mctsCloneStateMs,mctsCloneStateMsPerIteration,mctsMoveGenerationMs,mctsMoveGenerationMsPerIteration,mctsMoveGenerationHandIndexMs,mctsMoveGenerationHandIndexMsPerIteration,mctsMoveGenerationSameCardsMs,mctsMoveGenerationSameCardsMsPerIteration,mctsMoveGenerationSameCardsWithWildsMs,mctsMoveGenerationSameCardsWithWildsMsPerIteration,mctsMoveGenerationSequencesMs,mctsMoveGenerationSequencesMsPerIteration,mctsMoveGenerationStairsMs,mctsMoveGenerationStairsMsPerIteration,mctsMoveGenerationBombsMs,mctsMoveGenerationBombsMsPerIteration,mctsMoveGenerationContinuationFilterMs,mctsMoveGenerationContinuationFilterMsPerIteration,mctsMoveGenerationTrickSelectionMs,mctsMoveGenerationTrickSelectionMsPerIteration,mctsMoveGenerationActionWrappingMs,mctsMoveGenerationActionWrappingMsPerIteration,mctsMoveGenerationActionSelectionMs,mctsMoveGenerationActionSelectionMsPerIteration,mctsMoveGenerationPassAppendMs,mctsMoveGenerationPassAppendMsPerIteration,mctsSelectionMs,mctsSelectionMsPerIteration,mctsExpansionMs,mctsExpansionMsPerIteration,mctsRolloutMs,mctsRolloutMsPerIteration,mctsBackpropagationMs,mctsBackpropagationMsPerIteration"
             };
 
             foreach (var result in results)
@@ -36,6 +36,28 @@ namespace Haggis.AI.Benchmark
                     Timing(result, timing => timing.CloneStateMsPerIteration),
                     Timing(result, timing => timing.MoveGenerationMs),
                     Timing(result, timing => timing.MoveGenerationMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationHandIndexMs),
+                    Timing(result, timing => timing.MoveGenerationHandIndexMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationSameCardsMs),
+                    Timing(result, timing => timing.MoveGenerationSameCardsMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationSameCardsWithWildsMs),
+                    Timing(result, timing => timing.MoveGenerationSameCardsWithWildsMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationSequencesMs),
+                    Timing(result, timing => timing.MoveGenerationSequencesMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationStairsMs),
+                    Timing(result, timing => timing.MoveGenerationStairsMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationBombsMs),
+                    Timing(result, timing => timing.MoveGenerationBombsMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationContinuationFilterMs),
+                    Timing(result, timing => timing.MoveGenerationContinuationFilterMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationTrickSelectionMs),
+                    Timing(result, timing => timing.MoveGenerationTrickSelectionMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationActionWrappingMs),
+                    Timing(result, timing => timing.MoveGenerationActionWrappingMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationActionSelectionMs),
+                    Timing(result, timing => timing.MoveGenerationActionSelectionMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationPassAppendMs),
+                    Timing(result, timing => timing.MoveGenerationPassAppendMsPerIteration),
                     Timing(result, timing => timing.SelectionMs),
                     Timing(result, timing => timing.SelectionMsPerIteration),
                     Timing(result, timing => timing.ExpansionMs),

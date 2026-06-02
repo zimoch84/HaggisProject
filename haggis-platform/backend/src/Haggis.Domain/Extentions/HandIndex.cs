@@ -21,6 +21,7 @@ namespace Haggis.Domain.Extentions
             Dictionary<Suit, List<Card>> nonWildCardsBySuit,
             Dictionary<Suit, Dictionary<Rank, Card>> nonWildCardsBySuitAndRank,
             Card[,] nonWildCardsBySuitRankLookup,
+            int[,] nonWildPrefixCountsBySuitRank,
             IReadOnlyList<Rank>[] ranksWithAtLeastNNonWild,
             IReadOnlyList<Rank>[] ranksWithAtLeastNAll,
             Dictionary<Rank, IReadOnlyDictionary<int, IReadOnlyList<Card[]>>> sameRankCombinationsByRankAndSize)
@@ -33,6 +34,7 @@ namespace Haggis.Domain.Extentions
             NonWildCardsBySuit = nonWildCardsBySuit;
             NonWildCardsBySuitAndRank = nonWildCardsBySuitAndRank;
             NonWildCardsBySuitRankLookup = nonWildCardsBySuitRankLookup;
+            NonWildPrefixCountsBySuitRank = nonWildPrefixCountsBySuitRank;
             RanksWithAtLeastNNonWild = ranksWithAtLeastNNonWild;
             RanksWithAtLeastNAll = ranksWithAtLeastNAll;
             SameRankCombinationsByRankAndSize = sameRankCombinationsByRankAndSize;
@@ -50,6 +52,7 @@ namespace Haggis.Domain.Extentions
         public IReadOnlyList<Rank>[] RanksWithAtLeastNAll { get; }
         public IReadOnlyDictionary<Rank, IReadOnlyDictionary<int, IReadOnlyList<Card[]>>> SameRankCombinationsByRankAndSize { get; }
         private Card[,] NonWildCardsBySuitRankLookup { get; }
+        private int[,] NonWildPrefixCountsBySuitRank { get; }
 
         public static HandIndex Build(IEnumerable<Card> cards)
         {
@@ -61,6 +64,7 @@ namespace Haggis.Domain.Extentions
             var nonWildCardsBySuit = new Dictionary<Suit, List<Card>>();
             var nonWildCardsBySuitAndRank = new Dictionary<Suit, Dictionary<Rank, Card>>();
             var nonWildCardsBySuitRankLookup = new Card[6, 14];
+            var nonWildPrefixCountsBySuitRank = new int[6, 14];
 
             foreach (var suit in AllSuits)
             {
@@ -94,6 +98,7 @@ namespace Haggis.Domain.Extentions
             wildCards.Sort((left, right) => left.BaseRank.CompareTo(right.BaseRank));
             nonWildCards.Sort((left, right) => left.CompareBySuitAndRank(right));
 
+            BuildSuitRankPrefixCounts(nonWildCardsBySuitRankLookup, nonWildPrefixCountsBySuitRank);
             var ranksWithAtLeastNNonWild = BuildRanksWithAtLeastN(nonWildCardsByRank);
             var ranksWithAtLeastNAll = BuildRanksWithAtLeastN(allCardsByRank);
             var sameRankCombinationsByRankAndSize = BuildSameRankCombinations(nonWildCardsByRank);
@@ -107,6 +112,7 @@ namespace Haggis.Domain.Extentions
                 nonWildCardsBySuit,
                 nonWildCardsBySuitAndRank,
                 nonWildCardsBySuitRankLookup,
+                nonWildPrefixCountsBySuitRank,
                 ranksWithAtLeastNNonWild,
                 ranksWithAtLeastNAll,
                 sameRankCombinationsByRankAndSize);
@@ -136,6 +142,23 @@ namespace Haggis.Domain.Extentions
         {
             card = NonWildCardsBySuitRankLookup[(int)suit, (int)rank];
             return card != null;
+        }
+
+        public int GetNonWildCountInRange(Suit suit, Rank firstRank, int length)
+        {
+            if (length <= 0)
+            {
+                return 0;
+            }
+
+            var suitIndex = (int)suit;
+            var startRankValue = (int)firstRank;
+            var endRankValue = startRankValue + length - 1;
+            var beforeStart = startRankValue > (int)Rank.TWO
+                ? NonWildPrefixCountsBySuitRank[suitIndex, startRankValue - 1]
+                : 0;
+
+            return NonWildPrefixCountsBySuitRank[suitIndex, endRankValue] - beforeStart;
         }
 
         public IReadOnlyList<Rank> GetRanksWithAtLeastNNonWild(int minimumCount)
@@ -173,6 +196,25 @@ namespace Haggis.Domain.Extentions
             }
 
             cards.Add(card);
+        }
+
+        private static void BuildSuitRankPrefixCounts(Card[,] nonWildCardsBySuitRankLookup, int[,] nonWildPrefixCountsBySuitRank)
+        {
+            foreach (var suit in AllSuits)
+            {
+                var suitIndex = (int)suit;
+                var runningCount = 0;
+
+                for (var rankValue = (int)Rank.TWO; rankValue <= (int)Rank.KING; rankValue++)
+                {
+                    if (nonWildCardsBySuitRankLookup[suitIndex, rankValue] != null)
+                    {
+                        runningCount++;
+                    }
+
+                    nonWildPrefixCountsBySuitRank[suitIndex, rankValue] = runningCount;
+                }
+            }
         }
 
         private static IReadOnlyList<Rank>[] BuildRanksWithAtLeastN(Dictionary<Rank, List<Card>> cardsByRank)
