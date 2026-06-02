@@ -278,42 +278,39 @@ namespace Haggis.Domain.Extentions
         {
             var bombs = new List<Trick>();
 
-            var filteredCards = new List<Card>();
-            filteredCards.AddRange(handIndex.GetNonWildCardsByRank(Rank.THREE));
-            filteredCards.AddRange(handIndex.GetNonWildCardsByRank(Rank.FIVE));
-            filteredCards.AddRange(handIndex.GetNonWildCardsByRank(Rank.SEVEN));
-            filteredCards.AddRange(handIndex.GetNonWildCardsByRank(Rank.NINE));
+            var threes = handIndex.GetNonWildCardsByRank(Rank.THREE);
+            var fives = handIndex.GetNonWildCardsByRank(Rank.FIVE);
+            var sevens = handIndex.GetNonWildCardsByRank(Rank.SEVEN);
+            var nines = handIndex.GetNonWildCardsByRank(Rank.NINE);
 
-            var combinations = GetKCombinationsByRank(filteredCards, 4);
-            foreach (var combination in combinations)
+            foreach (var three in threes)
             {
-                var cards = combination.ToList();
-                if (cards.IsBomb())
+                foreach (var five in fives)
                 {
-                    bombs.Add(new Trick(TrickType.BOMB, cards));
+                    foreach (var seven in sevens)
+                    {
+                        foreach (var nine in nines)
+                        {
+                            var cards = new List<Card> { three, five, seven, nine };
+                            if (cards.IsBomb())
+                            {
+                                bombs.Add(new Trick(TrickType.BOMB, cards));
+                            }
+                        }
+                    }
                 }
             }
 
-            var wildedCards = handIndex.WildCards;
-            var wildedCombination = GetKCombinationsByRank(wildedCards, 2);
-            foreach (var combination in wildedCombination)
-            {
-                var cards = combination.ToList();
-                if (cards.IsBomb())
-                {
-                    bombs.Add(new Trick(TrickType.BOMB, cards));
-                }
-            }
+            var wildCards = handIndex.WildCards;
+            bombs.AddRange(GetKCombinationsByRank(wildCards, 2)
+                .Select(combination => combination.ToList())
+                .Where(cards => cards.IsBomb())
+                .Select(cards => new Trick(TrickType.BOMB, cards)));
 
-            wildedCombination = GetKCombinationsByRank(wildedCards, 3);
-            foreach (var combination in wildedCombination)
-            {
-                var cards = combination.ToList();
-                if (cards.IsBomb())
-                {
-                    bombs.Add(new Trick(TrickType.BOMB, cards));
-                }
-            }
+            bombs.AddRange(GetKCombinationsByRank(wildCards, 3)
+                .Select(combination => combination.ToList())
+                .Where(cards => cards.IsBomb())
+                .Select(cards => new Trick(TrickType.BOMB, cards)));
 
             return bombs;
         }
