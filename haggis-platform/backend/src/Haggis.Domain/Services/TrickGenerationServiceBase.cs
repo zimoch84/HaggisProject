@@ -33,17 +33,9 @@ namespace Haggis.Domain.Services
                     tricks.AddRange(handIndex.FindTheSameCardsWithWildCards(trickType));
                 }
 
-                var allSequences = handIndex.FindAllCardSequences();
-                foreach (var trickType in SequenceTypes)
-                {
-                    tricks.AddRange(allSequences.Where(trick => trick.Type == trickType));
-                }
+                tricks.AddRange(handIndex.FindAllCardSequences());
 
-                var allStairs = handIndex.FindAllStairs();
-                foreach (var trickType in StairTypes)
-                {
-                    tricks.AddRange(allStairs.Where(trick => trick.Type == trickType));
-                }
+                tricks.AddRange(handIndex.FindAllStairs());
             }
             else
             {

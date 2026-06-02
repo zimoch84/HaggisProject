@@ -32,9 +32,8 @@ namespace Haggis.Domain.Extentions
                 return new List<Trick>();
             }
 
-            return handIndex.FindAllCardSequences()
-                .Where(trick => trick.Type == sequenceType)
-                .ToList();
+            var sequenceLength = ((int)sequenceType - 2) / 10;
+            return FindCardSequencesByLength(handIndex, sequenceType, sequenceLength);
         }
 
         public static List<Trick> FindAllCardSequences(this HandIndex handIndex)
@@ -53,23 +52,23 @@ namespace Haggis.Domain.Extentions
                 {
                     for (var sequenceLength = 3; sequenceLength <= 7 && startRank + sequenceLength - 1 <= (int)Rank.KING; sequenceLength++)
                     {
-                        var sequence = BuildSequenceWithWilds(
+                        if (!TryBuildSequenceWithWilds(
                             handIndex,
                             suit,
                             (Rank)startRank,
-                            sequenceLength);
+                            sequenceLength,
+                            out var sequence))
+                        {
+                            break;
+                        }
 
-                        if (sequence.Count == sequenceLength &&
-                            sequence.Any(card => !card.IsWild) &&
+                        if (sequence.Any(card => !card.IsWild) &&
                             sequence.IsSequence() &&
                             !IsBomb(sequence))
                         {
                             var trickType = (TrickType)(sequenceLength * 10 + 2);
                             tricks.Add(new Trick(trickType, sequence));
-                            continue;
                         }
-
-                        break;
                     }
                 }
             }
@@ -77,14 +76,63 @@ namespace Haggis.Domain.Extentions
             return tricks;
         }
 
-        private static List<Card> BuildSequenceWithWilds(
+        private static List<Trick> FindCardSequencesByLength(HandIndex handIndex, TrickType trickType, int sequenceLength)
+        {
+            var tricks = new List<Trick>();
+
+            foreach (var suit in AllSuits)
+            {
+                var singleSuit = handIndex.GetNonWildCardsBySuit(suit);
+                if (singleSuit.Count == 0)
+                {
+                    continue;
+                }
+
+                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - sequenceLength + 1; startRank++)
+                {
+                    if (TryBuildSequenceWithWilds(
+                        handIndex,
+                        suit,
+                        (Rank)startRank,
+                        sequenceLength,
+                        out var sequence) &&
+                        sequence.Any(card => !card.IsWild) &&
+                        sequence.IsSequence() &&
+                        !IsBomb(sequence))
+                    {
+                        tricks.Add(new Trick(trickType, sequence));
+                    }
+                }
+            }
+
+            return tricks;
+        }
+
+        private static bool TryBuildSequenceWithWilds(
             HandIndex handIndex,
             Suit suit,
             Rank firstRank,
-            int sequenceLength)
+            int sequenceLength,
+            out List<Card> sequence)
         {
-            var sequence = new List<Card>(sequenceLength);
-            var availableWilds = new Queue<Card>(handIndex.WildCards);
+            sequence = null;
+
+            var missingCards = 0;
+            for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
+            {
+                if (!handIndex.TryGetNonWildCard(suit, (Rank)rankValue, out _))
+                {
+                    missingCards++;
+                }
+            }
+
+            if (missingCards > handIndex.WildCards.Count)
+            {
+                return false;
+            }
+
+            sequence = new List<Card>(sequenceLength);
+            var wildIndex = 0;
 
             for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
             {
@@ -95,15 +143,10 @@ namespace Haggis.Domain.Extentions
                     continue;
                 }
 
-                if (availableWilds.Count == 0)
-                {
-                    return new List<Card>();
-                }
-
-                sequence.Add(availableWilds.Dequeue().WildAs(new Card(rank, suit)));
+                sequence.Add(handIndex.WildCards[wildIndex++].WildAs(new Card(rank, suit)));
             }
 
-            return sequence;
+            return true;
         }
 
         public static List<Trick> FindTheSameCards(this List<Card> cards, TrickType trickType)
@@ -199,10 +242,7 @@ namespace Haggis.Domain.Extentions
                 }
             }
 
-            return wildTricks
-                .GroupBy(trick => trick.ToString())
-                .Select(group => group.First())
-                .ToList();
+            return DistinctTricks(wildTricks);
         }
 
         public static bool IsSequence(this List<Card> sequence)
@@ -230,16 +270,46 @@ namespace Haggis.Domain.Extentions
                 return false;
             }
 
-            if (sequence.Exists(card => card.Rank == Rank.THREE) &&
-                sequence.Exists(card => card.Rank == Rank.FIVE) &&
-                sequence.Exists(card => card.Rank == Rank.SEVEN) &&
-                sequence.Exists(card => card.Rank == Rank.NINE) &&
-                (sequence.GroupBy(card => card.Suit).Count() == 4 || sequence.GroupBy(card => card.Suit).Count() == 1))
+            var hasThree = false;
+            var hasFive = false;
+            var hasSeven = false;
+            var hasNine = false;
+            var firstSuit = sequence[0].Suit;
+            var sameSuitCount = 0;
+            var suitMask = 0;
+
+            foreach (var card in sequence)
             {
-                return true;
+                switch (card.Rank)
+                {
+                    case Rank.THREE:
+                        hasThree = true;
+                        break;
+                    case Rank.FIVE:
+                        hasFive = true;
+                        break;
+                    case Rank.SEVEN:
+                        hasSeven = true;
+                        break;
+                    case Rank.NINE:
+                        hasNine = true;
+                        break;
+                }
+
+                if (card.Suit == firstSuit)
+                {
+                    sameSuitCount++;
+                }
+
+                suitMask |= 1 << (int)card.Suit;
             }
 
-            return false;
+            var distinctSuitCount = CountBits(suitMask);
+            return hasThree &&
+                   hasFive &&
+                   hasSeven &&
+                   hasNine &&
+                   (sameSuitCount == sequence.Count || distinctSuitCount == 4);
         }
 
         public static bool IsWildedBomb(this List<Card> sequence)
@@ -254,26 +324,52 @@ namespace Haggis.Domain.Extentions
 
         public static IEnumerable<IEnumerable<Card>> GetKCombinationsByRankAndSuit(this List<Card> list, int length)
         {
-            if (length == 1)
-            {
-                return list.Select(t => new Card[] { t });
-            }
-
-            return GetKCombinationsByRankAndSuit(list, length - 1)
-                .SelectMany(t => list.Where(o => o.CompareBySuitAndRank(t.Last()) > 0),
-                    (t1, t2) => t1.Concat(new Card[] { t2 }));
+            return GetKCombinations(list, length);
         }
 
         public static IEnumerable<IEnumerable<Card>> GetKCombinationsByRank(this List<Card> list, int length)
         {
-            if (length == 1)
+            return GetKCombinations(list, length);
+        }
+
+        private static IEnumerable<IEnumerable<Card>> GetKCombinations(List<Card> list, int length)
+        {
+            if (list == null || length < 1 || list.Count < length)
             {
-                return list.Select(t => new Card[] { t });
+                yield break;
             }
 
-            return GetKCombinationsByRank(list, length - 1)
-                .SelectMany(t => list.Where(o => o.CompareBySuitAndRank(t.Last()) > 0),
-                    (t1, t2) => t1.Concat(new Card[] { t2 }));
+            var buffer = new Card[length];
+            foreach (var combination in GetKCombinations(list, length, 0, buffer))
+            {
+                yield return combination;
+            }
+        }
+
+        private static IEnumerable<IEnumerable<Card>> GetKCombinations(List<Card> list, int length, int depth, Card[] buffer)
+        {
+            if (depth == length)
+            {
+                var result = new Card[length];
+                Array.Copy(buffer, result, length);
+                yield return result;
+                yield break;
+            }
+
+            for (var index = 0; index < list.Count; index++)
+            {
+                var candidate = list[index];
+                if (depth > 0 && candidate.CompareBySuitAndRank(buffer[depth - 1]) <= 0)
+                {
+                    continue;
+                }
+
+                buffer[depth] = candidate;
+                foreach (var result in GetKCombinations(list, length, depth + 1, buffer))
+                {
+                    yield return result;
+                }
+            }
         }
 
         public static void Shuffle(this List<Card> deck)
@@ -356,15 +452,13 @@ namespace Haggis.Domain.Extentions
                 return new List<Trick>();
             }
 
-            return handIndex.FindAllStairs()
-                .Where(trick => trick.Type == stairType)
-                .ToList();
+            return FindStairsByType(handIndex, stairType, stairType.StairGroupSize(), stairType.StairLength());
         }
 
         public static List<Trick> FindAllStairs(this HandIndex handIndex)
         {
             var tricks = new List<Trick>();
-            var seenTricks = new HashSet<string>();
+            var seenTricks = new HashSet<int>();
 
             for (var groupSize = 2; groupSize <= 5; groupSize++)
             {
@@ -384,21 +478,22 @@ namespace Haggis.Domain.Extentions
                             continue;
                         }
 
+                        var buildSucceededAtCurrentLength = false;
                         foreach (var selectedSuits in GetSuitCombinations(groupSize))
                         {
-                            var availableWilds = new Queue<Card>(handIndex.WildCards);
                             var stairCards = new List<Card>();
+                            var wildIndex = 0;
                             var succeeded = true;
 
                             foreach (var suit in selectedSuits)
                             {
-                                var sequence = BuildSuitedSequenceWithSharedWilds(
+                                if (!TryBuildSuitedSequenceWithSharedWilds(
                                     handIndex,
-                                    availableWilds,
+                                    ref wildIndex,
                                     (Rank)startRank,
                                     stairLength,
-                                    suit);
-                                if (sequence.Count != stairLength)
+                                    suit,
+                                    out var sequence))
                                 {
                                     succeeded = false;
                                     break;
@@ -407,16 +502,26 @@ namespace Haggis.Domain.Extentions
                                 stairCards.AddRange(sequence);
                             }
 
+                            if (succeeded)
+                            {
+                                buildSucceededAtCurrentLength = true;
+                            }
+
                             if (!succeeded || !stairCards.Any(card => !card.IsWild))
                             {
                                 continue;
                             }
 
                             var trick = new Trick(stairType, stairCards);
-                            if (seenTricks.Add(trick.ToString()))
+                            if (seenTricks.Add(BuildTrickKey(trick)))
                             {
                                 tricks.Add(trick);
                             }
+                        }
+
+                        if (!buildSucceededAtCurrentLength)
+                        {
+                            break;
                         }
                     }
                 }
@@ -430,14 +535,77 @@ namespace Haggis.Domain.Extentions
             return FindStairs(handIndex, sequenceType);
         }
 
-        private static List<Card> BuildSuitedSequenceWithSharedWilds(
+        private static List<Trick> FindStairsByType(HandIndex handIndex, TrickType stairType, int groupSize, int stairLength)
+        {
+            var tricks = new List<Trick>();
+            var seenTricks = new HashSet<int>();
+
+            for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - stairLength + 1; startRank++)
+            {
+                foreach (var selectedSuits in GetSuitCombinations(groupSize))
+                {
+                    var stairCards = new List<Card>();
+                    var wildIndex = 0;
+                    var succeeded = true;
+
+                    foreach (var suit in selectedSuits)
+                    {
+                        if (!TryBuildSuitedSequenceWithSharedWilds(
+                            handIndex,
+                            ref wildIndex,
+                            (Rank)startRank,
+                            stairLength,
+                            suit,
+                            out var sequence))
+                        {
+                            succeeded = false;
+                            break;
+                        }
+
+                        stairCards.AddRange(sequence);
+                    }
+
+                    if (!succeeded || !stairCards.Any(card => !card.IsWild))
+                    {
+                        continue;
+                    }
+
+                    var trick = new Trick(stairType, stairCards);
+                    if (seenTricks.Add(BuildTrickKey(trick)))
+                    {
+                        tricks.Add(trick);
+                    }
+                }
+            }
+
+            return tricks;
+        }
+
+        private static bool TryBuildSuitedSequenceWithSharedWilds(
             HandIndex handIndex,
-            Queue<Card> availableWilds,
+            ref int wildIndex,
             Rank firstRank,
             int sequenceLength,
-            Suit suit)
+            Suit suit,
+            out List<Card> sequence)
         {
-            var sequence = new List<Card>();
+            sequence = null;
+
+            var missingCards = 0;
+            for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
+            {
+                if (!handIndex.TryGetNonWildCard(suit, (Rank)rankValue, out _))
+                {
+                    missingCards++;
+                }
+            }
+
+            if (wildIndex + missingCards > handIndex.WildCards.Count)
+            {
+                return false;
+            }
+
+            sequence = new List<Card>(sequenceLength);
 
             for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
             {
@@ -448,15 +616,10 @@ namespace Haggis.Domain.Extentions
                     continue;
                 }
 
-                if (availableWilds.Count == 0)
-                {
-                    return new List<Card>();
-                }
-
-                sequence.Add(availableWilds.Dequeue().WildAs(new Card(rank, suit)));
+                sequence.Add(handIndex.WildCards[wildIndex++].WildAs(new Card(rank, suit)));
             }
 
-            return sequence;
+            return true;
         }
 
         private static IEnumerable<IReadOnlyList<Suit>> GetSuitCombinations(int length)
@@ -550,6 +713,51 @@ namespace Haggis.Domain.Extentions
             }
 
             return false;
+        }
+
+        private static List<Trick> DistinctTricks(List<Trick> tricks)
+        {
+            var distinct = new List<Trick>();
+            var seen = new HashSet<int>();
+
+            foreach (var trick in tricks)
+            {
+                if (seen.Add(BuildTrickKey(trick)))
+                {
+                    distinct.Add(trick);
+                }
+            }
+
+            return distinct;
+        }
+
+        private static int BuildTrickKey(Trick trick)
+        {
+            var hash = 17;
+            hash = hash * 31 + trick.Type.GetHashCode();
+
+            foreach (var card in trick.Cards)
+            {
+                hash = hash * 31 + card.GetHashCode();
+                if (card.IsWild)
+                {
+                    hash = hash * 31 + card.Rank.GetHashCode();
+                }
+            }
+
+            return hash;
+        }
+
+        private static int CountBits(int value)
+        {
+            var count = 0;
+            while (value != 0)
+            {
+                count += value & 1;
+                value >>= 1;
+            }
+
+            return count;
         }
     }
 }

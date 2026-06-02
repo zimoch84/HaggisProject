@@ -102,6 +102,17 @@ namespace HaggisTests
         }
 
         [Test]
+        public void FindCardSequences_ShouldReturnOnlyRequestedSequenceType()
+        {
+            var cards = new[] { "3R", "4R", "5R", "6R", "7R" };
+
+            var combinations = cards.ToCards().FindCardSequences(TrickType.SEQ4);
+
+            Assert.That(combinations, Is.Not.Empty);
+            Assert.That(combinations.All(trick => trick.Type == TrickType.SEQ4), Is.True);
+        }
+
+        [Test]
         public void FindPairedSequences_ShouldFindThreePairSequence()
         {
             var cards = new[] { "6O", "7B", "8B", "6B", "7O", "8O" };
@@ -111,6 +122,17 @@ namespace HaggisTests
             Assert.That(
                 combinations.Select(trick => trick.ToString()),
                 Does.Contain("PAIRSEQ3[6B|6O|7B|7O|8B|8O]"));
+        }
+
+        [Test]
+        public void FindStairs_ShouldReturnOnlyRequestedStairType()
+        {
+            var cards = new[] { "3R", "3B", "3G", "4R", "4B", "4G", "5R", "5B", "5G" };
+
+            var combinations = cards.ToCards().FindStairs(TrickType.TRIPLESTAIR3);
+
+            Assert.That(combinations, Is.Not.Empty);
+            Assert.That(combinations.All(trick => trick.Type == TrickType.TRIPLESTAIR3), Is.True);
         }
 
         [Test]
