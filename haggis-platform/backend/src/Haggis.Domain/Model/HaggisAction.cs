@@ -10,37 +10,40 @@ namespace Haggis.Domain.Model
         private readonly Trick _trick;
         private readonly IHaggisPlayer _player;
         private string _desc;
+
         [JsonIgnore]
         public readonly bool IsPass;
 
         [JsonIgnore]
         public string PlayerName => Player.Name;
+
         [JsonIgnore]
         public IHaggisPlayer Player => _player;
-        public string Desc => GetDesc();
+
+        public string Desc => _desc ?? (_desc = BuildDesc());
+
         [JsonIgnore]
         public Trick Trick => _trick;
-        public bool IsFinal => IsPass ? false : _trick.IsFinal;
 
-        public static HaggisAction FromTrick(Trick trick, IHaggisPlayer player)
+        [JsonIgnore]
+        public bool IsFinal { get; }
+
+        public static HaggisAction FromTrick(Trick trick, IHaggisPlayer player, bool isFinal = false)
         {
-            var haggisAction = new HaggisAction(trick, player);
-            return haggisAction;
+            return new HaggisAction(trick, player, isFinal);
         }
 
-        public static HaggisAction FromTrick(string trick, IHaggisPlayer player)
+        public static HaggisAction FromTrick(string trick, IHaggisPlayer player, bool isFinal = false)
         {
-            var haggisAction = new HaggisAction(trick.ToTrick(), player);
-            return haggisAction;
+            return new HaggisAction(trick.ToTrick(), player, isFinal);
         }
 
         public static HaggisAction Pass(IHaggisPlayer player)
         {
-            var haggisAction = new HaggisAction(null, player);
-            return haggisAction;
+            return new HaggisAction(null, player);
         }
 
-        protected HaggisAction(Trick trick, IHaggisPlayer player)
+        protected HaggisAction(Trick trick, IHaggisPlayer player, bool isFinal = false)
         {
             if (trick == null)
             {
@@ -48,52 +51,79 @@ namespace Haggis.Domain.Model
             }
             else
             {
-                _trick = trick.Clone() as Trick;
+                _trick = trick;
                 IsPass = false;
             }
+
+            IsFinal = IsPass ? false : isFinal;
             _player = player;
-            _desc = GetDesc();
         }
 
-        private string GetDesc()
+        private string BuildDesc()
         {
-            return string.Format("{0}", IsPass ? "Pass" : Trick?.ToString());
+            if (IsPass)
+            {
+                return "Pass";
+            }
+
+            return IsFinal
+                ? $"Final {Trick}"
+                : Trick?.ToString();
         }
 
         public override string ToString()
         {
-            return _desc;
+            return Desc;
         }
+
         public object Clone()
         {
-            var haggisAction = new HaggisAction(_trick?.Clone() as Trick, _player.Clone() as IHaggisPlayer);
-            return haggisAction;
+            return new HaggisAction(_trick, _player.Clone() as IHaggisPlayer, IsFinal);
         }
+
         public bool Equals(HaggisAction other)
         {
-            if (IsPass && other.IsPass)
-                return PlayerName == other?.PlayerName;
-
-            if (IsPass && !other.IsPass) return false;
-
-            if (!IsPass && other.IsPass) return false;
-
-            return Trick.Equals(other?.Trick) &&
-                PlayerName == other?.PlayerName;
-        }
-        public override int GetHashCode()
-        {
-            int hash = 17;
-
-            hash = hash * 23 + (IsPass ? 1 : 0); 
-            hash = hash * 23 + (PlayerName != null ? PlayerName.GetHashCode() : 0); 
-
-            if (!IsPass) 
+            if (other is null)
             {
-                hash = hash * 23 + (Trick != null ? Trick.GetHashCode() : 0);
+                return false;
             }
 
-            return hash;
+            if (IsPass && other.IsPass)
+            {
+                return PlayerName == other.PlayerName && IsFinal == other.IsFinal;
+            }
+
+            if (IsPass || other.IsPass)
+            {
+                return false;
+            }
+
+            return Trick.Equals(other.Trick) &&
+                PlayerName == other.PlayerName &&
+                IsFinal == other.IsFinal;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as HaggisAction);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 23 + (IsPass ? 1 : 0);
+                hash = hash * 23 + (IsFinal ? 1 : 0);
+                hash = hash * 23 + (PlayerName != null ? PlayerName.GetHashCode() : 0);
+
+                if (!IsPass)
+                {
+                    hash = hash * 23 + (Trick != null ? Trick.GetHashCode() : 0);
+                }
+
+                return hash;
+            }
         }
     }
 }

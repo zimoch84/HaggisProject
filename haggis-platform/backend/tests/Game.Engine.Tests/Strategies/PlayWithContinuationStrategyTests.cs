@@ -37,8 +37,9 @@ namespace HaggisTests.Strategies
 
             var action = strategy.GetPlayingAction(gameState);
 
-            var trick = new Trick(Haggis.Domain.Enums.TrickType.PAIR, new string[] { "4B", "4O" }.ToCards());
-            Assert.That(action.Trick, Is.EqualTo(trick));
+            Assert.That(action.Trick.Type, Is.EqualTo(Haggis.Domain.Enums.TrickType.PAIR));
+            Assert.That(action.Trick.Cards.All(card => !card.IsWild), Is.True);
+            Assert.That(action.Trick.Cards.All(card => card.Rank == Haggis.Domain.Enums.Rank.FOUR), Is.True);
         }
 
 

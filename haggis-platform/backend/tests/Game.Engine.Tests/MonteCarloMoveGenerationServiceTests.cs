@@ -38,7 +38,7 @@ namespace HaggisTests
             Assert.That(actions.Count, Is.EqualTo(1));
             Assert.That(actions[0].IsPass, Is.False);
             Assert.That(actions[0].IsFinal, Is.True);
-            Assert.That(actions[0], Is.EqualTo(FromTrick("3Y_SINGLE", piotr)));
+            Assert.That(actions[0], Is.EqualTo(FromTrick("3Y_SINGLE", piotr, true)));
         }
 
         [Test]
@@ -74,7 +74,7 @@ namespace HaggisTests
             Assert.That(actions.Count, Is.EqualTo(1));
             Assert.That(actions.All(a => !a.IsPass), Is.True);
             Assert.That(actions[0].IsFinal, Is.True);
-            Assert.That(actions[0], Is.EqualTo(FromTrick("4G_SINGLE", slawek)));
+            Assert.That(actions[0], Is.EqualTo(FromTrick("4G_SINGLE", slawek, true)));
         }
 
         [Test]

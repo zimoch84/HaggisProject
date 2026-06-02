@@ -13,7 +13,7 @@ namespace Haggis.Domain.Interfaces
         int OpponentRemainingCardsOnFinish { get; set; }
         Guid GUID { get; }
         bool Finished { get; }
-        void RemoveFromHand(List<Card> cards);
+        void RemoveFromHand(IEnumerable<Card> cards);
         void AddToDiscard(List<Card> cards);
     }
 }

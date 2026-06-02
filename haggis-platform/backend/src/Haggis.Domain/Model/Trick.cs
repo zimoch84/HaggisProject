@@ -1,64 +1,57 @@
 using Haggis.Domain.Extentions;
 using Haggis.Domain.Enums;
-using System.Text;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Text;
 
 namespace Haggis.Domain.Model
 {
     /**
      *
-     * @author Piotr Grudzień
+     * @author Piotr GrudzieĹ„
      */
 
     public class Trick : IComparable, ICloneable, IEquatable<Trick>
     {
-        private TrickType _type;
-        private List<Card> _cards;
-        private BombType? _bomb;
+        private readonly TrickType _type;
+        private readonly List<Card> _cards;
+        private readonly BombType? _bomb;
 
-        public bool IsFinal;
-        public TrickType Type { get => _type; set => _type = value; }
-        public List<Card> Cards
-        {
-            get => _cards;
-            set
-            {
-                _cards = value;
-                _bomb = _cards?.GetBombType();
-            }
-        }
+        public TrickType Type => _type;
+        public IReadOnlyList<Card> Cards => _cards;
         public BombType? Bomb => _bomb;
 
         public Trick(TrickType type, List<Card> cards)
-            : this(type, cards, copyCards: true, sortCards: true)
+            : this(type, cards, sortCards: true)
         {
         }
 
-        private Trick(TrickType type, List<Card> cards, bool copyCards, bool sortCards)
+        private Trick(TrickType type, List<Card> cards, bool sortCards)
         {
-            Type = type;
-            Cards = copyCards ? cards?.DeepCopy().ToList() : cards;
+            _type = type;
+            _cards = cards == null ? new List<Card>() : new List<Card>(cards);
 
             if (sortCards)
             {
-                Cards.Sort();
+                _cards.Sort();
             }
+
+            _bomb = _cards.GetBombType();
         }
 
         internal static Trick FromGeneratedCards(TrickType type, List<Card> cards)
         {
-            return new Trick(type, cards, copyCards: false, sortCards: false);
+            return new Trick(type, cards, sortCards: false);
         }
 
         public Card FirstCard()
         {
-            return Cards[0];
+            return _cards[0];
         }
+
         public Card LastCard()
         {
-            return Cards[Cards.Count - 1];
+            return _cards[_cards.Count - 1];
         }
 
         public int CompareTo(object obj)
@@ -77,7 +70,7 @@ namespace Haggis.Domain.Model
                     return typeComparison;
                 }
 
-                return ((int)Cards[0].Rank).CompareTo((int)incomingTrick.Cards[0].Rank);
+                return _cards[0].CompareTo(incomingTrick._cards[0]);
             }
 
             if (!thisIsBomb && incomingIsBomb)
@@ -93,37 +86,72 @@ namespace Haggis.Domain.Model
             return ((int)Bomb.Value).CompareTo((int)incomingTrick.Bomb.Value);
         }
 
-        override public string ToString()
+        public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            if (IsFinal)
-                sb.Append("Final ");
-            sb.Append(Type);
+            sb.Append(_type);
             sb.Append("[");
 
-            for (int i = 0; i < Cards.Count; i++)
+            for (int i = 0; i < _cards.Count; i++)
             {
-                sb.Append(Cards[i].ToString());
-                if (i < Cards.Count - 1)
+                sb.Append(_cards[i].ToString());
+                if (i < _cards.Count - 1)
                 {
-                    sb.Append("|"); 
+                    sb.Append("|");
                 }
             }
+
             sb.Append("]");
             return sb.ToString();
         }
 
         public object Clone()
         {
-            return new Trick(_type, _cards)
-            {
-                IsFinal = IsFinal
-            };
+            return this;
         }
 
         public bool Equals(Trick other)
         {
-            return _cards.SequenceEqual(other._cards);
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            if (other is null || _type != other._type || _cards.Count != other._cards.Count)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < _cards.Count; index++)
+            {
+                if (!_cards[index].Equals(other._cards[index]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as Trick);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = hash * 23 + _type.GetHashCode();
+
+                for (var index = 0; index < _cards.Count; index++)
+                {
+                    hash = hash * 23 + _cards[index].GetHashCode();
+                }
+
+                return hash;
+            }
         }
     }
 }

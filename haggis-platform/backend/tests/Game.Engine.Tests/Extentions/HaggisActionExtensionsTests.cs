@@ -35,5 +35,16 @@ namespace HaggisTests.Extentions
             var action = HaggisAction.Pass(player);
             Assert.That(action.PlayerGuid(), Is.EqualTo(player.GUID));
         }
+
+        [Test]
+        public void Desc_ShouldPrefixFinalActionWithoutChangingTrickText()
+        {
+            var player = new HaggisPlayer("P1");
+            var action = HaggisAction.FromTrick("2Y_SINGLE", player, true);
+
+            Assert.That(action.Trick.ToString(), Is.EqualTo("SINGLE[2Y]"));
+            Assert.That(action.Desc, Is.EqualTo("Final SINGLE[2Y]"));
+            Assert.That(action.ToString(), Is.EqualTo("Final SINGLE[2Y]"));
+        }
     }
 }

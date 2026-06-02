@@ -141,6 +141,20 @@ namespace HaggisTests
             Assert.That(rainbow.CompareTo(color), Is.LessThan(0));
             Assert.That(color.CompareTo(rainbow), Is.GreaterThan(0));
         }
+
+        [Test]
+        public void Trick_ShouldBeImmutableAfterConstruction()
+        {
+            var cards = new string[] { "3Y", "4Y", "5Y" }.ToCards();
+            var trick = new Trick(TrickType.SEQ3, cards);
+
+            cards[0] = "9B".ToCard();
+            cards.Add("10O".ToCard());
+
+            Assert.That(trick.ToString(), Is.EqualTo("SEQ3[3Y|4Y|5Y]"));
+            Assert.That(trick.Cards.Count, Is.EqualTo(3));
+        }
+
         [Test]
         public void ShouldBombBeHigherThanTrick() {
 

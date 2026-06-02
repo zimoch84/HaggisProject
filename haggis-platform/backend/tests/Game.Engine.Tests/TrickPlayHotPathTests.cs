@@ -45,12 +45,12 @@ namespace HaggisTests
             var slawek = new HaggisPlayer("Slawek");
             var trickPlay = new TrickPlay(3);
             var finalTrick = "2G_SINGLE".ToTrick();
-            finalTrick.IsFinal = true;
 
             trickPlay.AddAction(HaggisAction.Pass(piotr));
-            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick, slawek));
+            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick, slawek, true));
 
             Assert.That(trickPlay.HasFinalNonPassAction(), Is.True);
         }
     }
 }
+

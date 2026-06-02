@@ -47,10 +47,10 @@ namespace MonteCarlo
             Timing?.AddMoveGenerationActionWrapping(Stopwatch.GetTimestamp() - actionWrappingStart);
 
             var actionSelectionStart = Stopwatch.GetTimestamp();
-            var selectedActions = ActionSelectionStrategy.Select(state, generatedActions).ToList();
+            var selectedActions = ActionSelectionStrategy.Select(state, generatedActions);
             Timing?.AddMoveGenerationActionSelection(Stopwatch.GetTimestamp() - actionSelectionStart);
 
-            var hasFinalAction = selectedActions.Any(action => !action.IsPass && action.Trick != null && action.Trick.IsFinal);
+            var hasFinalAction = selectedActions.Any(action => action.IsFinal);
             if (state.CurrentTrickPlay.LastAction != null && !hasFinalAction)
             {
                 var passAppendStart = Stopwatch.GetTimestamp();

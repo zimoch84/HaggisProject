@@ -1,7 +1,6 @@
 using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace MonteCarlo
 {
@@ -9,7 +8,7 @@ namespace MonteCarlo
     {
         public IList<MonteCarloHaggisAction> Select(RoundState state, IList<MonteCarloHaggisAction> generatedActions)
         {
-            return generatedActions.ToList();
+            return generatedActions;
         }
     }
 }

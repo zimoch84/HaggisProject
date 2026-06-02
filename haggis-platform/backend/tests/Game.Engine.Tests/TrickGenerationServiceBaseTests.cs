@@ -81,8 +81,6 @@ namespace HaggisTests
 
             Assert.That(tricks.Count, Is.EqualTo(1));
             Assert.That(tricks.Last().Equals("3BO_PAIR".ToTrick()), Is.True);
-            Assert.That(tricks.Last().IsFinal, Is.False);
-
             tricks = _service.Continuation(robert, null);
 
             Assert.That(tricks.Count, Is.EqualTo(3));
