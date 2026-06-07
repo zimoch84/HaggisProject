@@ -79,6 +79,10 @@ namespace Haggis.AI.Benchmark
                 lines.Add($"  clone state per iteration: {AverageTiming.CloneStateMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  move generation: {AverageTiming.MoveGenerationMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  move generation per iteration: {AverageTiming.MoveGenerationMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    tree: {AverageTiming.MoveGenerationTreeMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    tree per iteration: {AverageTiming.MoveGenerationTreeMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    rollout: {AverageTiming.MoveGenerationRolloutMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
+                lines.Add($"    rollout per iteration: {AverageTiming.MoveGenerationRolloutMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"    hand index: {AverageTiming.MoveGenerationHandIndexMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"    hand index per iteration: {AverageTiming.MoveGenerationHandIndexMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"    same cards: {AverageTiming.MoveGenerationSameCardsMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
@@ -184,6 +188,8 @@ namespace Haggis.AI.Benchmark
                 SchedulerMs = completedWithTiming.Average(result => result.Timing.SchedulerMs),
                 CloneStateMs = completedWithTiming.Average(result => result.Timing.CloneStateMs),
                 MoveGenerationMs = completedWithTiming.Average(result => result.Timing.MoveGenerationMs),
+                MoveGenerationTreeMs = completedWithTiming.Average(result => result.Timing.MoveGenerationTreeMs),
+                MoveGenerationRolloutMs = completedWithTiming.Average(result => result.Timing.MoveGenerationRolloutMs),
                 MoveGenerationHandIndexMs = completedWithTiming.Average(result => result.Timing.MoveGenerationHandIndexMs),
                 MoveGenerationSameCardsMs = completedWithTiming.Average(result => result.Timing.MoveGenerationSameCardsMs),
                 MoveGenerationSameCardsWithWildsMs = completedWithTiming.Average(result => result.Timing.MoveGenerationSameCardsWithWildsMs),

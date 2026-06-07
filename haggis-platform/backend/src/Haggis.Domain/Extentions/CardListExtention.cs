@@ -23,6 +23,8 @@ namespace Haggis.Domain.Extentions
         private static readonly IReadOnlyList<Suit>[] SuitCombinations3 = BuildSuitCombinations(3);
         private static readonly IReadOnlyList<Suit>[] SuitCombinations4 = BuildSuitCombinations(4);
         private static readonly IReadOnlyList<Suit>[] SuitCombinations5 = BuildSuitCombinations(5);
+        private const int MinRankValue = (int)Rank.TWO;
+        private const int MaxRankValue = (int)Rank.KING;
 
         public static List<Trick> FindCardSequences(this List<Card> cards, TrickType sequenceType)
         {
@@ -46,16 +48,35 @@ namespace Haggis.Domain.Extentions
 
             foreach (var suit in AllSuits)
             {
-                var singleSuit = handIndex.GetNonWildCardsBySuit(suit);
-                if (singleSuit.Count == 0)
+                var suitMask = handIndex.GetNonWildSuitMask(suit);
+                if (suitMask == 0)
                 {
                     continue;
                 }
 
-                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - 2; startRank++)
+                for (var startRank = MinRankValue; startRank <= MaxRankValue - 2; startRank++)
                 {
-                    for (var sequenceLength = 3; sequenceLength <= 7 && startRank + sequenceLength - 1 <= (int)Rank.KING; sequenceLength++)
+                    ushort windowMask = 0;
+                    for (var endRank = startRank; endRank <= MaxRankValue && endRank - startRank < 7; endRank++)
                     {
+                        windowMask |= GetRankBit((Rank)endRank);
+                        var sequenceLength = endRank - startRank + 1;
+                        if (sequenceLength < 3)
+                        {
+                            continue;
+                        }
+
+                        var presentCount = CountBits(suitMask & windowMask);
+                        if (sequenceLength - presentCount > handIndex.WildCardCount)
+                        {
+                            break;
+                        }
+
+                        if (presentCount == 0)
+                        {
+                            continue;
+                        }
+
                         if (!TryBuildSequenceWithWilds(
                             handIndex,
                             suit,
@@ -66,8 +87,7 @@ namespace Haggis.Domain.Extentions
                             break;
                         }
 
-                        if (sequence.Any(card => !card.IsWild) &&
-                            sequence.IsSequence() &&
+                        if (sequence.IsSequence() &&
                             !IsBomb(sequence))
                         {
                             var trickType = (TrickType)(sequenceLength * 10 + 2);
@@ -86,26 +106,31 @@ namespace Haggis.Domain.Extentions
 
             foreach (var suit in AllSuits)
             {
-                var singleSuit = handIndex.GetNonWildCardsBySuit(suit);
-                if (singleSuit.Count == 0)
+                var suitMask = handIndex.GetNonWildSuitMask(suit);
+                if (suitMask == 0)
                 {
                     continue;
                 }
 
-                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - sequenceLength + 1; startRank++)
+                var windowMask = CreateRankWindowMask(Rank.TWO, sequenceLength);
+                for (var startRank = MinRankValue; startRank <= MaxRankValue - sequenceLength + 1; startRank++)
                 {
-                    if (TryBuildSequenceWithWilds(
+                    var presentCount = CountBits(suitMask & windowMask);
+                    if (sequenceLength - presentCount <= handIndex.WildCardCount &&
+                        presentCount > 0 &&
+                        TryBuildSequenceWithWilds(
                         handIndex,
                         suit,
                         (Rank)startRank,
                         sequenceLength,
                         out var sequence) &&
-                        sequence.Any(card => !card.IsWild) &&
                         sequence.IsSequence() &&
                         !IsBomb(sequence))
                     {
                         tricks.Add(Trick.FromGeneratedCards(trickType, sequence));
                     }
+
+                    windowMask = (ushort)(windowMask << 1);
                 }
             }
 
@@ -121,14 +146,8 @@ namespace Haggis.Domain.Extentions
         {
             sequence = null;
 
-            var missingCards = 0;
-            for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
-            {
-                if (!handIndex.TryGetNonWildCard(suit, (Rank)rankValue, out _))
-                {
-                    missingCards++;
-                }
-            }
+            var nonWildCount = handIndex.GetNonWildCountInRange(suit, firstRank, sequenceLength);
+            var missingCards = sequenceLength - nonWildCount;
 
             if (missingCards > handIndex.WildCards.Count)
             {
@@ -170,8 +189,14 @@ namespace Haggis.Domain.Extentions
 
             if (numberOfTheSameCards == 1)
             {
-                foreach (var rank in handIndex.GetRanksWithAtLeastNAll(1))
+                for (var rankValue = MinRankValue; rankValue <= MaxRankValue; rankValue++)
                 {
+                    var rank = (Rank)rankValue;
+                    if (handIndex.GetAllCount(rank) == 0)
+                    {
+                        continue;
+                    }
+
                     foreach (var card in handIndex.GetAllCardsByRank(rank))
                     {
                         tricks.Add(Trick.FromGeneratedCards(trickType, new List<Card>(1) { card }));
@@ -181,8 +206,14 @@ namespace Haggis.Domain.Extentions
                 return tricks;
             }
 
-            foreach (var rank in handIndex.GetRanksWithAtLeastNNonWild(numberOfTheSameCards))
+            for (var rankValue = MinRankValue; rankValue <= MaxRankValue; rankValue++)
             {
+                var rank = (Rank)rankValue;
+                if (handIndex.GetNonWildCount(rank) < numberOfTheSameCards)
+                {
+                    continue;
+                }
+
                 foreach (var combination in handIndex.GetSameRankCombinations(rank, numberOfTheSameCards))
                 {
                     tricks.Add(Trick.FromGeneratedCards(trickType, new List<Card>(combination)));
@@ -215,8 +246,9 @@ namespace Haggis.Domain.Extentions
 
             var requiredCardCount = (int)wildTrickType / 10;
 
-            foreach (var rank in handIndex.GetRanksWithAtLeastNNonWild(1))
+            for (var rankValue = MinRankValue; rankValue <= MaxRankValue; rankValue++)
             {
+                var rank = (Rank)rankValue;
                 var sameRankCards = handIndex.GetNonWildCardsByRank(rank);
                 var maxNonWildCards = Math.Min(sameRankCards.Count, requiredCardCount - 1);
                 if (maxNonWildCards <= 0)
@@ -492,8 +524,16 @@ namespace Haggis.Domain.Extentions
                 for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - 1; startRank++)
                 {
                     var upperLength = Math.Min(maxLength, (int)Rank.KING - startRank + 1);
-                    for (var stairLength = 2; stairLength <= upperLength; stairLength++)
+                    ushort windowMask = 0;
+                    for (var endRank = startRank; endRank <= MaxRankValue && endRank - startRank < upperLength; endRank++)
                     {
+                        windowMask |= GetRankBit((Rank)endRank);
+                        var stairLength = endRank - startRank + 1;
+                        if (stairLength < 2)
+                        {
+                            continue;
+                        }
+
                         if (!TryGetStairType(groupSize, stairLength, out var stairType))
                         {
                             continue;
@@ -507,6 +547,7 @@ namespace Haggis.Domain.Extentions
                                 selectedSuits,
                                 (Rank)startRank,
                                 stairLength,
+                                windowMask,
                                 out var stairCards,
                                 out var hasNonWildCard);
 
@@ -547,8 +588,9 @@ namespace Haggis.Domain.Extentions
             var tricks = new List<Trick>();
             var seenTricks = new HashSet<int>();
 
-            for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - stairLength + 1; startRank++)
+            for (var startRank = MinRankValue; startRank <= MaxRankValue - stairLength + 1; startRank++)
             {
+                var windowMask = CreateRankWindowMask((Rank)startRank, stairLength);
                 foreach (var selectedSuits in GetSuitCombinations(groupSize))
                 {
                     if (!TryBuildStairCards(
@@ -556,6 +598,7 @@ namespace Haggis.Domain.Extentions
                         selectedSuits,
                         (Rank)startRank,
                         stairLength,
+                        windowMask,
                         out var stairCards,
                         out var hasNonWildCard) ||
                         !hasNonWildCard)
@@ -578,13 +621,14 @@ namespace Haggis.Domain.Extentions
             IReadOnlyList<Suit> selectedSuits,
             Rank firstRank,
             int stairLength,
+            ushort windowMask,
             out List<Card> stairCards,
             out bool hasNonWildCard)
         {
             stairCards = null;
             hasNonWildCard = false;
 
-            if (!TryPrepareStair(handIndex, selectedSuits, firstRank, stairLength, out hasNonWildCard))
+            if (!TryPrepareStair(handIndex, selectedSuits, stairLength, windowMask, out hasNonWildCard))
             {
                 return false;
             }
@@ -617,27 +661,19 @@ namespace Haggis.Domain.Extentions
         private static bool TryPrepareStair(
             HandIndex handIndex,
             IReadOnlyList<Suit> selectedSuits,
-            Rank firstRank,
             int stairLength,
+            ushort windowMask,
             out bool hasNonWildCard)
         {
-            hasNonWildCard = false;
-            var totalMissingCards = 0;
-
+            var totalPresentCards = 0;
             for (var suitIndex = 0; suitIndex < selectedSuits.Count; suitIndex++)
             {
-                var suit = selectedSuits[suitIndex];
-                var nonWildCount = handIndex.GetNonWildCountInRange(suit, firstRank, stairLength);
-                totalMissingCards += stairLength - nonWildCount;
-                hasNonWildCard |= nonWildCount > 0;
-
-                if (totalMissingCards > handIndex.WildCardCount)
-                {
-                    return false;
-                }
+                totalPresentCards += CountBits(handIndex.GetNonWildSuitMask(selectedSuits[suitIndex]) & windowMask);
             }
 
-            return hasNonWildCard;
+            hasNonWildCard = totalPresentCards > 0;
+            var totalMissingCards = selectedSuits.Count * stairLength - totalPresentCards;
+            return hasNonWildCard && totalMissingCards <= handIndex.WildCardCount;
         }
 
         private static IReadOnlyList<Suit>[] GetSuitCombinations(int length)
@@ -745,22 +781,6 @@ namespace Haggis.Domain.Extentions
             return false;
         }
 
-        private static int BuildTrickKey(Trick trick)
-        {
-            unchecked
-            {
-                var hash = 17;
-                hash = hash * 31 + trick.Type.GetHashCode();
-
-                foreach (var card in trick.Cards)
-                {
-                    hash = hash * 31 + BuildCardKey(card);
-                }
-
-                return hash;
-            }
-        }
-
         private static int BuildTrickKey(TrickType trickType, List<Card> cards)
         {
             unchecked
@@ -811,6 +831,17 @@ namespace Haggis.Domain.Extentions
             }
 
             return count;
+        }
+
+        private static ushort CreateRankWindowMask(Rank firstRank, int length)
+        {
+            var startBit = (int)firstRank - MinRankValue;
+            return (ushort)(((1 << length) - 1) << startBit);
+        }
+
+        private static ushort GetRankBit(Rank rank)
+        {
+            return (ushort)(1 << ((int)rank - MinRankValue));
         }
     }
 }

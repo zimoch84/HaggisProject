@@ -204,6 +204,10 @@ namespace Haggis.AI.Benchmark
                 $"cloneStateMsPerIteration={timing.CloneStateMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"moveGenerationMs={timing.MoveGenerationMs.ToString("0.000", CultureInfo.InvariantCulture)}",
                 $"moveGenerationMsPerIteration={timing.MoveGenerationMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationTreeMs={timing.MoveGenerationTreeMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationTreeMsPerIteration={timing.MoveGenerationTreeMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationRolloutMs={timing.MoveGenerationRolloutMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+                $"moveGenerationRolloutMsPerIteration={timing.MoveGenerationRolloutMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"moveGenerationHandIndexMs={timing.MoveGenerationHandIndexMs.ToString("0.000", CultureInfo.InvariantCulture)}",
                 $"moveGenerationHandIndexMsPerIteration={timing.MoveGenerationHandIndexMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
                 $"moveGenerationSameCardsMs={timing.MoveGenerationSameCardsMs.ToString("0.000", CultureInfo.InvariantCulture)}",
@@ -250,6 +254,8 @@ namespace Haggis.AI.Benchmark
             target.SchedulerMs += source.SchedulerMs;
             target.CloneStateMs += source.CloneStateMs;
             target.MoveGenerationMs += source.MoveGenerationMs;
+            target.MoveGenerationTreeMs += source.MoveGenerationTreeMs;
+            target.MoveGenerationRolloutMs += source.MoveGenerationRolloutMs;
             target.MoveGenerationHandIndexMs += source.MoveGenerationHandIndexMs;
             target.MoveGenerationSameCardsMs += source.MoveGenerationSameCardsMs;
             target.MoveGenerationSameCardsWithWildsMs += source.MoveGenerationSameCardsWithWildsMs;
@@ -274,6 +280,8 @@ namespace Haggis.AI.Benchmark
                     timing.SchedulerMs > 0 ||
                     timing.CloneStateMs > 0 ||
                     timing.MoveGenerationMs > 0 ||
+                    timing.MoveGenerationTreeMs > 0 ||
+                    timing.MoveGenerationRolloutMs > 0 ||
                     timing.MoveGenerationHandIndexMs > 0 ||
                     timing.MoveGenerationSameCardsMs > 0 ||
                     timing.MoveGenerationSameCardsWithWildsMs > 0 ||

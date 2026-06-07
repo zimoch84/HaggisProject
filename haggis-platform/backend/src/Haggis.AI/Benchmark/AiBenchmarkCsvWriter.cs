@@ -11,7 +11,7 @@ namespace Haggis.AI.Benchmark
         {
             var lines = new List<string>
             {
-                "seed,rotation,winner,winnerStrategy,rounds,moves,gameElapsedMs,p1Score,p2Score,p3Score,mctsCompletedRollouts,mctsSearchMs,mctsSearchMsPerIteration,mctsSchedulerMs,mctsSchedulerMsPerIteration,mctsCloneStateMs,mctsCloneStateMsPerIteration,mctsMoveGenerationMs,mctsMoveGenerationMsPerIteration,mctsMoveGenerationHandIndexMs,mctsMoveGenerationHandIndexMsPerIteration,mctsMoveGenerationSameCardsMs,mctsMoveGenerationSameCardsMsPerIteration,mctsMoveGenerationSameCardsWithWildsMs,mctsMoveGenerationSameCardsWithWildsMsPerIteration,mctsMoveGenerationSequencesMs,mctsMoveGenerationSequencesMsPerIteration,mctsMoveGenerationStairsMs,mctsMoveGenerationStairsMsPerIteration,mctsMoveGenerationBombsMs,mctsMoveGenerationBombsMsPerIteration,mctsMoveGenerationContinuationFilterMs,mctsMoveGenerationContinuationFilterMsPerIteration,mctsMoveGenerationTrickSelectionMs,mctsMoveGenerationTrickSelectionMsPerIteration,mctsMoveGenerationActionWrappingMs,mctsMoveGenerationActionWrappingMsPerIteration,mctsMoveGenerationActionSelectionMs,mctsMoveGenerationActionSelectionMsPerIteration,mctsMoveGenerationPassAppendMs,mctsMoveGenerationPassAppendMsPerIteration,mctsSelectionMs,mctsSelectionMsPerIteration,mctsExpansionMs,mctsExpansionMsPerIteration,mctsRolloutMs,mctsRolloutMsPerIteration,mctsBackpropagationMs,mctsBackpropagationMsPerIteration"
+                "seed,rotation,winner,winnerStrategy,rounds,moves,gameElapsedMs,p1Score,p2Score,p3Score,mctsCompletedRollouts,mctsSearchMs,mctsSearchMsPerIteration,mctsSchedulerMs,mctsSchedulerMsPerIteration,mctsCloneStateMs,mctsCloneStateMsPerIteration,mctsMoveGenerationMs,mctsMoveGenerationMsPerIteration,mctsMoveGenerationTreeMs,mctsMoveGenerationTreeMsPerIteration,mctsMoveGenerationRolloutMs,mctsMoveGenerationRolloutMsPerIteration,mctsMoveGenerationHandIndexMs,mctsMoveGenerationHandIndexMsPerIteration,mctsMoveGenerationSameCardsMs,mctsMoveGenerationSameCardsMsPerIteration,mctsMoveGenerationSameCardsWithWildsMs,mctsMoveGenerationSameCardsWithWildsMsPerIteration,mctsMoveGenerationSequencesMs,mctsMoveGenerationSequencesMsPerIteration,mctsMoveGenerationStairsMs,mctsMoveGenerationStairsMsPerIteration,mctsMoveGenerationBombsMs,mctsMoveGenerationBombsMsPerIteration,mctsMoveGenerationContinuationFilterMs,mctsMoveGenerationContinuationFilterMsPerIteration,mctsMoveGenerationTrickSelectionMs,mctsMoveGenerationTrickSelectionMsPerIteration,mctsMoveGenerationActionWrappingMs,mctsMoveGenerationActionWrappingMsPerIteration,mctsMoveGenerationActionSelectionMs,mctsMoveGenerationActionSelectionMsPerIteration,mctsMoveGenerationPassAppendMs,mctsMoveGenerationPassAppendMsPerIteration,mctsSelectionMs,mctsSelectionMsPerIteration,mctsExpansionMs,mctsExpansionMsPerIteration,mctsRolloutMs,mctsRolloutMsPerIteration,mctsBackpropagationMs,mctsBackpropagationMsPerIteration"
             };
 
             foreach (var result in results)
@@ -36,6 +36,10 @@ namespace Haggis.AI.Benchmark
                     Timing(result, timing => timing.CloneStateMsPerIteration),
                     Timing(result, timing => timing.MoveGenerationMs),
                     Timing(result, timing => timing.MoveGenerationMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationTreeMs),
+                    Timing(result, timing => timing.MoveGenerationTreeMsPerIteration),
+                    Timing(result, timing => timing.MoveGenerationRolloutMs),
+                    Timing(result, timing => timing.MoveGenerationRolloutMsPerIteration),
                     Timing(result, timing => timing.MoveGenerationHandIndexMs),
                     Timing(result, timing => timing.MoveGenerationHandIndexMsPerIteration),
                     Timing(result, timing => timing.MoveGenerationSameCardsMs),

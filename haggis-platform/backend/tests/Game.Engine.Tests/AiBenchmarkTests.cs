@@ -1,5 +1,7 @@
 using System.Linq;
+using System.IO;
 using Haggis.AI.Benchmark;
+using MonteCarlo;
 using NUnit.Framework;
 
 namespace HaggisTests
@@ -276,6 +278,8 @@ namespace HaggisTests
                         SchedulerMs = 2,
                         CloneStateMs = 1,
                         MoveGenerationMs = 3,
+                        MoveGenerationTreeMs = 1.2,
+                        MoveGenerationRolloutMs = 1.8,
                         MoveGenerationHandIndexMs = 0.4,
                         MoveGenerationSameCardsMs = 0.5,
                         MoveGenerationSameCardsWithWildsMs = 0.6,
@@ -300,9 +304,62 @@ namespace HaggisTests
             Assert.That(summary.Format(), Does.Contain("MCTS timing"));
             Assert.That(summary.Format(), Does.Contain("scheduler/task overhead"));
             Assert.That(summary.Format(), Does.Contain("move generation per iteration"));
+            Assert.That(summary.Format(), Does.Contain("tree"));
+            Assert.That(summary.Format(), Does.Contain("rollout"));
             Assert.That(summary.Format(), Does.Contain("same cards with wilds"));
             Assert.That(summary.Format(), Does.Contain("action wrapping"));
             Assert.That(summary.Format(), Does.Contain("Total simulated game time"));
+        }
+
+        [Test]
+        public void TimingCollector_ShouldSplitTreeAndRolloutMoveGeneration()
+        {
+            var collector = new MctsTimingCollector();
+
+            collector.AddMoveGenerationTree(StopwatchTicksFromMs(1.25));
+            collector.AddMoveGenerationRollout(StopwatchTicksFromMs(2.75));
+
+            var result = collector.Snapshot(0, 3, 2, 1);
+
+            Assert.That(result.MoveGenerationTreeMs, Is.EqualTo(1.25).Within(0.05));
+            Assert.That(result.MoveGenerationRolloutMs, Is.EqualTo(2.75).Within(0.05));
+            Assert.That(result.MoveGenerationMs, Is.EqualTo(result.MoveGenerationTreeMs + result.MoveGenerationRolloutMs).Within(0.001));
+        }
+
+        [Test]
+        public void CsvWriter_ShouldIncludeTreeAndRolloutMoveGenerationColumns()
+        {
+            var path = Path.GetTempFileName();
+            try
+            {
+                AiBenchmarkCsvWriter.Write(path, new[]
+                {
+                    new AiBenchmarkGameResult
+                    {
+                        Completed = true,
+                        Timing = new MctsTimingResult
+                        {
+                            CompletedRollouts = 1,
+                            MoveGenerationMs = 3,
+                            MoveGenerationTreeMs = 1,
+                            MoveGenerationRolloutMs = 2
+                        }
+                    }
+                });
+
+                var header = File.ReadLines(path).First();
+                Assert.That(header, Does.Contain("mctsMoveGenerationTreeMs"));
+                Assert.That(header, Does.Contain("mctsMoveGenerationRolloutMs"));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        private static long StopwatchTicksFromMs(double milliseconds)
+        {
+            return (long)(milliseconds * System.Diagnostics.Stopwatch.Frequency / 1000.0);
         }
     }
 }

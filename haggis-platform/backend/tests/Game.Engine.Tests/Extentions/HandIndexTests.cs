@@ -45,5 +45,17 @@ namespace HaggisTests
             Assert.That(handIndex.GetSameRankCombinations(Rank.FIVE, 2), Has.Count.EqualTo(1));
             Assert.That(handIndex.GetSameRankCombinations(Rank.FIVE, 3), Is.Empty);
         }
+
+        [Test]
+        public void Build_ShouldPopulateBitBasedSuitLookups_AndRangeCounts()
+        {
+            var handIndex = HandIndex.Build(new[] { "3Y", "4Y", "6Y", "3R", "J" }.ToCards());
+
+            Assert.That(handIndex.HasNonWildCard(Suit.YELLOW, Rank.THREE), Is.True);
+            Assert.That(handIndex.HasNonWildCard(Suit.YELLOW, Rank.FIVE), Is.False);
+            Assert.That(handIndex.GetNonWildSuitMask(Suit.YELLOW), Is.Not.EqualTo((ushort)0));
+            Assert.That(handIndex.GetNonWildCountInRange(Suit.YELLOW, Rank.THREE, 4), Is.EqualTo(3));
+            Assert.That(handIndex.GetNonWildCountInRange(Suit.RED, Rank.THREE, 2), Is.EqualTo(1));
+        }
     }
 }

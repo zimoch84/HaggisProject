@@ -13,6 +13,8 @@ namespace MonteCarlo
         public double SchedulerMs { get; set; }
         public double CloneStateMs { get; set; }
         public double MoveGenerationMs { get; set; }
+        public double MoveGenerationTreeMs { get; set; }
+        public double MoveGenerationRolloutMs { get; set; }
         public double MoveGenerationHandIndexMs { get; set; }
         public double MoveGenerationSameCardsMs { get; set; }
         public double MoveGenerationSameCardsWithWildsMs { get; set; }
@@ -41,6 +43,8 @@ namespace MonteCarlo
         public double SchedulerMsPerIteration => PerIteration(SchedulerMs);
         public double CloneStateMsPerIteration => PerIteration(CloneStateMs);
         public double MoveGenerationMsPerIteration => PerIteration(MoveGenerationMs);
+        public double MoveGenerationTreeMsPerIteration => PerIteration(MoveGenerationTreeMs);
+        public double MoveGenerationRolloutMsPerIteration => PerIteration(MoveGenerationRolloutMs);
         public double MoveGenerationHandIndexMsPerIteration => PerIteration(MoveGenerationHandIndexMs);
         public double MoveGenerationSameCardsMsPerIteration => PerIteration(MoveGenerationSameCardsMs);
         public double MoveGenerationSameCardsWithWildsMsPerIteration => PerIteration(MoveGenerationSameCardsWithWildsMs);
@@ -67,7 +71,8 @@ namespace MonteCarlo
     {
         private long schedulerTicks;
         private long cloneStateTicks;
-        private long moveGenerationTicks;
+        private long moveGenerationTreeTicks;
+        private long moveGenerationRolloutTicks;
         private long moveGenerationHandIndexTicks;
         private long moveGenerationSameCardsTicks;
         private long moveGenerationSameCardsWithWildsTicks;
@@ -94,9 +99,14 @@ namespace MonteCarlo
             Interlocked.Add(ref cloneStateTicks, ticks);
         }
 
-        public void AddMoveGeneration(long ticks)
+        public void AddMoveGenerationTree(long ticks)
         {
-            Interlocked.Add(ref moveGenerationTicks, ticks);
+            Interlocked.Add(ref moveGenerationTreeTicks, ticks);
+        }
+
+        public void AddMoveGenerationRollout(long ticks)
+        {
+            Interlocked.Add(ref moveGenerationRolloutTicks, ticks);
         }
 
         public void AddMoveGenerationHandIndex(long ticks)
@@ -176,6 +186,8 @@ namespace MonteCarlo
 
         public MctsTimingResult Snapshot(long searchTicks, int scheduledRollouts, int completedRollouts, int workers)
         {
+            var moveGenerationTreeMs = ToMilliseconds(Interlocked.Read(ref moveGenerationTreeTicks));
+            var moveGenerationRolloutMs = ToMilliseconds(Interlocked.Read(ref moveGenerationRolloutTicks));
             return new MctsTimingResult
             {
                 ScheduledRollouts = scheduledRollouts,
@@ -184,7 +196,9 @@ namespace MonteCarlo
                 SearchMs = ToMilliseconds(searchTicks),
                 SchedulerMs = ToMilliseconds(Interlocked.Read(ref schedulerTicks)),
                 CloneStateMs = ToMilliseconds(Interlocked.Read(ref cloneStateTicks)),
-                MoveGenerationMs = ToMilliseconds(Interlocked.Read(ref moveGenerationTicks)),
+                MoveGenerationMs = moveGenerationTreeMs + moveGenerationRolloutMs,
+                MoveGenerationTreeMs = moveGenerationTreeMs,
+                MoveGenerationRolloutMs = moveGenerationRolloutMs,
                 MoveGenerationHandIndexMs = ToMilliseconds(Interlocked.Read(ref moveGenerationHandIndexTicks)),
                 MoveGenerationSameCardsMs = ToMilliseconds(Interlocked.Read(ref moveGenerationSameCardsTicks)),
                 MoveGenerationSameCardsWithWildsMs = ToMilliseconds(Interlocked.Read(ref moveGenerationSameCardsWithWildsTicks)),

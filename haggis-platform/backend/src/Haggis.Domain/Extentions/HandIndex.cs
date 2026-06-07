@@ -12,6 +12,8 @@ namespace Haggis.Domain.Extentions
         private static readonly IReadOnlyList<Rank> EmptyRanks = Array.Empty<Rank>();
         private static readonly IReadOnlyList<Card> EmptyCards = Array.Empty<Card>();
         private static readonly IReadOnlyList<Card[]> EmptyCombinations = Array.Empty<Card[]>();
+        private const int MinRankValue = (int)Rank.TWO;
+        private const int MaxRankValue = (int)Rank.KING;
 
         private HandIndex(
             List<Card> cards,
@@ -21,10 +23,10 @@ namespace Haggis.Domain.Extentions
             IReadOnlyList<Card>[] nonWildCardsByRank,
             IReadOnlyList<Card>[] nonWildCardsBySuit,
             Card[,] nonWildCardsBySuitRankLookup,
-            int[,] nonWildPrefixCountsBySuitRank,
-            IReadOnlyList<Rank>[] ranksWithAtLeastNNonWild,
-            IReadOnlyList<Rank>[] ranksWithAtLeastNAll,
-            IReadOnlyList<Card[]>[,] sameRankCombinationsByRankAndSize)
+            ushort[] nonWildSuitMasks,
+            ushort nonWildRankMask,
+            byte[] nonWildCountsByRank,
+            byte[] allCountsByRank)
         {
             Cards = cards;
             WildCards = wildCards;
@@ -33,10 +35,10 @@ namespace Haggis.Domain.Extentions
             NonWildCardsByRank = nonWildCardsByRank;
             NonWildCardsBySuit = nonWildCardsBySuit;
             NonWildCardsBySuitRankLookup = nonWildCardsBySuitRankLookup;
-            NonWildPrefixCountsBySuitRank = nonWildPrefixCountsBySuitRank;
-            RanksWithAtLeastNNonWild = ranksWithAtLeastNNonWild;
-            RanksWithAtLeastNAll = ranksWithAtLeastNAll;
-            SameRankCombinationsByRankAndSize = sameRankCombinationsByRankAndSize;
+            NonWildSuitMasks = nonWildSuitMasks;
+            NonWildRankMask = nonWildRankMask;
+            NonWildCountsByRank = nonWildCountsByRank;
+            AllCountsByRank = allCountsByRank;
         }
 
         public List<Card> Cards { get; }
@@ -46,11 +48,11 @@ namespace Haggis.Domain.Extentions
         private IReadOnlyList<Card>[] AllCardsByRank { get; }
         private IReadOnlyList<Card>[] NonWildCardsByRank { get; }
         private IReadOnlyList<Card>[] NonWildCardsBySuit { get; }
-        public IReadOnlyList<Rank>[] RanksWithAtLeastNNonWild { get; }
-        public IReadOnlyList<Rank>[] RanksWithAtLeastNAll { get; }
-        private IReadOnlyList<Card[]>[,] SameRankCombinationsByRankAndSize { get; }
         private Card[,] NonWildCardsBySuitRankLookup { get; }
-        private int[,] NonWildPrefixCountsBySuitRank { get; }
+        private ushort[] NonWildSuitMasks { get; }
+        private ushort NonWildRankMask { get; }
+        private byte[] NonWildCountsByRank { get; }
+        private byte[] AllCountsByRank { get; }
 
         public static HandIndex Build(IEnumerable<Card> cards)
         {
@@ -61,9 +63,10 @@ namespace Haggis.Domain.Extentions
             var nonWildCardsByRank = new List<Card>[14];
             var nonWildCardsBySuit = new List<Card>[6];
             var nonWildCardsBySuitRankLookup = new Card[6, 14];
-            var nonWildPrefixCountsBySuitRank = new int[6, 14];
-            var nonWildCountsByRank = new int[14];
-            var allCountsByRank = new int[14];
+            var nonWildSuitMasks = new ushort[6];
+            var nonWildCountsByRank = new byte[14];
+            var allCountsByRank = new byte[14];
+            ushort nonWildRankMask = 0;
 
             foreach (var suit in AllSuits)
             {
@@ -83,6 +86,8 @@ namespace Haggis.Domain.Extentions
                     nonWildCards.Add(card);
                     nonWildCardsBySuit[(int)card.Suit].Add(card);
                     nonWildCardsBySuitRankLookup[(int)card.Suit, (int)card.Rank] = card;
+                    nonWildSuitMasks[(int)card.Suit] |= GetRankBit(card.Rank);
+                    nonWildRankMask |= GetRankBit(card.Rank);
                     AddToRankIndex(nonWildCardsByRank, nonWildCountsByRank, card);
                 }
             }
@@ -97,11 +102,6 @@ namespace Haggis.Domain.Extentions
             SortRankBuckets(allCardsByRank);
             SortRankBuckets(nonWildCardsByRank);
 
-            BuildSuitRankPrefixCounts(nonWildCardsBySuitRankLookup, nonWildPrefixCountsBySuitRank);
-            var ranksWithAtLeastNNonWild = BuildRanksWithAtLeastN(nonWildCountsByRank);
-            var ranksWithAtLeastNAll = BuildRanksWithAtLeastN(allCountsByRank);
-            var sameRankCombinationsByRankAndSize = BuildSameRankCombinations(nonWildCardsByRank);
-
             return new HandIndex(
                 cardList,
                 wildCards,
@@ -110,16 +110,15 @@ namespace Haggis.Domain.Extentions
                 nonWildCardsByRank,
                 nonWildCardsBySuit,
                 nonWildCardsBySuitRankLookup,
-                nonWildPrefixCountsBySuitRank,
-                ranksWithAtLeastNNonWild,
-                ranksWithAtLeastNAll,
-                sameRankCombinationsByRankAndSize);
+                nonWildSuitMasks,
+                nonWildRankMask,
+                nonWildCountsByRank,
+                allCountsByRank);
         }
 
         public bool ContainsNonWildCards(Rank rank, int minimumCount)
         {
-            var cards = NonWildCardsByRank[(int)rank];
-            return cards != null && cards.Count >= minimumCount;
+            return NonWildCountsByRank[(int)rank] >= minimumCount;
         }
 
         public IReadOnlyList<Card> GetAllCardsByRank(Rank rank)
@@ -137,8 +136,39 @@ namespace Haggis.Domain.Extentions
             return NonWildCardsBySuit[(int)suit] ?? EmptyCards;
         }
 
+        public ushort GetNonWildSuitMask(Suit suit)
+        {
+            return NonWildSuitMasks[(int)suit];
+        }
+
+        public ushort GetNonWildRankMask()
+        {
+            return NonWildRankMask;
+        }
+
+        public int GetNonWildCount(Rank rank)
+        {
+            return NonWildCountsByRank[(int)rank];
+        }
+
+        public int GetAllCount(Rank rank)
+        {
+            return AllCountsByRank[(int)rank];
+        }
+
+        public bool HasNonWildCard(Suit suit, Rank rank)
+        {
+            return (NonWildSuitMasks[(int)suit] & GetRankBit(rank)) != 0;
+        }
+
         public bool TryGetNonWildCard(Suit suit, Rank rank, out Card card)
         {
+            if (!HasNonWildCard(suit, rank))
+            {
+                card = null;
+                return false;
+            }
+
             card = NonWildCardsBySuitRankLookup[(int)suit, (int)rank];
             return card != null;
         }
@@ -150,41 +180,31 @@ namespace Haggis.Domain.Extentions
                 return 0;
             }
 
-            var suitIndex = (int)suit;
-            var startRankValue = (int)firstRank;
-            var endRankValue = startRankValue + length - 1;
-            var beforeStart = startRankValue > (int)Rank.TWO
-                ? NonWildPrefixCountsBySuitRank[suitIndex, startRankValue - 1]
-                : 0;
-
-            return NonWildPrefixCountsBySuitRank[suitIndex, endRankValue] - beforeStart;
+            var windowMask = CreateRankWindow(firstRank, length);
+            return CountBits((ushort)(NonWildSuitMasks[(int)suit] & windowMask));
         }
 
         public IReadOnlyList<Rank> GetRanksWithAtLeastNNonWild(int minimumCount)
         {
-            return minimumCount >= 0 && minimumCount < RanksWithAtLeastNNonWild.Length
-                ? RanksWithAtLeastNNonWild[minimumCount]
-                : EmptyRanks;
+            return BuildRanksWithAtLeastN(NonWildCountsByRank, minimumCount);
         }
 
         public IReadOnlyList<Rank> GetRanksWithAtLeastNAll(int minimumCount)
         {
-            return minimumCount >= 0 && minimumCount < RanksWithAtLeastNAll.Length
-                ? RanksWithAtLeastNAll[minimumCount]
-                : EmptyRanks;
+            return BuildRanksWithAtLeastN(AllCountsByRank, minimumCount);
         }
 
         public IReadOnlyList<Card[]> GetSameRankCombinations(Rank rank, int size)
         {
-            if (size < 1 || size >= SameRankCombinationsByRankAndSize.GetLength(1))
+            if (size < 1)
             {
                 return EmptyCombinations;
             }
 
-            return SameRankCombinationsByRankAndSize[(int)rank, size] ?? EmptyCombinations;
+            return BuildCardCombinations(GetNonWildCardsByRank(rank), size);
         }
 
-        private static void AddToRankIndex(List<Card>[] index, int[] countsByRank, Card card)
+        private static void AddToRankIndex(List<Card>[] index, byte[] countsByRank, Card card)
         {
             var rankIndex = (int)card.Rank;
             var cards = index[rankIndex];
@@ -206,76 +226,26 @@ namespace Haggis.Domain.Extentions
             }
         }
 
-        private static void BuildSuitRankPrefixCounts(Card[,] nonWildCardsBySuitRankLookup, int[,] nonWildPrefixCountsBySuitRank)
+        private static IReadOnlyList<Rank> BuildRanksWithAtLeastN(byte[] countsByRank, int minimumCount)
         {
-            foreach (var suit in AllSuits)
+            if (minimumCount < 1)
             {
-                var suitIndex = (int)suit;
-                var runningCount = 0;
-
-                for (var rankValue = (int)Rank.TWO; rankValue <= (int)Rank.KING; rankValue++)
-                {
-                    if (nonWildCardsBySuitRankLookup[suitIndex, rankValue] != null)
-                    {
-                        runningCount++;
-                    }
-
-                    nonWildPrefixCountsBySuitRank[suitIndex, rankValue] = runningCount;
-                }
-            }
-        }
-
-        private static IReadOnlyList<Rank>[] BuildRanksWithAtLeastN(int[] countsByRank)
-        {
-            var ranksWithAtLeastN = new IReadOnlyList<Rank>[7];
-            var buckets = new List<Rank>[7];
-
-            for (var size = 0; size < buckets.Length; size++)
-            {
-                buckets[size] = new List<Rank>();
+                return EmptyRanks;
             }
 
+            var ranks = new List<Rank>();
             for (var rankValue = (int)Rank.TWO; rankValue <= (int)Rank.KING; rankValue++)
             {
-                var upperBound = Math.Min(countsByRank[rankValue], buckets.Length - 1);
-                for (var size = 1; size <= upperBound; size++)
+                if (countsByRank[rankValue] >= minimumCount)
                 {
-                    buckets[size].Add((Rank)rankValue);
+                    ranks.Add((Rank)rankValue);
                 }
             }
 
-            for (var size = 0; size < ranksWithAtLeastN.Length; size++)
-            {
-                ranksWithAtLeastN[size] = buckets[size].ToArray();
-            }
-
-            return ranksWithAtLeastN;
+            return ranks.Count == 0 ? EmptyRanks : ranks.ToArray();
         }
 
-        private static IReadOnlyList<Card[]>[,] BuildSameRankCombinations(List<Card>[] cardsByRank)
-        {
-            var result = new IReadOnlyList<Card[]>[14, 7];
-
-            for (var rankValue = (int)Rank.TWO; rankValue <= (int)Rank.KING; rankValue++)
-            {
-                var cards = cardsByRank[rankValue];
-                if (cards == null)
-                {
-                    continue;
-                }
-
-                var maxCombinationSize = Math.Min(6, cards.Count);
-
-                for (var size = 1; size <= maxCombinationSize; size++)
-                {
-                    result[rankValue, size] = BuildCardCombinations(cards, size);
-                }
-            }
-
-            return result;
-        }
-
-        private static IReadOnlyList<Card[]> BuildCardCombinations(List<Card> cards, int length)
+        private static IReadOnlyList<Card[]> BuildCardCombinations(IReadOnlyList<Card> cards, int length)
         {
             var combinations = new List<Card[]>();
             if (cards == null || length < 1 || cards.Count < length)
@@ -289,7 +259,7 @@ namespace Haggis.Domain.Extentions
         }
 
         private static void BuildCardCombinations(
-            List<Card> cards,
+            IReadOnlyList<Card> cards,
             int length,
             int startIndex,
             int depth,
@@ -309,6 +279,30 @@ namespace Haggis.Domain.Extentions
                 buffer[depth] = cards[index];
                 BuildCardCombinations(cards, length, index + 1, depth + 1, buffer, combinations);
             }
+        }
+
+        private static ushort GetRankBit(Rank rank)
+        {
+            return (ushort)(1 << ((int)rank - MinRankValue));
+        }
+
+        private static ushort CreateRankWindow(Rank firstRank, int length)
+        {
+            var startBit = (int)firstRank - MinRankValue;
+            var widthMask = (1 << length) - 1;
+            return (ushort)(widthMask << startBit);
+        }
+
+        private static int CountBits(ushort value)
+        {
+            var count = 0;
+            while (value != 0)
+            {
+                value = (ushort)(value & (value - 1));
+                count++;
+            }
+
+            return count;
         }
     }
 }

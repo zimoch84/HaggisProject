@@ -73,7 +73,7 @@ namespace MonteCarlo
 
                 var actionsStart = Stopwatch.GetTimestamp();
                 CachedActions = state.Actions.ToList();
-                timing?.AddMoveGeneration(Stopwatch.GetTimestamp() - actionsStart);
+                timing?.AddMoveGenerationTree(Stopwatch.GetTimestamp() - actionsStart);
 
                 UntriedActions = new HashSet<TAction>(CachedActions);
                 Id = id;
@@ -395,7 +395,7 @@ namespace MonteCarlo
                 {
                     var rolloutActionsStart = Stopwatch.GetTimestamp();
                     var rolloutActions = job.RolloutState.Actions;
-                    job.Timing?.AddMoveGeneration(Stopwatch.GetTimestamp() - rolloutActionsStart);
+                    job.Timing?.AddMoveGenerationRollout(Stopwatch.GetTimestamp() - rolloutActionsStart);
 
                     if (rolloutActions.Count == 0)
                     {

@@ -3,6 +3,11 @@ namespace Haggis.Domain.Services
     public enum TrickGenerationPhase
     {
         HandIndex,
+        HandIndexRankBuckets,
+        HandIndexSuitBuckets,
+        HandIndexPrefixCounts,
+        HandIndexSameRankCombinations,
+        HandIndexSorting,
         SameCards,
         SameCardsWithWilds,
         Sequences,
