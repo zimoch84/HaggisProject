@@ -60,9 +60,28 @@ namespace Haggis.AI.Benchmark
         {
             var gameTimer = Stopwatch.StartNew();
             var aggregatedTiming = new MctsTimingResult();
+            var monteCarloDecisionCount = 0;
+            long totalTreeNodeCount = 0;
+            long totalTreeDepth = 0;
+            var maxTreeNodeCount = 0;
+            var maxTreeDepth = 0;
             var strategiesByPlayer = BuildStrategiesByPlayer(options, rotation);
             var players = strategiesByPlayer
-                .Select(item => (IHaggisPlayer)CreatePlayer(item.Key, item.Value, logLines, aggregatedTiming))
+                .Select(item => (IHaggisPlayer)CreatePlayer(item.Key, item.Value, logLines, aggregatedTiming, mctsResult =>
+                {
+                    monteCarloDecisionCount++;
+                    totalTreeNodeCount += mctsResult.TreeNodeCount;
+                    totalTreeDepth += mctsResult.TreeMaxDepth;
+                    if (mctsResult.TreeNodeCount > maxTreeNodeCount)
+                    {
+                        maxTreeNodeCount = mctsResult.TreeNodeCount;
+                    }
+
+                    if (mctsResult.TreeMaxDepth > maxTreeDepth)
+                    {
+                        maxTreeDepth = mctsResult.TreeMaxDepth;
+                    }
+                }))
                 .ToList();
 
             var game = new HaggisGame(
@@ -139,7 +158,12 @@ namespace Haggis.AI.Benchmark
                 LogLines = logLines,
                 Scores = scores,
                 StrategiesByPlayer = strategiesByPlayer,
-                Timing = HasTiming(aggregatedTiming) ? aggregatedTiming : null
+                Timing = HasTiming(aggregatedTiming) ? aggregatedTiming : null,
+                MonteCarloDecisionCount = monteCarloDecisionCount,
+                AverageTreeNodeCount = monteCarloDecisionCount == 0 ? 0 : (double)totalTreeNodeCount / monteCarloDecisionCount,
+                AverageTreeDepth = monteCarloDecisionCount == 0 ? 0 : (double)totalTreeDepth / monteCarloDecisionCount,
+                MaxTreeNodeCount = maxTreeNodeCount,
+                MaxTreeDepth = maxTreeDepth
             };
             LogGameEnd(logLines, winner.Key, strategiesByPlayer[winner.Key], scores, moves, game.ScoringTable.Count, result.GameElapsedMs);
             return result;
@@ -149,13 +173,18 @@ namespace Haggis.AI.Benchmark
             string playerName,
             string strategyName,
             List<string> logLines,
-            MctsTimingResult aggregatedTiming)
+            MctsTimingResult aggregatedTiming,
+            Action<MonteCarloResult> onMonteCarloComputed = null)
         {
             var strategy = AiBenchmarkStrategyFactory.Create(strategyName);
             if (strategy is MonteCarloStrategy monteCarloStrategy)
             {
                 monteCarloStrategy.CaptureTiming = true;
-                monteCarloStrategy.OnComputed += result => LogMonteCarloResult(logLines, result, aggregatedTiming);
+                monteCarloStrategy.OnComputed += result =>
+                {
+                    LogMonteCarloResult(logLines, result, aggregatedTiming);
+                    onMonteCarloComputed?.Invoke(result);
+                };
             }
 
             return new AIPlayer(playerName, strategy);

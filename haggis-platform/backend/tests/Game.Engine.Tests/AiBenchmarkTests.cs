@@ -273,6 +273,11 @@ namespace HaggisTests
                 new AiBenchmarkGameResult
                 {
                     Completed = true,
+                    MonteCarloDecisionCount = 2,
+                    AverageTreeNodeCount = 123.5,
+                    AverageTreeDepth = 7.5,
+                    MaxTreeNodeCount = 180,
+                    MaxTreeDepth = 10,
                     Timing = new MonteCarlo.MctsTimingResult
                     {
                         CompletedRollouts = 5,
@@ -304,6 +309,11 @@ namespace HaggisTests
             var summary = new AiBenchmarkSummary(results);
 
             Assert.That(summary.Format(), Does.Contain("MCTS timing"));
+            Assert.That(summary.Format(), Does.Contain("mcts decisions"));
+            Assert.That(summary.Format(), Does.Contain("avg tree nodes"));
+            Assert.That(summary.Format(), Does.Contain("avg tree depth"));
+            Assert.That(summary.Format(), Does.Contain("max tree nodes"));
+            Assert.That(summary.Format(), Does.Contain("max tree depth"));
             Assert.That(summary.Format(), Does.Contain("scheduler/task overhead"));
             Assert.That(summary.Format(), Does.Contain("move generation per iteration"));
             Assert.That(summary.Format(), Does.Contain("tree"));

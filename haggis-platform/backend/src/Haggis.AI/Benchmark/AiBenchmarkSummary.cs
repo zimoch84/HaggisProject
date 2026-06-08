@@ -22,6 +22,11 @@ namespace Haggis.AI.Benchmark
             WinRateByStrategy = CalculateStrategyWinRates(Results);
             WinRateBySeat = CalculateSeatWinRates(Results);
             AverageTiming = CalculateAverageTiming(Results);
+            AverageMctsDecisionsPerGame = CalculateAverageMctsDecisionsPerGame(Results);
+            AverageTreeNodeCount = CalculateAverageTreeNodeCount(Results);
+            AverageTreeDepth = CalculateAverageTreeDepth(Results);
+            MaxTreeNodeCount = CalculateMaxTreeNodeCount(Results);
+            MaxTreeDepth = CalculateMaxTreeDepth(Results);
         }
 
         public IReadOnlyList<AiBenchmarkGameResult> Results { get; }
@@ -36,6 +41,11 @@ namespace Haggis.AI.Benchmark
         public IReadOnlyDictionary<string, double> WinRateByStrategy { get; }
         public IReadOnlyDictionary<int, double> WinRateBySeat { get; }
         public MctsTimingResult AverageTiming { get; }
+        public double AverageMctsDecisionsPerGame { get; }
+        public double AverageTreeNodeCount { get; }
+        public double AverageTreeDepth { get; }
+        public int MaxTreeNodeCount { get; }
+        public int MaxTreeDepth { get; }
 
         public string Format()
         {
@@ -70,6 +80,14 @@ namespace Haggis.AI.Benchmark
             {
                 lines.Add(string.Empty);
                 lines.Add("MCTS timing (average per completed game):");
+                if (AverageMctsDecisionsPerGame > 0)
+                {
+                    lines.Add($"  mcts decisions: {AverageMctsDecisionsPerGame.ToString("0.000", CultureInfo.InvariantCulture)}");
+                    lines.Add($"  avg tree nodes: {AverageTreeNodeCount.ToString("0.000", CultureInfo.InvariantCulture)}");
+                    lines.Add($"  avg tree depth: {AverageTreeDepth.ToString("0.000", CultureInfo.InvariantCulture)}");
+                    lines.Add($"  max tree nodes: {MaxTreeNodeCount.ToString(CultureInfo.InvariantCulture)}");
+                    lines.Add($"  max tree depth: {MaxTreeDepth.ToString(CultureInfo.InvariantCulture)}");
+                }
                 lines.Add($"  completed rollouts: {AverageTiming.CompletedRollouts.ToString("0.000", CultureInfo.InvariantCulture)}");
                 lines.Add($"  search: {AverageTiming.SearchMs.ToString("0.000", CultureInfo.InvariantCulture)} ms");
                 lines.Add($"  search per iteration: {AverageTiming.SearchMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)} ms");
@@ -206,6 +224,61 @@ namespace Haggis.AI.Benchmark
                 RolloutMs = completedWithTiming.Average(result => result.Timing.RolloutMs),
                 BackpropagationMs = completedWithTiming.Average(result => result.Timing.BackpropagationMs)
             };
+        }
+
+        private static double CalculateAverageMctsDecisionsPerGame(IReadOnlyList<AiBenchmarkGameResult> results)
+        {
+            var completedWithDecisions = results
+                .Where(result => result.Completed && result.MonteCarloDecisionCount > 0)
+                .ToList();
+
+            return completedWithDecisions.Count == 0
+                ? 0
+                : completedWithDecisions.Average(result => result.MonteCarloDecisionCount);
+        }
+
+        private static double CalculateAverageTreeNodeCount(IReadOnlyList<AiBenchmarkGameResult> results)
+        {
+            var completedWithDecisions = results
+                .Where(result => result.Completed && result.MonteCarloDecisionCount > 0)
+                .ToList();
+
+            return completedWithDecisions.Count == 0
+                ? 0
+                : completedWithDecisions.Average(result => result.AverageTreeNodeCount);
+        }
+
+        private static double CalculateAverageTreeDepth(IReadOnlyList<AiBenchmarkGameResult> results)
+        {
+            var completedWithDecisions = results
+                .Where(result => result.Completed && result.MonteCarloDecisionCount > 0)
+                .ToList();
+
+            return completedWithDecisions.Count == 0
+                ? 0
+                : completedWithDecisions.Average(result => result.AverageTreeDepth);
+        }
+
+        private static int CalculateMaxTreeNodeCount(IReadOnlyList<AiBenchmarkGameResult> results)
+        {
+            var completedWithDecisions = results
+                .Where(result => result.Completed && result.MonteCarloDecisionCount > 0)
+                .ToList();
+
+            return completedWithDecisions.Count == 0
+                ? 0
+                : completedWithDecisions.Max(result => result.MaxTreeNodeCount);
+        }
+
+        private static int CalculateMaxTreeDepth(IReadOnlyList<AiBenchmarkGameResult> results)
+        {
+            var completedWithDecisions = results
+                .Where(result => result.Completed && result.MonteCarloDecisionCount > 0)
+                .ToList();
+
+            return completedWithDecisions.Count == 0
+                ? 0
+                : completedWithDecisions.Max(result => result.MaxTreeDepth);
         }
     }
 }
