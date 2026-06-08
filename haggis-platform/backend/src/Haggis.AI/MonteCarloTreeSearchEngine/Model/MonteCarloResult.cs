@@ -16,6 +16,8 @@ namespace Haggis.AI.Model
         public int Workers { get; set; }
         public int ScheduledRollouts { get; set; }
         public int CompletedRollouts { get; set; }
+        public int TreeNodeCount { get; set; }
+        public int TreeMaxDepth { get; set; }
         public MctsTimingResult Timing { get; set; }
     }
 }

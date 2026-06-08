@@ -250,6 +250,8 @@ namespace HaggisTests
             Assert.That(header, Does.Contain("workers="));
             Assert.That(header, Does.Contain("legalActions="));
             Assert.That(header, Does.Contain("rootChildren="));
+            Assert.That(header, Does.Contain("treeNodes="));
+            Assert.That(header, Does.Contain("treeDepth="));
             Assert.That(header, Does.Contain("scheduledRollouts="));
             Assert.That(header, Does.Contain("completedRollouts="));
             Assert.That(result.Timing, Is.Not.Null);

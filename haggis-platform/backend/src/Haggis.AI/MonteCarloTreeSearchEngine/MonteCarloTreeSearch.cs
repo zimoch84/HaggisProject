@@ -50,6 +50,8 @@ namespace MonteCarlo
         public int ScheduledRollouts { get; set; }
         public int CompletedRollouts { get; set; }
         public int Workers { get; set; }
+        public int TreeNodeCount { get; set; }
+        public int TreeMaxDepth { get; set; }
         public MctsTimingResult Timing { get; set; }
     }
 
@@ -652,6 +654,8 @@ namespace MonteCarlo
                     ScheduledRollouts = 0,
                     CompletedRollouts = 0,
                     Workers = 0,
+                    TreeNodeCount = CountNodes(root),
+                    TreeMaxDepth = GetMaxDepth(root),
                     Timing = options.Timing?.Snapshot(searchTimer.ElapsedTicks, 0, 0, 0)
                 };
             }
@@ -671,8 +675,57 @@ namespace MonteCarlo
                 ScheduledRollouts = stats.ScheduledRollouts,
                 CompletedRollouts = stats.CompletedRollouts,
                 Workers = stats.Workers,
+                TreeNodeCount = CountNodes(root),
+                TreeMaxDepth = GetMaxDepth(root),
                 Timing = options.Timing?.Snapshot(searchTimer.ElapsedTicks, stats.ScheduledRollouts, stats.CompletedRollouts, stats.Workers)
             };
+        }
+
+        private static int CountNodes<TPlayer, TAction>(Node<TPlayer, TAction> root)
+            where TPlayer : IPlayer
+            where TAction : IAction
+        {
+            var count = 0;
+            var stack = new Stack<Node<TPlayer, TAction>>();
+            stack.Push(root);
+
+            while (stack.Count > 0)
+            {
+                var node = stack.Pop();
+                count++;
+
+                for (var childIndex = 0; childIndex < node.Children.Count; childIndex++)
+                {
+                    stack.Push(node.Children[childIndex]);
+                }
+            }
+
+            return count;
+        }
+
+        private static int GetMaxDepth<TPlayer, TAction>(Node<TPlayer, TAction> root)
+            where TPlayer : IPlayer
+            where TAction : IAction
+        {
+            var maxDepth = 0;
+            var stack = new Stack<Node<TPlayer, TAction>>();
+            stack.Push(root);
+
+            while (stack.Count > 0)
+            {
+                var node = stack.Pop();
+                if (node.Depth > maxDepth)
+                {
+                    maxDepth = node.Depth;
+                }
+
+                for (var childIndex = 0; childIndex < node.Children.Count; childIndex++)
+                {
+                    stack.Push(node.Children[childIndex]);
+                }
+            }
+
+            return maxDepth;
         }
     }
 }

@@ -172,7 +172,7 @@ namespace Haggis.AI.Benchmark
             }
 
             logLines.Add(
-                $"    mcts: player={result.Player?.Name} iterations={result.Iterations} budgetMs={result.BudgetMs} elapsedMs={result.ElapsedMs} workers={result.Workers} legalActions={result.LegalActionsCount} rootChildren={result.RootChildrenCount} scheduledRollouts={result.ScheduledRollouts} completedRollouts={result.CompletedRollouts}");
+                $"    mcts: player={result.Player?.Name} iterations={result.Iterations} budgetMs={result.BudgetMs} elapsedMs={result.ElapsedMs} workers={result.Workers} legalActions={result.LegalActionsCount} rootChildren={result.RootChildrenCount} treeNodes={result.TreeNodeCount} treeDepth={result.TreeMaxDepth} scheduledRollouts={result.ScheduledRollouts} completedRollouts={result.CompletedRollouts}");
 
             if (result.Timing != null)
             {

@@ -75,6 +75,8 @@ namespace Haggis.AI.Strategies
                 Workers = searchResult.Workers,
                 ScheduledRollouts = searchResult.ScheduledRollouts,
                 CompletedRollouts = searchResult.CompletedRollouts,
+                TreeNodeCount = searchResult.TreeNodeCount,
+                TreeMaxDepth = searchResult.TreeMaxDepth,
                 Timing = searchResult.Timing
             };
 

@@ -116,6 +116,8 @@ namespace HaggisTests.Strategies
             Assert.That(result.Workers, Is.GreaterThan(0));
             Assert.That(result.ScheduledRollouts, Is.GreaterThan(0));
             Assert.That(result.CompletedRollouts, Is.GreaterThan(0));
+            Assert.That(result.TreeNodeCount, Is.GreaterThan(0));
+            Assert.That(result.TreeMaxDepth, Is.GreaterThanOrEqualTo(0));
             Assert.That(result.Actions, Is.Not.Empty);
             Assert.That(result.Iterations, Is.EqualTo(result.Actions.Sum(info => info.NumRuns)));
             Assert.That(result.Actions.All(info => info.WinRate >= 0 && info.WinRate <= 1), Is.True);
@@ -230,6 +232,8 @@ namespace HaggisTests.Strategies
                 Is.EqualTo(first.Actions.Select(action => $"{action.Action.Desc}:{action.NumRuns}:{action.NumWins}").ToArray()));
             Assert.That(second.CompletedRollouts, Is.EqualTo(first.CompletedRollouts));
             Assert.That(second.ScheduledRollouts, Is.EqualTo(first.ScheduledRollouts));
+            Assert.That(second.TreeNodeCount, Is.EqualTo(first.TreeNodeCount));
+            Assert.That(second.TreeMaxDepth, Is.EqualTo(first.TreeMaxDepth));
         }
 
         private static MonteCarloResult ComputeMetrics(RoundState state, int workers)
