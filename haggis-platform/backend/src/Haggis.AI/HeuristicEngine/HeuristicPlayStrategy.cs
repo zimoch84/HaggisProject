@@ -17,7 +17,7 @@ namespace Haggis.AI.Strategies
                 new StartingTrickStrategy(
                     startingTrickFilterStrategy ?? new FilterNoneStrategy(),
                     heuristicOptions: heuristicOptions),
-                continuationTrickStrategy ?? new ContinuationTrickStrategy(false, true))
+                continuationTrickStrategy ?? new ContinuationTrickStrategy(heuristicOptions: heuristicOptions))
         {
         }
 

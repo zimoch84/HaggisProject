@@ -337,15 +337,10 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
 
         if (string.Equals(strategyName, "heuristic", StringComparison.OrdinalIgnoreCase))
         {
-            var useWildsInContinuations = TryReadBoolean(aiElement, "useWildsInContinuations") ??
-                                          TryReadBoolean(aiElement, "heuristicUseWildsInContinuations") ??
-                                          false;
-            var takeLessValueTrickFirst = TryReadBoolean(aiElement, "takeLessValueTrickFirst") ?? true;
-
-            var filter = ResolveStartingTrickFilterStrategy(aiElement, useWildsInContinuations);
+            var filter = ResolveStartingTrickFilterStrategy(aiElement);
             return new HeuristicPlayStrategy(
                 new StartingTrickStrategy(filter),
-                new ContinuationTrickStrategy(useWildsInContinuations, takeLessValueTrickFirst));
+                new ContinuationTrickStrategy());
         }
 
         var simulations = TryReadInt(aiElement, "simulations") ?? MonteCarloMediumSimulations;
@@ -360,7 +355,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
             1 => new RandomPlayStrategy(),
             2 => new HeuristicPlayStrategy(
                 new StartingTrickStrategy(new FilterNoneStrategy()),
-                new ContinuationTrickStrategy(false, true)),
+                new ContinuationTrickStrategy()),
             3 => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs),
             4 => new MonteCarloStrategy(MonteCarloHardSimulations, MonteCarloHardTimeBudgetMs),
             5 => new MonteCarloStrategy(MonteCarloExpertSimulations, MonteCarloExpertTimeBudgetMs),
@@ -368,14 +363,14 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         };
     }
 
-    private static IStartingTrickFilterStrategy ResolveStartingTrickFilterStrategy(JsonElement aiElement, bool useWildsInContinuations)
+    private static IStartingTrickFilterStrategy ResolveStartingTrickFilterStrategy(JsonElement aiElement)
     {
         var filterName = TryReadString(aiElement, "filter");
         var filterLimit = Math.Max(1, TryReadInt(aiElement, "filterLimit") ?? 5);
 
         if (string.Equals(filterName, "continuations", StringComparison.OrdinalIgnoreCase))
         {
-            return new FilterContinuations(filterLimit, useWildsInContinuations);
+            return new FilterContinuations(filterLimit, false);
         }
 
         if (string.Equals(filterName, "least", StringComparison.OrdinalIgnoreCase))

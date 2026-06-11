@@ -89,11 +89,11 @@ namespace Haggis.AI.Benchmark
                 case "normal":
                     return new HeuristicPlayStrategy(
                         new FilterNoneStrategy(),
-                        new ContinuationTrickStrategy(false, true));
+                        heuristicOptions: new HeuristicOptions());
                 case "heuristic-continuations":
                     return new HeuristicPlayStrategy(
                         new FilterContinuations(5, false),
-                        new ContinuationTrickStrategy(false, true));
+                        heuristicOptions: new HeuristicOptions());
                 case "random":
                     return new RandomPlayStrategy();
                 case "montecarlo-fast":

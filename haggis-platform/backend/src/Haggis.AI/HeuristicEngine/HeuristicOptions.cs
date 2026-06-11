@@ -12,5 +12,11 @@ namespace Haggis.AI.Strategies
         public int WildCardOpeningPenaltyFactor { get; set; } = 7;
         public int BombOpeningPenaltyFactor { get; set; } = 100;
         public int HigherRelatedCombinationOpeningPenaltyFactor { get; set; } = 6;
+        public int WildCardContinuationPenaltyFactor { get; set; } = 7;
+        public int BombContinuationPenaltyFactor { get; set; } = 40;
+        public int HigherRelatedCombinationContinuationPenaltyFactor { get; set; } = 4;
+        public int LowerValueContinuationWeight { get; set; } = 2;
+        public int ContinuationFollowUpWeight { get; set; } = 3;
+        public int ShorterContinuationWeight { get; set; } = 1;
     }
 }

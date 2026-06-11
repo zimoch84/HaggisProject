@@ -112,8 +112,6 @@ public class HaggisAiGameFlowIntegrationMatrixTests
             : new
             {
                 strategy = "heuristic",
-                useWildsInContinuations = true,
-                takeLessValueTrickFirst = true,
                 filter = "continuations",
                 filterLimit = 5
             };

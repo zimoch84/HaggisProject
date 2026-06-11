@@ -116,10 +116,12 @@ namespace Haggis.AI.Benchmark
                             $"seed={seed} rotation={rotation} round={state.RoundNumber} move={moves + 1} player={state.CurrentPlayer.Name}";
                     }
 
-                    var previousDiagnosticsSink = StartingTrickStrategy.DiagnosticsSink;
+                    var previousStartingDiagnosticsSink = StartingTrickStrategy.DiagnosticsSink;
+                    var previousContinuationDiagnosticsSink = ContinuationTrickStrategy.DiagnosticsSink;
                     if (aiPlayer.PlayStrategy is HeuristicPlayStrategy)
                     {
                         StartingTrickStrategy.DiagnosticsSink = message => logLines.Add($"    heuristic: player={state.CurrentPlayer.Name} {message}");
+                        ContinuationTrickStrategy.DiagnosticsSink = message => logLines.Add($"    heuristic: player={state.CurrentPlayer.Name} {message}");
                     }
 
                     HaggisAction action;
@@ -129,7 +131,8 @@ namespace Haggis.AI.Benchmark
                     }
                     finally
                     {
-                        StartingTrickStrategy.DiagnosticsSink = previousDiagnosticsSink;
+                        StartingTrickStrategy.DiagnosticsSink = previousStartingDiagnosticsSink;
+                        ContinuationTrickStrategy.DiagnosticsSink = previousContinuationDiagnosticsSink;
                     }
 
                     if (state.CurrentTrickPlay.Actions.Count == 0)
