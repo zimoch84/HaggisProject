@@ -32,7 +32,10 @@ namespace Haggis.Domain.Services
 
             possibleTricks.Sort((left, right) => left.CompareTo(right));
             possibleTricks.ForEach(trick => actions.Add(HaggisAction.FromTrick(trick, state.CurrentPlayer)));
-            actions.Add(HaggisAction.Pass(state.CurrentPlayer));
+            if (lastTrick != null)
+            {
+                actions.Add(HaggisAction.Pass(state.CurrentPlayer));
+            }
 
             return actions;
         }

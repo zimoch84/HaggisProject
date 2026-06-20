@@ -8,6 +8,7 @@ namespace Haggis.AI.ContinuationTrickWeightStrategies
 {
     public sealed class PreferLowerValueContinuationWeightStrategy : IContinuationTrickWeightStrategy
     {
+        private const int MaxWeightCap = 50;
         private int LowerValueContinuationWeight { get; }
 
         public PreferLowerValueContinuationWeightStrategy(int lowerValueContinuationWeight)
@@ -18,11 +19,11 @@ namespace Haggis.AI.ContinuationTrickWeightStrategies
         public IReadOnlyList<(int Weight, Trick Trick)> GetWeight(List<Trick> allSuggestedTricks, RoundState gameState)
         {
             return (allSuggestedTricks ?? new List<Trick>())
-                .Select(trick => (GetWeightForTrick(trick, gameState), trick))
+                .Select(trick => (GetWeightForTrick(trick, allSuggestedTricks, gameState), trick))
                 .ToList();
         }
 
-        private int GetWeightForTrick(Trick trick, RoundState gameState)
+        private int GetWeightForTrick(Trick trick, List<Trick> allSuggestedTricks, RoundState gameState)
         {
             var lastTrick = gameState?.CurrentTrickPlay?.LastNotPassTrick;
             if (trick == null || lastTrick == null || LowerValueContinuationWeight <= 0)
@@ -30,17 +31,42 @@ namespace Haggis.AI.ContinuationTrickWeightStrategies
                 return 0;
             }
 
-            if (trick.Type == TrickType.BOMB && lastTrick.Type != TrickType.BOMB)
+            if (trick.Type == TrickType.BOMB)
             {
-                return -LowerValueContinuationWeight * 10;
+                return 0;
             }
 
-            var typeGap = trick.Type == lastTrick.Type
-                ? 0
-                : ((int)trick.Type - (int)lastTrick.Type) / 10;
-            var rankGap = trick.FirstCard().RankDiff(lastTrick.FirstCard());
+            var comparableTricks = (allSuggestedTricks ?? new List<Trick>())
+                .Where(candidate => candidate != null)
+                .Where(candidate => candidate.Type == trick.Type)
+                .ToList();
+            if (comparableTricks.Count <= 1)
+            {
+                return 0;
+            }
 
-            return -(typeGap + rankGap) * LowerValueContinuationWeight;
+            var orderedTricks = comparableTricks
+                .OrderBy(candidate => candidate)
+                .ToList();
+            var trickIndex = orderedTricks.FindIndex(candidate => ReferenceEquals(candidate, trick));
+            if (trickIndex < 0)
+            {
+                return 0;
+            }
+
+            var lowerValueOpportunity = (orderedTricks.Count - 1) - trickIndex;
+            if (lowerValueOpportunity <= 0)
+            {
+                return 0;
+            }
+
+            var maxComparableOpportunity = orderedTricks.Count - 1;
+            var normalizedWeight = (lowerValueOpportunity * MaxWeightCap * LowerValueContinuationWeight) /
+                                   maxComparableOpportunity;
+
+            return normalizedWeight > MaxWeightCap
+                ? MaxWeightCap
+                : normalizedWeight;
         }
     }
 }

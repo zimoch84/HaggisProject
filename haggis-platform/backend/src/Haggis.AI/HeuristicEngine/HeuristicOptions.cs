@@ -4,7 +4,7 @@ namespace Haggis.AI.Strategies
     {
         public int PreferSinglesNotBreakingNonWildCombinationsWeight { get; set; } = 3;
         public int ContinuationCountWeight { get; set; } = 10;
-        public int PreferNonBreakableOpeningMaxWeight { get; set; } = 50;
+        public int PreferNonBreakableOpeningMaxWeight { get; set; } = 25;
         public int PreferLowerStartCutoff { get; set; } = 8;
         public int PreferLowerStartMaxWeight { get; set; } = 10;
         public int ShorterStartCutoff { get; set; } = 8;
@@ -15,8 +15,8 @@ namespace Haggis.AI.Strategies
         public int WildCardContinuationPenaltyFactor { get; set; } = 7;
         public int BombContinuationPenaltyFactor { get; set; } = 40;
         public int HigherRelatedCombinationContinuationPenaltyFactor { get; set; } = 4;
+        public int PreferUsingWildAsHigherCardInContinuationWeight { get; set; } = 10;
         public int LowerValueContinuationWeight { get; set; } = 2;
         public int ContinuationFollowUpWeight { get; set; } = 3;
-        public int ShorterContinuationWeight { get; set; } = 1;
     }
 }

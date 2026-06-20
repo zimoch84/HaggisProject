@@ -61,15 +61,15 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetPlayingAction_WhenSafeSingleExists_ShouldPreferSingleThatDoesNotBreakCombinations()
         {
-            var p1 = new AIPlayer("p1", new HeuristicPlayStrategy())
+            var p1 = new AIPlayer("p1", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "2R", "2B", "2G", "5G", "6R", "6O", "7G" }.ToCards()
             };
-            var p2 = new AIPlayer("p2", new HeuristicPlayStrategy())
+            var p2 = new AIPlayer("p2", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "3R" }.ToCards()
             };
-            var p3 = new AIPlayer("p3", new HeuristicPlayStrategy())
+            var p3 = new AIPlayer("p3", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "4R" }.ToCards()
             };
@@ -83,18 +83,18 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetPlayingAction_WhenUsingBenchmarkOpeningHand_ShouldPreferTripleOverPair()
         {
-            var p1 = new AIPlayer("p1", new HeuristicPlayStrategy())
+            var p1 = new AIPlayer("p1", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string>
                 {
                     "2R", "2B", "2G", "3B", "4B", "5G", "6R", "6B", "6G", "6O", "7G", "9G", "9Y", "10B", "J", "Q", "K"
                 }.ToCards()
             };
-            var p2 = new AIPlayer("p2", new HeuristicPlayStrategy())
+            var p2 = new AIPlayer("p2", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "2Y", "2O", "3G", "3O", "4R", "4G", "5O", "6Y", "7R", "7B", "8B", "9O", "10G", "10O", "J", "Q", "K" }.ToCards()
             };
-            var p3 = new AIPlayer("p3", new HeuristicPlayStrategy())
+            var p3 = new AIPlayer("p3", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "3R", "3Y", "4Y", "4O", "5R", "5B", "7O", "8R", "8Y", "8O", "9R", "9B", "10R", "10Y", "J", "Q", "K" }.ToCards()
             };
@@ -110,18 +110,18 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetPlayingAction_WhenHandContainsOpeningBomb_ShouldAvoidBombAsOpening()
         {
-            var p1 = new AIPlayer("p1", new HeuristicPlayStrategy())
+            var p1 = new AIPlayer("p1", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string>
                 {
                     "2R", "2B", "2G", "3G", "3O", "4B", "4Y", "4O", "5G", "5Y", "7G", "8G", "9R", "9Y", "J", "Q", "K"
                 }.ToCards()
             };
-            var p2 = new AIPlayer("p2", new HeuristicPlayStrategy())
+            var p2 = new AIPlayer("p2", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "2Y", "3R", "5B", "6R", "6Y", "7R", "8R", "8B", "8Y", "9B", "9G", "9O", "10Y", "10O", "J", "Q", "K" }.ToCards()
             };
-            var p3 = new AIPlayer("p3", new HeuristicPlayStrategy())
+            var p3 = new AIPlayer("p3", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "2O", "3Y", "4R", "4G", "5R", "5O", "6B", "7B", "7Y", "7O", "8O", "10R", "10B", "10G", "J", "Q", "K" }.ToCards()
             };
@@ -137,18 +137,18 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetPlayingAction_WhenHandContainsNaturalPairs_ShouldPreferPairOpening()
         {
-            var p1 = new AIPlayer("p1", new HeuristicPlayStrategy())
+            var p1 = new AIPlayer("p1", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string>
                 {
                     "2B", "2G", "3B", "4B", "6B", "6O", "7G", "10B"
                 }.ToCards()
             };
-            var p2 = new AIPlayer("p2", new HeuristicPlayStrategy())
+            var p2 = new AIPlayer("p2", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "2Y", "2O", "4R", "5O", "6Y", "7R", "7B", "8B", "9O", "10G" }.ToCards()
             };
-            var p3 = new AIPlayer("p3", new HeuristicPlayStrategy())
+            var p3 = new AIPlayer("p3", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "3R", "4Y", "4O", "5B", "8Y", "9R" }.ToCards()
             };
@@ -172,15 +172,15 @@ namespace HaggisTests.Strategies
             string expectedTrickType,
             string[] expectedCards)
         {
-            var p1 = new AIPlayer("p1", new HeuristicPlayStrategy(heuristicOptions: heuristicOptions))
+            var p1 = new AIPlayer("p1", HeuristicPlayStrategy.Create(heuristicOptions: heuristicOptions))
             {
                 Hand = hand.ToCards()
             };
-            var p2 = new AIPlayer("p2", new HeuristicPlayStrategy())
+            var p2 = new AIPlayer("p2", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "10R" }.ToCards()
             };
-            var p3 = new AIPlayer("p3", new HeuristicPlayStrategy())
+            var p3 = new AIPlayer("p3", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "9B" }.ToCards()
             };

@@ -202,10 +202,58 @@ namespace HaggisTests.Strategies
             Assert.That(action.Desc, Is.EqualTo("PAIR[9G|9Y]"));
         }
 
+        [Test]
+        public void GetPlayingAction_WhenWildcardSequenceHasQueenVariant_ShouldLogQueenCandidateAndChooseDeterministicBestSequence()
+        {
+            var diagnostics = new List<string>();
+            var previousDiagnosticsSink = ContinuationTrickStrategy.DiagnosticsSink;
+
+            try
+            {
+                ContinuationTrickStrategy.DiagnosticsSink = diagnostics.Add;
+                var strategy = new ContinuationTrickStrategy();
+                var openerHand = new List<Card>
+                {
+                    new Card(Rank.JACK),
+                    "8B".ToCard(),
+                    "9B".ToCard(),
+                    "2R".ToCard()
+                };
+                var currentHand = new List<string> { "10B", "10G", "10O", "9R", "J", "Q", "K" }.ToCards();
+                var openingTrick = new Trick(
+                    TrickType.SEQ3,
+                    new List<Card>
+                    {
+                        new Card(Rank.JACK).WildAs("7B".ToCard()),
+                        "8B".ToCard(),
+                        "9B".ToCard()
+                    });
+
+                var state = CreateContinuationState(currentHand, openerHand, openingTrick);
+
+                var action = strategy.GetPlayingAction(state);
+
+                Assert.That(
+                    diagnostics.Any(message =>
+                        message.Contains("Continuation trick candidate: SEQ3[J[8B]|Q[9B]|10B]")),
+                    Is.True);
+                Assert.That(action.Desc, Is.EqualTo("SEQ3[J[8B]|K[9B]|10B]"));
+            }
+            finally
+            {
+                ContinuationTrickStrategy.DiagnosticsSink = previousDiagnosticsSink;
+            }
+        }
+
         private static RoundState CreateContinuationState(List<string> currentPlayerHand, List<string> openerHand, Trick openingTrick)
         {
-            var opener = new AIPlayer("opener", new RandomPlayStrategy()) { Hand = openerHand.ToCards() };
-            var current = new AIPlayer("current", new RandomPlayStrategy()) { Hand = currentPlayerHand.ToCards() };
+            return CreateContinuationState(currentPlayerHand.ToCards(), openerHand.ToCards(), openingTrick);
+        }
+
+        private static RoundState CreateContinuationState(List<Card> currentPlayerHand, List<Card> openerHand, Trick openingTrick)
+        {
+            var opener = new AIPlayer("opener", new RandomPlayStrategy()) { Hand = openerHand };
+            var current = new AIPlayer("current", new RandomPlayStrategy()) { Hand = currentPlayerHand };
             var third = new AIPlayer("third", new RandomPlayStrategy()) { Hand = new List<string> { "2Y", "3Y", "4Y" }.ToCards() };
             var state = new RoundState(new List<IHaggisPlayer> { opener, current, third });
 

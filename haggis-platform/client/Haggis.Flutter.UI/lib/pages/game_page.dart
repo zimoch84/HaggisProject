@@ -103,8 +103,10 @@ class _GamePageState extends State<GamePage> {
       });
     },
   );
-  Future<void> _handlePlaySelected() =>
-      handlePlaySelected(context: context, controller: widget.controller);
+  Future<void> _handlePlaySelected() async {
+    await handlePlaySelected(context: context, controller: widget.controller);
+  }
+
   Future<void> _handleCardTap(String card) => handleCardTap(
     context: context,
     controller: widget.controller,

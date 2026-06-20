@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text;
 using System.Text.Json;
 using Haggis.Infrastructure.Services.Engine.Loop;
 using Haggis.AI.Interfaces;
@@ -14,6 +15,7 @@ namespace Haggis.Infrastructure.Services.Engine.Haggis;
 
 public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, HaggisAction, GameCommand>
 {
+    private static readonly object HeuristicDiagnosticsSync = new();
     private static readonly JsonElement EmptyPayload = JsonDocument.Parse("{}").RootElement.Clone();
     private const int MinSupportedPlayers = 2;
     private const int MaxSupportedPlayers = 3;
@@ -24,16 +26,21 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
     private const int MonteCarloExpertSimulations = 1500;
     private const long MonteCarloExpertTimeBudgetMs = 200L;
     private readonly ConcurrentDictionary<string, HaggisGame> _games = new();
+    private readonly ConcurrentDictionary<string, string> _heuristicLogPaths = new();
+    private readonly ConcurrentDictionary<string, object> _heuristicLogLocks = new();
+    private readonly string _heuristicLogDirectory;
 
     private IAiMoveStrategy<RoundState, HaggisAction> AiMoveStrategy { get; }
     private IMoveRuleValidator<RoundState, HaggisAction, GameCommand> MoveRuleValidator { get; }
 
     public HaggisServerGameLoop(
         IAiMoveStrategy<RoundState, HaggisAction> aiMoveStrategy,
-        IMoveRuleValidator<RoundState, HaggisAction, GameCommand> moveRuleValidator)
+        IMoveRuleValidator<RoundState, HaggisAction, GameCommand> moveRuleValidator,
+        IHostEnvironment hostEnvironment)
     {
         AiMoveStrategy = aiMoveStrategy;
         MoveRuleValidator = moveRuleValidator;
+        _heuristicLogDirectory = ResolveHeuristicLogDirectory(hostEnvironment.ContentRootPath);
     }
 
     public bool TryExecute(string gameId, GameCommand command, out RoundState? state, out HaggisAction? appliedMove)
@@ -187,6 +194,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         }
 
         _games[gameId] = game;
+        InitializeHeuristicLogging(gameId, game, command.Payload);
         return game.NewRound();
     }
 
@@ -239,8 +247,43 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
 
     protected override bool ShouldUseAiMove(RoundState state, GameCommand command) => state.CurrentPlayer is AIPlayer;
 
-    protected override HaggisAction ResolveAiMove(RoundState state, IReadOnlyList<HaggisAction> legalMoves) =>
-        AiMoveStrategy.ChooseMove(state, legalMoves);
+    protected override HaggisAction ResolveAiMove(string gameId, RoundState state, IReadOnlyList<HaggisAction> legalMoves)
+    {
+        if (state.CurrentPlayer is not AIPlayer aiPlayer ||
+            aiPlayer.PlayStrategy is not HeuristicPlayStrategy ||
+            !_heuristicLogPaths.TryGetValue(gameId, out var logPath))
+        {
+            return AiMoveStrategy.ChooseMove(state, legalMoves);
+        }
+
+        lock (HeuristicDiagnosticsSync)
+        {
+            var previousStartingDiagnosticsSink = StartingTrickStrategy.DiagnosticsSink;
+            var previousContinuationDiagnosticsSink = ContinuationTrickStrategy.DiagnosticsSink;
+            var diagnosticLines = new List<string>
+            {
+                $"MOVE round={state.RoundNumber} move={state.MoveIteration + 1} player={state.CurrentPlayer.Name}"
+            };
+
+            StartingTrickStrategy.DiagnosticsSink = message =>
+                diagnosticLines.Add($"  heuristic: player={state.CurrentPlayer.Name} {message}");
+            ContinuationTrickStrategy.DiagnosticsSink = message =>
+                diagnosticLines.Add($"  heuristic: player={state.CurrentPlayer.Name} {message}");
+
+            try
+            {
+                var action = AiMoveStrategy.ChooseMove(state, legalMoves);
+                diagnosticLines.Add($"  selected-action: {action.Desc}");
+                AppendHeuristicLogLines(gameId, logPath, diagnosticLines);
+                return action;
+            }
+            finally
+            {
+                StartingTrickStrategy.DiagnosticsSink = previousStartingDiagnosticsSink;
+                ContinuationTrickStrategy.DiagnosticsSink = previousContinuationDiagnosticsSink;
+            }
+        }
+    }
 
     protected override MoveValidationResult ValidateMove(
         RoundState state,
@@ -338,9 +381,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         if (string.Equals(strategyName, "heuristic", StringComparison.OrdinalIgnoreCase))
         {
             var filter = ResolveStartingTrickFilterStrategy(aiElement);
-            return new HeuristicPlayStrategy(
-                new StartingTrickStrategy(filter),
-                new ContinuationTrickStrategy());
+            return HeuristicPlayStrategy.Create(startingTrickFilterStrategy: filter);
         }
 
         var simulations = TryReadInt(aiElement, "simulations") ?? MonteCarloMediumSimulations;
@@ -353,9 +394,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         return difficulty switch
         {
             1 => new RandomPlayStrategy(),
-            2 => new HeuristicPlayStrategy(
-                new StartingTrickStrategy(new FilterNoneStrategy()),
-                new ContinuationTrickStrategy()),
+            2 => HeuristicPlayStrategy.Create(),
             3 => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs),
             4 => new MonteCarloStrategy(MonteCarloHardSimulations, MonteCarloHardTimeBudgetMs),
             5 => new MonteCarloStrategy(MonteCarloExpertSimulations, MonteCarloExpertTimeBudgetMs),
@@ -612,5 +651,149 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
                 rank = default;
                 return false;
         }
+    }
+
+    private void InitializeHeuristicLogging(string gameId, HaggisGame game, JsonElement payload)
+    {
+        var heuristicOptionSuffix = BuildHeuristicOptionSuffix(payload);
+        if (string.IsNullOrWhiteSpace(heuristicOptionSuffix))
+        {
+            _heuristicLogPaths.TryRemove(gameId, out _);
+            _heuristicLogLocks.TryRemove(gameId, out _);
+            return;
+        }
+
+        Directory.CreateDirectory(_heuristicLogDirectory);
+
+        var fileName = $"game_seed_{game.BaseSeed}_heuristicoption{heuristicOptionSuffix}.txt";
+        var filePath = Path.Combine(_heuristicLogDirectory, fileName);
+        _heuristicLogPaths[gameId] = filePath;
+        _heuristicLogLocks.GetOrAdd(gameId, _ => new object());
+
+        var headerLines = new[]
+        {
+            $"GAME gameId={gameId} seed={game.BaseSeed}",
+            $"HEURISTIC_OPTIONS {heuristicOptionSuffix.TrimStart('_')}",
+            string.Empty
+        };
+
+        File.WriteAllLines(filePath, headerLines, Encoding.UTF8);
+    }
+
+    private void AppendHeuristicLogLines(string gameId, string logPath, IReadOnlyList<string> lines)
+    {
+        if (lines.Count == 0)
+        {
+            return;
+        }
+
+        var sync = _heuristicLogLocks.GetOrAdd(gameId, _ => new object());
+        var content = string.Join(Environment.NewLine, lines) + Environment.NewLine;
+        lock (sync)
+        {
+            File.AppendAllText(logPath, content, Encoding.UTF8);
+        }
+    }
+
+    private static string ResolveHeuristicLogDirectory(string contentRootPath)
+    {
+        var backendRootPath = Path.GetFullPath(Path.Combine(contentRootPath, "..", ".."));
+        return Directory.Exists(backendRootPath)
+            ? backendRootPath
+            : contentRootPath;
+    }
+
+    private static string BuildHeuristicOptionSuffix(JsonElement payload)
+    {
+        if (payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("players", out var playersElement) ||
+            playersElement.ValueKind != JsonValueKind.Array)
+        {
+            return string.Empty;
+        }
+
+        var parts = new List<string>();
+        foreach (var playerElement in playersElement.EnumerateArray())
+        {
+            var playerOption = BuildHeuristicPlayerOption(playerElement);
+            if (!string.IsNullOrWhiteSpace(playerOption))
+            {
+                parts.Add(playerOption);
+            }
+        }
+
+        return parts.Count == 0
+            ? string.Empty
+            : "_" + string.Join("__", parts.OrderBy(part => part, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static string BuildHeuristicPlayerOption(JsonElement playerElement)
+    {
+        if (playerElement.ValueKind != JsonValueKind.Object)
+        {
+            return string.Empty;
+        }
+
+        var playerId = TryReadString(playerElement, "id")
+            ?? TryReadString(playerElement, "playerId")
+            ?? TryReadString(playerElement, "name");
+        if (string.IsNullOrWhiteSpace(playerId) ||
+            !string.Equals(TryReadString(playerElement, "type") ?? TryReadString(playerElement, "kind"), "ai", StringComparison.OrdinalIgnoreCase) ||
+            !TryGetObject(playerElement, "ai", out var aiElement))
+        {
+            return string.Empty;
+        }
+
+        var parts = new List<string>
+        {
+            $"player-{SanitizeForFileName(playerId)}"
+        };
+
+        var difficulty = TryReadInt(aiElement, "difficulty");
+        if (difficulty == 2)
+        {
+            parts.Add("difficulty-2");
+            return string.Join("_", parts);
+        }
+
+        var strategyName = TryReadString(aiElement, "strategy");
+        if (!string.Equals(strategyName, "heuristic", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        parts.Add("strategy-heuristic");
+
+        var filter = TryReadString(aiElement, "filter");
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            parts.Add($"filter-{SanitizeForFileName(filter)}");
+        }
+
+        var filterLimit = TryReadInt(aiElement, "filterLimit");
+        if (filterLimit.HasValue)
+        {
+            parts.Add($"filterLimit-{filterLimit.Value}");
+        }
+
+        return string.Join("_", parts);
+    }
+
+    private static string SanitizeForFileName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "unknown";
+        }
+
+        var builder = new StringBuilder(value.Length);
+        foreach (var character in value.Trim())
+        {
+            builder.Append(char.IsLetterOrDigit(character) || character is '-' or '_'
+                ? character
+                : '-');
+        }
+
+        return builder.ToString().Trim('-');
     }
 }

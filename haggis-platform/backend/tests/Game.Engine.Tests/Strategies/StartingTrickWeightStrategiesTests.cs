@@ -57,11 +57,11 @@ namespace HaggisTests.Strategies
             {
                 Hand = new List<string> { "2R", "2B", "5G" }.ToCards()
             };
-            var p2 = new AIPlayer("p2", new HeuristicPlayStrategy())
+            var p2 = new AIPlayer("p2", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "3R" }.ToCards()
             };
-            var p3 = new AIPlayer("p3", new HeuristicPlayStrategy())
+            var p3 = new AIPlayer("p3", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "4R" }.ToCards()
             };
@@ -144,18 +144,18 @@ namespace HaggisTests.Strategies
         [Test]
         public void StartingTrickStrategy_WhenOpeningContainsWildQuad_ShouldPreferNonWildOpening()
         {
-            var p1 = new AIPlayer("p1", new HeuristicPlayStrategy())
+            var p1 = new AIPlayer("p1", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string>
                 {
                     "2R", "2B", "2G", "3B", "4B", "5G", "6R", "6B", "6G", "6O", "7G", "9G", "9Y", "10B", "J", "Q", "K"
                 }.ToCards()
             };
-            var p2 = new AIPlayer("p2", new HeuristicPlayStrategy())
+            var p2 = new AIPlayer("p2", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "2Y", "2O", "3G", "3O", "4R", "4G", "5O", "6Y", "7R", "7B", "8B", "9O", "10G", "10O", "J", "Q", "K" }.ToCards()
             };
-            var p3 = new AIPlayer("p3", new HeuristicPlayStrategy())
+            var p3 = new AIPlayer("p3", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "3R", "3Y", "4Y", "4O", "5R", "5B", "7O", "8R", "8Y", "8O", "9R", "9B", "10R", "10Y", "J", "Q", "K" }.ToCards()
             };
@@ -165,7 +165,7 @@ namespace HaggisTests.Strategies
 
             var action = p1.GetPlayingAction(state);
 
-            Assert.That(action.Desc, Is.Not.EqualTo("QUAD[2R|J[2]|Q[2]|K[2]]"));
+            Assert.That(action.Desc, Is.Not.EqualTo("QUAD[2R|J[2R]|Q[2R]|K[2R]]"));
         }
 
         [Test]
@@ -178,18 +178,18 @@ namespace HaggisTests.Strategies
             {
                 StartingTrickStrategy.DiagnosticsSink = diagnostics.Add;
 
-                var p1 = new AIPlayer("p1", new HeuristicPlayStrategy())
+                var p1 = new AIPlayer("p1", HeuristicPlayStrategy.Create())
                 {
                     Hand = new List<string>
                     {
                         "2R", "2B", "2G", "3B", "4B", "5G", "6R", "6B", "6G", "6O", "7G", "9G", "9Y", "10B", "J", "Q", "K"
                     }.ToCards()
                 };
-                var p2 = new AIPlayer("p2", new HeuristicPlayStrategy())
+                var p2 = new AIPlayer("p2", HeuristicPlayStrategy.Create())
                 {
                     Hand = new List<string> { "2Y", "2O", "3G", "3O", "4R", "4G", "5O", "6Y", "7R", "7B", "8B", "9O", "10G", "10O", "J", "Q", "K" }.ToCards()
                 };
-                var p3 = new AIPlayer("p3", new HeuristicPlayStrategy())
+                var p3 = new AIPlayer("p3", HeuristicPlayStrategy.Create())
                 {
                     Hand = new List<string> { "3R", "3Y", "4Y", "4O", "5R", "5B", "7O", "8R", "8Y", "8O", "9R", "9B", "10R", "10Y", "J", "Q", "K" }.ToCards()
                 };
@@ -218,11 +218,11 @@ namespace HaggisTests.Strategies
             {
                 Hand = new List<string> { "7G" }.ToCards()
             };
-            var p2 = new AIPlayer("p2", new HeuristicPlayStrategy())
+            var p2 = new AIPlayer("p2", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<Card>()
             };
-            var p3 = new AIPlayer("p3", new HeuristicPlayStrategy())
+            var p3 = new AIPlayer("p3", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "9R" }.ToCards()
             };

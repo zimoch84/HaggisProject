@@ -135,7 +135,7 @@ namespace HaggisTests
             Assert.That(
                 tricks.Any(t =>
                     t.Type == TrickType.SEQ4 &&
-                    t.Cards.Select(card => card.ToString()).SequenceEqual(new[] { "2B", "3B", "J[4]", "5B" })),
+                    t.Cards.Select(card => card.ToString()).SequenceEqual(new[] { "2B", "3B", "J[4B]", "5B" })),
                 Is.True);
         }
 
@@ -148,7 +148,7 @@ namespace HaggisTests
             };
 
             var tricks = _service.Opening(player);
-            var sequence = "SEQ6[3G|K[4]|5G|6G|7G|8G]";
+            var sequence = "SEQ6[3G|K[4G]|5G|6G|7G|8G]";
 
             Assert.That(
                 tricks.Count(trick => trick.ToString() == sequence),
@@ -168,6 +168,21 @@ namespace HaggisTests
             Assert.That(
                 tricks.Select(trick => trick.ToString()),
                 Does.Contain("PAIRSEQ3[6B|6O|7B|7O|8B|8O]"));
+        }
+
+        [Test]
+        public void BuildPossibleOpeningTricks_ShouldIncludeThreePairSequenceCompletedByWildCards()
+        {
+            var player = new HaggisPlayer("P1")
+            {
+                Hand = Cards("2G", "2R", "4G", "4R", "J", "Q")
+            };
+
+            var tricks = _service.Opening(player);
+
+            Assert.That(
+                tricks.Select(trick => trick.ToString()),
+                Does.Contain("PAIRSEQ3[2R|2G|J[3R]|Q[3G]|4R|4G]"));
         }
 
         [Test]

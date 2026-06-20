@@ -71,11 +71,11 @@ namespace HaggisTests.Strategies
             {
                 Hand = new List<string> { "2R", "5R", "7R", "8R", "9R", "10R", "3B", "4B", "5B" }.ToCards()
             };
-            var p2 = new AIPlayer("p2", new HeuristicPlayStrategy())
+            var p2 = new AIPlayer("p2", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "J" }.ToCards()
             };
-            var p3 = new AIPlayer("p3", new HeuristicPlayStrategy())
+            var p3 = new AIPlayer("p3", HeuristicPlayStrategy.Create())
             {
                 Hand = new List<string> { "Q" }.ToCards()
             };

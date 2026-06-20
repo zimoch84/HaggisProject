@@ -10,7 +10,7 @@ namespace Haggis.AI.Strategies
 {
     public sealed class ContinuationTrickStrategy : IPlayStrategy
     {
-        private const int PassCandidateThreshold = -100;
+        private const int PassCandidateThreshold = 0;
 
         public static System.Action<string> DiagnosticsSink { get; set; }
 
@@ -42,9 +42,10 @@ namespace Haggis.AI.Strategies
                         new PenalizeWildCardsInContinuationWeightStrategy(heuristicOptions.WildCardContinuationPenaltyFactor),
                         new PenalizeContinuationWhenHigherRelatedCombinationExistsWeightStrategy(
                             heuristicOptions.HigherRelatedCombinationContinuationPenaltyFactor),
+                        new PreferUsingWildAsHigherCardInContinuationWeightStrategy(
+                            heuristicOptions.PreferUsingWildAsHigherCardInContinuationWeight),
                         new PreferLowerValueContinuationWeightStrategy(heuristicOptions.LowerValueContinuationWeight),
-                        new PreferContinuationsWithFollowUpWeightStrategy(heuristicOptions.ContinuationFollowUpWeight),
-                        new PreferShorterContinuationWeightStrategy(heuristicOptions.ShorterContinuationWeight)
+                        new PreferContinuationsWithFollowUpWeightStrategy(heuristicOptions.ContinuationFollowUpWeight)
                     });
         }
 

@@ -69,7 +69,7 @@ namespace Haggis.Domain.Model
                 if (Replaces == null)
                     return string.Format("{0}", Rank.ToLetter());
                 else
-                    return string.Format("{0}[{1}]", BaseRank.ToLetter(), (int)Rank);
+                    return string.Format("{0}[{1}]", BaseRank.ToLetter(), Replaces);
             }
 
             if (!Rank.Equals(Rank.TEN))

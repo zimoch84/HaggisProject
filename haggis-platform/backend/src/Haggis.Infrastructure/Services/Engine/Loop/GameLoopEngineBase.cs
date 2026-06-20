@@ -13,7 +13,7 @@ public abstract class GameLoopEngineBase<TState, TMove, TCommand>
     protected abstract IReadOnlyList<TMove> GetLegalMoves(TState state);
     protected abstract bool TryResolveMoveFromCommand(TState state, TCommand command, out TMove move);
     protected abstract bool ShouldUseAiMove(TState state, TCommand command);
-    protected abstract TMove ResolveAiMove(TState state, IReadOnlyList<TMove> legalMoves);
+    protected abstract TMove ResolveAiMove(string gameId, TState state, IReadOnlyList<TMove> legalMoves);
     protected abstract MoveValidationResult ValidateMove(TState state, TCommand command, TMove move, IReadOnlyList<TMove> legalMoves);
     protected abstract void ApplyMove(TState state, TMove move);
 
@@ -59,7 +59,7 @@ public abstract class GameLoopEngineBase<TState, TMove, TCommand>
                 throw new InvalidOperationException("Move was not provided and AI move resolution is disabled.");
             }
 
-            move = ResolveAiMove(state, legalMoves);
+            move = ResolveAiMove(gameId, state, legalMoves);
         }
 
         var validation = ValidateMove(state, command, move, legalMoves);

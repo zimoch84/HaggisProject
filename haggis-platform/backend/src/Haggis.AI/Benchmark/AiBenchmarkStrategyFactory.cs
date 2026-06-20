@@ -87,11 +87,11 @@ namespace Haggis.AI.Benchmark
             switch ((strategyName ?? string.Empty).Trim().ToLowerInvariant())
             {
                 case "normal":
-                    return new HeuristicPlayStrategy(
+                    return HeuristicPlayStrategy.Create(
                         new FilterNoneStrategy(),
                         heuristicOptions: new HeuristicOptions());
                 case "heuristic-continuations":
-                    return new HeuristicPlayStrategy(
+                    return HeuristicPlayStrategy.Create(
                         new FilterContinuations(5, false),
                         heuristicOptions: new HeuristicOptions());
                 case "random":
