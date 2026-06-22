@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Haggis.AI.Interfaces;
+using Haggis.AI.WeightNormalization;
 using Haggis.Domain.Enums;
 using Haggis.Domain.Model;
 
@@ -11,16 +12,14 @@ namespace Haggis.AI.StartingTrickWeightStrategies
     {
         private const int MinRankValue = (int)Rank.TWO;
         private const int MaxRankValue = (int)Rank.KING;
+        private const int DefaultStartCutoff = 8;
+        private const int BaseWeight = 10;
 
-        private int PreferLowerStartCutoff { get; }
-        private int PreferLowerStartMaxWeight { get; }
+        private float Weight { get; }
 
-        public PreferLowerTricksWhenHandIsLargeWeightStrategy(
-            int preferLowerStartCutoff,
-            int preferLowerStartMaxWeight)
+        public PreferLowerTricksWhenHandIsLargeWeightStrategy(float weight)
         {
-            PreferLowerStartCutoff = preferLowerStartCutoff;
-            PreferLowerStartMaxWeight = preferLowerStartMaxWeight;
+            Weight = weight;
         }
 
         public IReadOnlyList<(int Weight, Trick Trick)> GetWeight(List<Trick> allSuggestedTricks, RoundState gameState)
@@ -34,8 +33,7 @@ namespace Haggis.AI.StartingTrickWeightStrategies
         {
             if (trick == null ||
                 gameState?.CurrentPlayer?.Hand == null ||
-                PreferLowerStartMaxWeight <= 0 ||
-                PreferLowerStartCutoff <= 0 ||
+                Weight <= 0 ||
                 trick.Cards.Count == 0)
             {
                 return 0;
@@ -43,13 +41,14 @@ namespace Haggis.AI.StartingTrickWeightStrategies
 
             var handCardCount = gameState.CurrentPlayer.Hand.Count;
             var phaseBias = Clamp(
-                (handCardCount - PreferLowerStartCutoff) / (double)PreferLowerStartCutoff,
+                (handCardCount - DefaultStartCutoff) / (double)DefaultStartCutoff,
                 -1d,
                 1d);
             var averageRank = trick.Cards.Average(card => (int)card.Rank);
             var rankBias = 1d - (2d * (averageRank - MinRankValue) / (MaxRankValue - MinRankValue));
 
-            return (int)Math.Round(PreferLowerStartMaxWeight * phaseBias * rankBias, MidpointRounding.AwayFromZero);
+            var baseScore = (int)Math.Round(BaseWeight * phaseBias * rankBias, MidpointRounding.AwayFromZero);
+            return HeuristicWeightNormalization.ApplyWeight(baseScore, Weight);
         }
 
         private static double Clamp(double value, double min, double max)

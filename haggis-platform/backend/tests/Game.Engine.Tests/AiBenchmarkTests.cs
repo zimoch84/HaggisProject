@@ -202,7 +202,7 @@ namespace HaggisTests
                 Players = 3,
                 SeedStart = 1,
                 GameOverScore = 40,
-                Ai1Strategy = "heuristic-continuations",
+                Ai1Strategy = "normal",
                 Ai2Strategy = "random",
                 Ai3Strategy = "normal",
                 Rotate = true,
@@ -212,13 +212,13 @@ namespace HaggisTests
             var results = new AiBenchmarkRunner().Run(options);
 
             Assert.That(results, Has.Count.EqualTo(3));
-            Assert.That(results[0].StrategiesByPlayer["p1"], Is.EqualTo("heuristic-continuations"));
+            Assert.That(results[0].StrategiesByPlayer["p1"], Is.EqualTo("normal"));
             Assert.That(results[0].StrategiesByPlayer["p2"], Is.EqualTo("random"));
             Assert.That(results[0].StrategiesByPlayer["p3"], Is.EqualTo("normal"));
-            Assert.That(results[1].StrategiesByPlayer["p1"], Is.EqualTo("heuristic-continuations"));
+            Assert.That(results[1].StrategiesByPlayer["p1"], Is.EqualTo("normal"));
             Assert.That(results[1].StrategiesByPlayer["p2"], Is.EqualTo("random"));
             Assert.That(results[1].StrategiesByPlayer["p3"], Is.EqualTo("normal"));
-            Assert.That(results[2].StrategiesByPlayer["p1"], Is.EqualTo("heuristic-continuations"));
+            Assert.That(results[2].StrategiesByPlayer["p1"], Is.EqualTo("normal"));
             Assert.That(results[2].StrategiesByPlayer["p2"], Is.EqualTo("random"));
             Assert.That(results[2].StrategiesByPlayer["p3"], Is.EqualTo("normal"));
         }

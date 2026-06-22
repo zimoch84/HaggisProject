@@ -41,9 +41,7 @@ public class GameWebSocketAiCompositionIntegrationTests
                     type = "ai",
                     ai = new
                     {
-                        strategy = "heuristic",
-                        filter = "continuations",
-                        filterLimit = 5
+                        strategy = "heuristic"
                     }
                 }
             },

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Haggis.AI.Interfaces;
+using Haggis.AI.WeightNormalization;
 using Haggis.Domain.Enums;
 using Haggis.Domain.Model;
 
@@ -8,11 +9,13 @@ namespace Haggis.AI.StartingTrickWeightStrategies
 {
     public sealed class PenalizeBombOpeningWeightStrategy : IStartingTrickWeightStrategy
     {
-        private int BombOpeningPenaltyFactor { get; }
+        private const int BasePenalty = 100;
 
-        public PenalizeBombOpeningWeightStrategy(int bombOpeningPenaltyFactor)
+        private float Weight { get; }
+
+        public PenalizeBombOpeningWeightStrategy(float weight)
         {
-            BombOpeningPenaltyFactor = bombOpeningPenaltyFactor;
+            Weight = weight;
         }
 
         public IReadOnlyList<(int Weight, Trick Trick)> GetWeight(List<Trick> allSuggestedTricks, RoundState gameState)
@@ -24,7 +27,7 @@ namespace Haggis.AI.StartingTrickWeightStrategies
 
         private int GetWeightForTrick(Trick trick, RoundState gameState)
         {
-            if (trick == null || gameState?.CurrentPlayer?.Hand == null || BombOpeningPenaltyFactor <= 0)
+            if (trick == null || gameState?.CurrentPlayer?.Hand == null || Weight <= 0)
             {
                 return 0;
             }
@@ -34,7 +37,10 @@ namespace Haggis.AI.StartingTrickWeightStrategies
                 return 0;
             }
 
-            return -(gameState.CurrentPlayer.Hand.Count * BombOpeningPenaltyFactor);
+            var baseScore = HeuristicWeightNormalization.BaseScore(
+                -HeuristicWeightNormalization.HandPhase(gameState.CurrentPlayer.Hand.Count),
+                BasePenalty);
+            return HeuristicWeightNormalization.ApplyWeight(baseScore, Weight);
         }
     }
 }

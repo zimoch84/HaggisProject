@@ -17,7 +17,7 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetWeight_WhenTrickHasMoreContinuations_ShouldReturnHigherWeight()
         {
-            var strategy = new PreferTricksWithMoreContinuationsWeightStrategy(10);
+            var strategy = new PreferTricksWithMoreContinuationsWeightStrategy(1);
             var lowerPair = new Trick(TrickType.PAIR, new List<Card> { "2R".ToCard(), "2B".ToCard() });
             var higherPair = new Trick(TrickType.PAIR, new List<Card> { "3R".ToCard(), "3B".ToCard() });
             var highestPair = new Trick(TrickType.PAIR, new List<Card> { "4R".ToCard(), "4B".ToCard() });
@@ -34,7 +34,7 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetWeight_WhenTrickIsSingle_ShouldReturnZero()
         {
-            var strategy = new PreferTricksWithMoreContinuationsWeightStrategy(10);
+            var strategy = new PreferTricksWithMoreContinuationsWeightStrategy(1);
             var single = new Trick(TrickType.SINGLE, new List<Card> { "2R".ToCard() });
             var otherSingle = new Trick(TrickType.SINGLE, new List<Card> { "3R".ToCard() });
             var tricks = new List<Trick> { single, otherSingle };
@@ -50,7 +50,7 @@ namespace HaggisTests.Strategies
         {
             var strategy = new StartingTrickStrategy(
                 new PairsOnlyFilterStrategy(),
-                heuristicOptions: new HeuristicOptions { ContinuationCountWeight = 10 });
+                heuristicOptions: new HeuristicOptions { ContinuationCountWeight = 1 });
 
             var p1 = new Haggis.AI.Model.AIPlayer("p1", strategy)
             {

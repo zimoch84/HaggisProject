@@ -62,21 +62,21 @@ namespace HaggisTests.Strategies
                 TrickType.TRIPLE,
                 new[] { "9R", "9G" },
                 "9Y",
-                50)
-                .SetName("GetWeight_WhenAllTensAreInDiscardAndTripleOfNinesUsesWild_ShouldReturnFifty");
+                25)
+                .SetName("GetWeight_WhenAllTensAreInDiscardAndTripleOfNinesUsesWild_ShouldReturnBaseWeight");
 
             yield return new TestCaseData(
                 TrickType.QUAD,
                 new[] { "9R", "9B", "9G" },
                 "9Y",
-                50)
-                .SetName("GetWeight_WhenAllTensAreInDiscardAndQuadOfNinesUsesWild_ShouldReturnFifty");
+                25)
+                .SetName("GetWeight_WhenAllTensAreInDiscardAndQuadOfNinesUsesWild_ShouldReturnBaseWeight");
         }
 
         [Test]
         public void GetWeight_WhenDiscardPileAndCurrentTrickPlayAreEmpty_ShouldReturnZeroForEveryTrick()
         {
-            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(50);
+            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(1);
             var p1 = new AIPlayer("p1")
             {
                 Hand = new List<string>
@@ -103,7 +103,7 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetWeight_WhenTrickIsSingle_ShouldReturnZero()
         {
-            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(50);
+            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(1);
             var p1 = new AIPlayer("p1")
             {
                 Hand = new List<string> { "3B", "4B", "5G", "6G", "6O", "7G" }.ToCards()
@@ -129,7 +129,7 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetWeight_WhenTrickIsPair_ShouldReturnZero()
         {
-            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(50);
+            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(1);
             var p1 = new AIPlayer("p1")
             {
                 Hand = new List<string> { "3B", "4B", "5G", "6G", "6O", "7G" }.ToCards()
@@ -153,9 +153,9 @@ namespace HaggisTests.Strategies
         }
 
         [Test]
-        public void GetWeight_WhenAllHigherQuadsAreUnavailable_ShouldReturnFifty()
+        public void GetWeight_WhenAllHigherQuadsAreUnavailable_ShouldReturnBaseWeight()
         {
-            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(50);
+            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(1);
             var trick = new Trick(TrickType.QUAD, new List<Card>
             {
                 "6R".ToCard(),
@@ -189,15 +189,15 @@ namespace HaggisTests.Strategies
             var weights = strategy.GetWeight(new List<Trick> { trick }, state);
             var weight = weights.Single(result => ReferenceEquals(result.Trick, trick)).Weight;
 
-            Assert.That(weight, Is.EqualTo(50));
+            Assert.That(weight, Is.EqualTo(25));
         }
 
         [TestCaseSource(nameof(FullyBlockedNinesCases))]
-        public void GetWeight_WhenAllTensAreInDiscardAndHandHasNinesCombination_ShouldReturnFifty(
+        public void GetWeight_WhenAllTensAreInDiscardAndHandHasNinesCombination_ShouldReturnBaseWeight(
             TrickType trickType,
             string[] trickCards)
         {
-            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(50);
+            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(1);
             var trick = new Trick(trickType, trickCards.ToCards());
             var p1 = new AIPlayer("p1")
             {
@@ -225,7 +225,7 @@ namespace HaggisTests.Strategies
             var weights = strategy.GetWeight(new List<Trick> { trick }, state);
             var weight = weights.Single(result => ReferenceEquals(result.Trick, trick)).Weight;
 
-            Assert.That(weight, Is.EqualTo(50));
+            Assert.That(weight, Is.EqualTo(25));
         }
 
         [TestCaseSource(nameof(NinesBlockedByTensButWildsRemainCases))]
@@ -233,7 +233,7 @@ namespace HaggisTests.Strategies
             TrickType trickType,
             string[] trickCards)
         {
-            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(50);
+            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(1);
             var trick = new Trick(trickType, trickCards.ToCards());
             var p1 = new AIPlayer("p1")
             {
@@ -270,7 +270,7 @@ namespace HaggisTests.Strategies
             string replacedCard,
             int expectedWeight)
         {
-            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(50);
+            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(1);
             var trickCards = naturalCards.ToCards();
             trickCards.Add("J".ToCard().WildAs(replacedCard.ToCard()));
             var trick = new Trick(trickType, trickCards);
@@ -306,7 +306,7 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetWeight_WhenUsingVisibleCardsFromLoggedTrickFiveState_ShouldMatchExpectedWeights()
         {
-            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(50);
+            var strategy = new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(1);
             var p1 = new AIPlayer("p1")
             {
                 Hand = new List<string> { "3B", "4B", "5G", "6G", "6O", "7G" }.ToCards(),

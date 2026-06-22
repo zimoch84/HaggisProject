@@ -31,6 +31,7 @@ namespace Haggis.AI.Strategies
                     : new List<IContinuationTrickFilterStrategy>
                     {
                         new FilterDistinctContinuationStrategy(),
+                        new FilterRedundantWildAssignmentsContinuationStrategy(),
                         new FilterNoneContinuationStrategy()
                     });
             ContinuationTrickWeightStrategies = continuationTrickWeightStrategies?.ToList()
@@ -38,14 +39,16 @@ namespace Haggis.AI.Strategies
                     ? new List<IContinuationTrickWeightStrategy> { continuationTrickWeightStrategy }
                     : new List<IContinuationTrickWeightStrategy>
                     {
-                        new PenalizeBombContinuationWeightStrategy(heuristicOptions.BombContinuationPenaltyFactor),
-                        new PenalizeWildCardsInContinuationWeightStrategy(heuristicOptions.WildCardContinuationPenaltyFactor),
+                        new PenalizeBombContinuationWeightStrategy(heuristicOptions.BombContinuationWeight),
+                        new PenalizeWildCardsInContinuationWeightStrategy(heuristicOptions.WildCardContinuationWeight),
                         new PenalizeContinuationWhenHigherRelatedCombinationExistsWeightStrategy(
-                            heuristicOptions.HigherRelatedCombinationContinuationPenaltyFactor),
+                            heuristicOptions.HigherRelatedCombinationContinuationWeight),
                         new PreferUsingWildAsHigherCardInContinuationWeightStrategy(
                             heuristicOptions.PreferUsingWildAsHigherCardInContinuationWeight),
                         new PreferLowerValueContinuationWeightStrategy(heuristicOptions.LowerValueContinuationWeight),
-                        new PreferContinuationsWithFollowUpWeightStrategy(heuristicOptions.ContinuationFollowUpWeight)
+                        new PreferContinuationsWithFollowUpWeightStrategy(heuristicOptions.ContinuationFollowUpWeight),
+                        new PreferNotPassingWhenHoldingPlayableBombInEndgameWeightStrategy(
+                            heuristicOptions.PlayableBombInEndgameWeight)
                     });
         }
 

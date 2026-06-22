@@ -50,7 +50,6 @@ namespace Haggis.MctsRunAnalyzer
             new[]
             {
                 "normal",
-                "heuristic-continuations",
                 "random",
                 "montecarlo",
                 "montecarlo-fast",

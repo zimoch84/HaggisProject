@@ -1,17 +1,20 @@
 using System.Collections.Generic;
 using System.Linq;
 using Haggis.AI.Interfaces;
+using Haggis.AI.WeightNormalization;
 using Haggis.Domain.Model;
 
 namespace Haggis.AI.StartingTrickWeightStrategies
 {
     public sealed class PenalizeWildCardsInOpeningWeightStrategy : IStartingTrickWeightStrategy
     {
-        private int WildCardOpeningPenaltyFactor { get; }
+        private const int BasePenalty = 50;
 
-        public PenalizeWildCardsInOpeningWeightStrategy(int wildCardOpeningPenaltyFactor)
+        private float Weight { get; }
+
+        public PenalizeWildCardsInOpeningWeightStrategy(float weight)
         {
-            WildCardOpeningPenaltyFactor = wildCardOpeningPenaltyFactor;
+            Weight = weight;
         }
 
         public IReadOnlyList<(int Weight, Trick Trick)> GetWeight(List<Trick> allSuggestedTricks, RoundState gameState)
@@ -23,7 +26,7 @@ namespace Haggis.AI.StartingTrickWeightStrategies
 
         private int GetWeightForTrick(Trick trick, List<Trick> allSuggestedTricks, RoundState gameState)
         {
-            if (trick == null || gameState?.CurrentPlayer?.Hand == null || WildCardOpeningPenaltyFactor <= 0)
+            if (trick == null || gameState?.CurrentPlayer?.Hand == null || Weight <= 0)
             {
                 return 0;
             }
@@ -34,13 +37,16 @@ namespace Haggis.AI.StartingTrickWeightStrategies
                 return 0;
             }
 
-            var penalty = wildCardsUsed * gameState.CurrentPlayer.Hand.Count * WildCardOpeningPenaltyFactor;
+            var wildUsageSignal = HeuristicWeightNormalization.NormalizeRatio(wildCardsUsed, trick.Cards.Count);
+            var phaseSignal = HeuristicWeightNormalization.HandPhase(gameState.CurrentPlayer.Hand.Count);
+            var penaltySignal = wildUsageSignal * phaseSignal;
             if (HasEquivalentTrickWithLowerWilds(trick, allSuggestedTricks))
             {
-                penalty *= 2;
+                penaltySignal = HeuristicWeightNormalization.Clamp(penaltySignal * 2d, 0d, 1d);
             }
 
-            return -penalty;
+            var baseScore = HeuristicWeightNormalization.BaseScore(-penaltySignal, BasePenalty);
+            return HeuristicWeightNormalization.ApplyWeight(baseScore, Weight);
         }
 
         private static bool HasEquivalentTrickWithLowerWilds(Trick trick, List<Trick> allSuggestedTricks)

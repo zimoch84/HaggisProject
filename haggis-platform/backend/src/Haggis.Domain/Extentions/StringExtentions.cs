@@ -1,4 +1,4 @@
-using Haggis.Domain.Enums;
+ï»¿using Haggis.Domain.Enums;
 using Haggis.Domain.Model;
 using System;
 using System.Collections.Generic;
@@ -65,10 +65,19 @@ namespace Haggis.Domain.Extentions
                     case TrickType.QUAD:
                     case TrickType.FIVED:
                     case TrickType.SIXED:
-                        //4BYOG_QUAD
-                        Rank rank = GetRankFromChar(trickString[0]);
+                        //4BYOG_QUAD, 10RB_PAIR
+                        Rank rank = ParseSameRankTrickRank(cardsString, out var suitsStartIndex);
                         int suitCount = (int)type / 10;
-                        char[] suits = trickString.Substring(1, suitCount).ToCharArray(); // Pobieranie liter Suit
+                        if (type == TrickType.SINGLE && cardsString.Length == suitsStartIndex)
+                        {
+                            cards.Add(new Card(rank));
+                            break;
+                        }
+
+                        if (cardsString.Length < suitsStartIndex + suitCount)
+                            throw new ArgumentException($"Invalid trick cards payload: {cardsString}");
+
+                        char[] suits = cardsString.Substring(suitsStartIndex, suitCount).ToCharArray(); // Read suit letters
                         foreach (char suitCh in suits)
                         {
                             cards.Add(new Card(rank, GetSuitFromChar(suitCh)));
@@ -80,16 +89,16 @@ namespace Haggis.Domain.Extentions
                     case TrickType.SEQ5:
                     case TrickType.SEQ6:
                     case TrickType.SEQ7:
-                        // Dodaj karty do sekwencji
+                        // Build cards for the sequence
                         // 2Y_SEQ3
                         int sequenceLength = (int)((int)type - 2) / 10;
                         char rankChar = trickString[0];
-                        char suitChar = trickString[1]; // Litera Suit po TrickType
+                        char suitChar = trickString[1]; // Suit letter after rank
                         cards = GenerateSequence(GetRankFromChar(rankChar), sequenceLength, GetSuitFromChar(suitChar));
                         break;
 
                     default:
-                        throw new ArgumentException($"Nieobs³ugiwany TrickType: {type}");
+                        throw new ArgumentException($"Unsupported TrickType: {type}");
                 }
 
                 cards.Sort();
@@ -99,6 +108,21 @@ namespace Haggis.Domain.Extentions
             catch(Exception e) {
                 throw new ArgumentException(e.Message);
             }
+        }
+
+        private static Rank ParseSameRankTrickRank(string cardsString, out int suitsStartIndex)
+        {
+            if (string.IsNullOrWhiteSpace(cardsString))
+                throw new ArgumentException("Trick string cannot be empty.");
+
+            if (cardsString.StartsWith("10", StringComparison.Ordinal))
+            {
+                suitsStartIndex = 2;
+                return Rank.TEN;
+            }
+
+            suitsStartIndex = 1;
+            return GetRankFromChar(cardsString[0]);
         }
 
        
@@ -129,7 +153,7 @@ namespace Haggis.Domain.Extentions
                 case 'J': return Rank.JACK;
                 case 'Q': return Rank.QUEEN;
                 case 'K': return Rank.KING;
-                default: throw new ArgumentException($"Nieznana litera rangi: {rankChar}");
+                default: throw new ArgumentException($"Unknown rank letter: {rankChar}");
             }
         }
 
@@ -142,7 +166,7 @@ namespace Haggis.Domain.Extentions
                 case 'G': return Suit.GREEN;
                 case 'Y': return Suit.YELLOW;
                 case 'O': return Suit.ORANGE;
-                default: throw new ArgumentException($"Nieznana litera koloru: {suitChar}");
+                default: throw new ArgumentException($"Unknown suit letter: {suitChar}");
             }
         }
 
@@ -154,13 +178,13 @@ namespace Haggis.Domain.Extentions
             if (string.IsNullOrEmpty(cardString))
                 throw new ArgumentException("Input string cannot be null or empty.");
 
-            // Usuniêcie nawiasów kwadratowych oraz podzia³ ci¹gu na karty
+            // Remove square brackets and split into card tokens
             var cardParts = cardString.Trim('[', ']').Split('|');
             var cards = new List<Card>();
 
             foreach (var part in cardParts)
             {
-                var card = part.ToCard(); // U¿ycie metody ToCard do konwersji
+                var card = part.ToCard(); // Convert each token to Card
                 cards.Add(card);
             }
 

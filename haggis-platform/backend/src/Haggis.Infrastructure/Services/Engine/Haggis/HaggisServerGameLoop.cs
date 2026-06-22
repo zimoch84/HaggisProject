@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
+using Haggis.Domain.Extentions;
 using Haggis.Infrastructure.Services.Engine.Loop;
 using Haggis.AI.Interfaces;
 using Haggis.AI.Model;
@@ -27,6 +28,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
     private const long MonteCarloExpertTimeBudgetMs = 200L;
     private readonly ConcurrentDictionary<string, HaggisGame> _games = new();
     private readonly ConcurrentDictionary<string, string> _heuristicLogPaths = new();
+    private readonly ConcurrentDictionary<string, string> _heuristicCsvLogPaths = new();
     private readonly ConcurrentDictionary<string, object> _heuristicLogLocks = new();
     private readonly string _heuristicLogDirectory;
 
@@ -260,9 +262,10 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         {
             var previousStartingDiagnosticsSink = StartingTrickStrategy.DiagnosticsSink;
             var previousContinuationDiagnosticsSink = ContinuationTrickStrategy.DiagnosticsSink;
+            var playerHand = state.CurrentPlayer.Hand.ToLetters();
             var diagnosticLines = new List<string>
             {
-                $"MOVE round={state.RoundNumber} move={state.MoveIteration + 1} player={state.CurrentPlayer.Name}"
+                $"MOVE round={state.RoundNumber} move={state.MoveIteration + 1} player={state.CurrentPlayer.Name} Hand={playerHand}"
             };
 
             StartingTrickStrategy.DiagnosticsSink = message =>
@@ -275,6 +278,13 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
                 var action = AiMoveStrategy.ChooseMove(state, legalMoves);
                 diagnosticLines.Add($"  selected-action: {action.Desc}");
                 AppendHeuristicLogLines(gameId, logPath, diagnosticLines);
+                AppendHeuristicCsvRows(
+                    gameId,
+                    state.RoundNumber,
+                    state.MoveIteration + 1,
+                    state.CurrentPlayer.Name,
+                    playerHand,
+                    diagnosticLines);
                 return action;
             }
             finally
@@ -289,8 +299,17 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         RoundState state,
         GameCommand command,
         HaggisAction move,
-        IReadOnlyList<HaggisAction> legalMoves) =>
-        MoveRuleValidator.Validate(state, command, move, legalMoves);
+        IReadOnlyList<HaggisAction> legalMoves)
+    {
+        var validation = MoveRuleValidator.Validate(state, command, move, legalMoves);
+        if (!validation.IsValid)
+        {
+            return validation;
+        }
+
+        LogHumanMoveIfConfigured(state, move);
+        return validation;
+    }
 
     protected override void ApplyMove(RoundState state, HaggisAction move) => state.ApplyAction(move);
 
@@ -406,21 +425,6 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
     {
         var filterName = TryReadString(aiElement, "filter");
         var filterLimit = Math.Max(1, TryReadInt(aiElement, "filterLimit") ?? 5);
-
-        if (string.Equals(filterName, "continuations", StringComparison.OrdinalIgnoreCase))
-        {
-            return new FilterContinuations(filterLimit, false);
-        }
-
-        if (string.Equals(filterName, "least", StringComparison.OrdinalIgnoreCase))
-        {
-            return new FilterXLeastValuebleStrategy(filterLimit);
-        }
-
-        if (string.Equals(filterName, "most", StringComparison.OrdinalIgnoreCase))
-        {
-            return new FilterXMostValuebleStrategy(filterLimit);
-        }
 
         return new FilterNoneStrategy();
     }
@@ -659,6 +663,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         if (string.IsNullOrWhiteSpace(heuristicOptionSuffix))
         {
             _heuristicLogPaths.TryRemove(gameId, out _);
+            _heuristicCsvLogPaths.TryRemove(gameId, out _);
             _heuristicLogLocks.TryRemove(gameId, out _);
             return;
         }
@@ -667,7 +672,10 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
 
         var fileName = $"game_seed_{game.BaseSeed}_heuristicoption{heuristicOptionSuffix}.txt";
         var filePath = Path.Combine(_heuristicLogDirectory, fileName);
+        var csvFileName = $"game_seed_{game.BaseSeed}_heuristicoption{heuristicOptionSuffix}.csv";
+        var csvFilePath = Path.Combine(_heuristicLogDirectory, csvFileName);
         _heuristicLogPaths[gameId] = filePath;
+        _heuristicCsvLogPaths[gameId] = csvFilePath;
         _heuristicLogLocks.GetOrAdd(gameId, _ => new object());
 
         var headerLines = new[]
@@ -678,6 +686,10 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         };
 
         File.WriteAllLines(filePath, headerLines, Encoding.UTF8);
+        File.WriteAllLines(
+            csvFilePath,
+            new[] { "round,move_number,player,player_hand,candidate,selected_action,weight,breakdown" },
+            Encoding.UTF8);
     }
 
     private void AppendHeuristicLogLines(string gameId, string logPath, IReadOnlyList<string> lines)
@@ -693,6 +705,208 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         {
             File.AppendAllText(logPath, content, Encoding.UTF8);
         }
+    }
+
+    private void AppendHeuristicCsvRows(
+        string gameId,
+        int roundNumber,
+        long moveNumber,
+        string playerName,
+        string playerHand,
+        IReadOnlyList<string> diagnosticLines)
+    {
+        if (!_heuristicCsvLogPaths.TryGetValue(gameId, out var csvLogPath))
+        {
+            return;
+        }
+
+        var candidateRows = ParseHeuristicCandidateRows(
+            roundNumber,
+            moveNumber,
+            playerName,
+            playerHand,
+            diagnosticLines);
+        if (candidateRows.Count == 0)
+        {
+            return;
+        }
+
+        var sync = _heuristicLogLocks.GetOrAdd(gameId, _ => new object());
+        var content = string.Join(Environment.NewLine, candidateRows.Select(BuildCsvLine)) + Environment.NewLine;
+        lock (sync)
+        {
+            File.AppendAllText(csvLogPath, content, Encoding.UTF8);
+        }
+    }
+
+    private void LogHumanMoveIfConfigured(RoundState state, HaggisAction move)
+    {
+        if (state.CurrentPlayer is AIPlayer)
+        {
+            return;
+        }
+
+        var gameId = FindGameIdForState(state);
+        if (string.IsNullOrWhiteSpace(gameId) ||
+            !_heuristicLogPaths.TryGetValue(gameId, out var logPath))
+        {
+            return;
+        }
+
+        var playerHand = state.CurrentPlayer.Hand.ToLetters();
+        var diagnosticLines = new List<string>
+        {
+            $"MOVE round={state.RoundNumber} move={state.MoveIteration + 1} player={state.CurrentPlayer.Name} Hand={playerHand}",
+            $"  selected-action: {move.Desc}"
+        };
+
+        AppendHeuristicLogLines(gameId, logPath, diagnosticLines);
+        AppendHumanMoveCsvRow(
+            gameId,
+            state.RoundNumber,
+            state.MoveIteration + 1,
+            state.CurrentPlayer.Name,
+            playerHand,
+            move.Desc);
+    }
+
+    private string? FindGameIdForState(RoundState state)
+    {
+        foreach (var gameId in _heuristicLogPaths.Keys)
+        {
+            if (TryGetState(gameId, out var currentState) &&
+                ReferenceEquals(currentState, state))
+            {
+                return gameId;
+            }
+        }
+
+        return null;
+    }
+
+    private void AppendHumanMoveCsvRow(
+        string gameId,
+        int roundNumber,
+        long moveNumber,
+        string playerName,
+        string playerHand,
+        string selectedAction)
+    {
+        if (!_heuristicCsvLogPaths.TryGetValue(gameId, out var csvLogPath))
+        {
+            return;
+        }
+
+        var row = string.Join(",",
+            EscapeCsv(roundNumber.ToString()),
+            EscapeCsv(moveNumber.ToString()),
+            EscapeCsv(playerName),
+            EscapeCsv(playerHand),
+            EscapeCsv(selectedAction),
+            EscapeCsv("true"),
+            string.Empty,
+            string.Empty);
+
+        var sync = _heuristicLogLocks.GetOrAdd(gameId, _ => new object());
+        lock (sync)
+        {
+            File.AppendAllText(csvLogPath, row + Environment.NewLine, Encoding.UTF8);
+        }
+    }
+
+    private static List<HeuristicCandidateLogRow> ParseHeuristicCandidateRows(
+        int roundNumber,
+        long moveNumber,
+        string playerName,
+        string playerHand,
+        IReadOnlyList<string> diagnosticLines)
+    {
+        var rows = new List<HeuristicCandidateLogRow>();
+        string? selectedAction = null;
+
+        foreach (var line in diagnosticLines)
+        {
+            var trimmedLine = line.Trim();
+            if (trimmedLine.StartsWith("selected-action:", StringComparison.Ordinal))
+            {
+                selectedAction = trimmedLine.Substring("selected-action:".Length).Trim();
+                continue;
+            }
+
+            var candidateMarkerIndex = trimmedLine.IndexOf("candidate:", StringComparison.Ordinal);
+            if (candidateMarkerIndex < 0)
+            {
+                continue;
+            }
+
+            var weightMarkerIndex = trimmedLine.IndexOf(", weight:", StringComparison.Ordinal);
+            var breakdownMarkerIndex = trimmedLine.IndexOf(", breakdown:", StringComparison.Ordinal);
+            if (weightMarkerIndex < 0 || breakdownMarkerIndex < 0 || breakdownMarkerIndex <= weightMarkerIndex)
+            {
+                continue;
+            }
+
+            var candidate = trimmedLine.Substring(
+                candidateMarkerIndex + "candidate:".Length,
+                weightMarkerIndex - (candidateMarkerIndex + "candidate:".Length)).Trim();
+            var weightText = trimmedLine.Substring(
+                weightMarkerIndex + ", weight:".Length,
+                breakdownMarkerIndex - (weightMarkerIndex + ", weight:".Length)).Trim();
+            var breakdown = trimmedLine.Substring(breakdownMarkerIndex + ", breakdown:".Length).Trim();
+
+            if (!int.TryParse(weightText, out var weight))
+            {
+                continue;
+            }
+
+            rows.Add(new HeuristicCandidateLogRow(
+                roundNumber,
+                moveNumber,
+                playerName,
+                playerHand,
+                candidate,
+                false,
+                weight,
+                breakdown));
+        }
+
+        if (!string.IsNullOrWhiteSpace(selectedAction))
+        {
+            var selectedRow = rows.FirstOrDefault(row =>
+                row.Candidate.Equals(selectedAction, StringComparison.Ordinal));
+            if (selectedRow != null)
+            {
+                selectedRow.SelectedAction = true;
+            }
+        }
+
+        return rows;
+    }
+
+    private static string BuildCsvLine(HeuristicCandidateLogRow row)
+    {
+        return string.Join(",",
+            EscapeCsv(row.RoundNumber.ToString()),
+            EscapeCsv(row.MoveNumber.ToString()),
+            EscapeCsv(row.Player),
+            EscapeCsv(row.PlayerHand),
+            EscapeCsv(row.Candidate),
+            EscapeCsv(row.SelectedAction ? "true" : "false"),
+            EscapeCsv(row.Weight.ToString()),
+            EscapeCsv(row.Breakdown));
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        var escaped = value.Replace("\"", "\"\"");
+        return value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0
+            ? $"\"{escaped}\""
+            : escaped;
     }
 
     private static string ResolveHeuristicLogDirectory(string contentRootPath)
@@ -795,5 +1009,37 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         }
 
         return builder.ToString().Trim('-');
+    }
+
+    private sealed class HeuristicCandidateLogRow
+    {
+        public HeuristicCandidateLogRow(
+            int roundNumber,
+            long moveNumber,
+            string player,
+            string playerHand,
+            string candidate,
+            bool selectedAction,
+            int weight,
+            string breakdown)
+        {
+            RoundNumber = roundNumber;
+            MoveNumber = moveNumber;
+            Player = player;
+            PlayerHand = playerHand;
+            Candidate = candidate;
+            SelectedAction = selectedAction;
+            Weight = weight;
+            Breakdown = breakdown;
+        }
+
+        public int RoundNumber { get; }
+        public long MoveNumber { get; }
+        public string Player { get; }
+        public string PlayerHand { get; }
+        public string Candidate { get; }
+        public bool SelectedAction { get; set; }
+        public int Weight { get; }
+        public string Breakdown { get; }
     }
 }

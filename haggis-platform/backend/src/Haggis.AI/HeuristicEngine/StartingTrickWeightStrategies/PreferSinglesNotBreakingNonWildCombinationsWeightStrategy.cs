@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Haggis.AI.Interfaces;
+using Haggis.AI.WeightNormalization;
 using Haggis.Domain.Enums;
 using Haggis.Domain.Model;
 
@@ -8,11 +9,13 @@ namespace Haggis.AI.StartingTrickWeightStrategies
 {
     public sealed class PreferSinglesNotBreakingNonWildCombinationsWeightStrategy : IStartingTrickWeightStrategy
     {
-        private int SafeSingleWeight { get; }
+        private const int BaseWeight = 40;
 
-        public PreferSinglesNotBreakingNonWildCombinationsWeightStrategy(int safeSingleWeight)
+        private float Weight { get; }
+
+        public PreferSinglesNotBreakingNonWildCombinationsWeightStrategy(float weight)
         {
-            SafeSingleWeight = safeSingleWeight;
+            Weight = weight;
         }
 
         public IReadOnlyList<(int Weight, Trick Trick)> GetWeight(List<Trick> allSuggestedTricks, RoundState gameState)
@@ -42,7 +45,9 @@ namespace Haggis.AI.StartingTrickWeightStrategies
                 .Where(candidate => candidate.Cards.All(card => !card.IsWild))
                 .Any(candidate => candidate.Cards.Contains(singleCard));
 
-            return breaksNonWildCombination ? 0 : SafeSingleWeight;
+            return breaksNonWildCombination
+                ? 0
+                : HeuristicWeightNormalization.ApplyWeight(BaseWeight, Weight);
         }
     }
 }

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Haggis.AI.Interfaces;
+using Haggis.AI.WeightNormalization;
 using Haggis.Domain.Enums;
 using Haggis.Domain.Extentions;
 using Haggis.Domain.Model;
@@ -9,11 +10,13 @@ namespace Haggis.AI.ContinuationTrickWeightStrategies
 {
     public sealed class PenalizeContinuationWhenHigherRelatedCombinationExistsWeightStrategy : IContinuationTrickWeightStrategy
     {
-        private int HigherRelatedCombinationContinuationPenaltyFactor { get; }
+        private const int BasePenalty = 40;
 
-        public PenalizeContinuationWhenHigherRelatedCombinationExistsWeightStrategy(int higherRelatedCombinationContinuationPenaltyFactor)
+        private float Weight { get; }
+
+        public PenalizeContinuationWhenHigherRelatedCombinationExistsWeightStrategy(float weight)
         {
-            HigherRelatedCombinationContinuationPenaltyFactor = higherRelatedCombinationContinuationPenaltyFactor;
+            Weight = weight;
         }
 
         public IReadOnlyList<(int Weight, Trick Trick)> GetWeight(List<Trick> allSuggestedTricks, RoundState gameState)
@@ -28,7 +31,7 @@ namespace Haggis.AI.ContinuationTrickWeightStrategies
         {
             if (trick == null ||
                 gameState?.CurrentPlayer?.Hand == null ||
-                HigherRelatedCombinationContinuationPenaltyFactor <= 0)
+                Weight <= 0)
             {
                 return 0;
             }
@@ -51,9 +54,15 @@ namespace Haggis.AI.ContinuationTrickWeightStrategies
                 .Where(candidate => candidate.Cards.Count > trick.Cards.Count)
                 .Any(candidate => candidateNaturalCards.All(card => candidate.Cards.Contains(card)));
 
-            return hasHigherRelatedCombination
-                ? -(gameState.CurrentPlayer.Hand.Count * HigherRelatedCombinationContinuationPenaltyFactor)
-                : 0;
+            if (!hasHigherRelatedCombination)
+            {
+                return 0;
+            }
+
+            var baseScore = HeuristicWeightNormalization.BaseScore(
+                -HeuristicWeightNormalization.HandPhase(gameState.CurrentPlayer.Hand.Count),
+                BasePenalty);
+            return HeuristicWeightNormalization.ApplyWeight(baseScore, Weight);
         }
     }
 }

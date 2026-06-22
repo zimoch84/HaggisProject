@@ -18,7 +18,7 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetWeight_WhenHandIsLarge_ShouldPreferLowerTrick()
         {
-            var strategy = new PreferLowerTricksWhenHandIsLargeWeightStrategy(8, 10);
+            var strategy = new PreferLowerTricksWhenHandIsLargeWeightStrategy(1);
             var player = new AIPlayer("p1")
             {
                 Hand = new List<string> { "2R", "3R", "4R", "5R", "6R", "7R", "8R", "9R", "10R", "J", "Q", "K" }.ToCards()
@@ -39,7 +39,7 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetWeight_WhenHandIsSmall_ShouldPreferHigherTrick()
         {
-            var strategy = new PreferLowerTricksWhenHandIsLargeWeightStrategy(8, 10);
+            var strategy = new PreferLowerTricksWhenHandIsLargeWeightStrategy(1);
             var player = new AIPlayer("p1")
             {
                 Hand = new List<string> { "2R", "10R", "J", "Q" }.ToCards()
@@ -64,7 +64,7 @@ namespace HaggisTests.Strategies
                 new FilterNoneStrategy(),
                 startingTrickWeightStrategies: new[]
                 {
-                    new PreferLowerTricksWhenHandIsLargeWeightStrategy(8, 10)
+                    new PreferLowerTricksWhenHandIsLargeWeightStrategy(1)
                 });
 
             var p1 = new AIPlayer("p1", strategy)

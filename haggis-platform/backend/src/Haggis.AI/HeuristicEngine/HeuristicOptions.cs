@@ -2,21 +2,53 @@ namespace Haggis.AI.Strategies
 {
     public sealed class HeuristicOptions
     {
-        public int PreferSinglesNotBreakingNonWildCombinationsWeight { get; set; } = 3;
-        public int ContinuationCountWeight { get; set; } = 10;
-        public int PreferNonBreakableOpeningMaxWeight { get; set; } = 25;
-        public int PreferLowerStartCutoff { get; set; } = 8;
-        public int PreferLowerStartMaxWeight { get; set; } = 10;
-        public int ShorterStartCutoff { get; set; } = 8;
-        public int ShorterStartNormalization { get; set; } = 3;
-        public int WildCardOpeningPenaltyFactor { get; set; } = 7;
-        public int BombOpeningPenaltyFactor { get; set; } = 100;
-        public int HigherRelatedCombinationOpeningPenaltyFactor { get; set; } = 6;
-        public int WildCardContinuationPenaltyFactor { get; set; } = 7;
-        public int BombContinuationPenaltyFactor { get; set; } = 40;
-        public int HigherRelatedCombinationContinuationPenaltyFactor { get; set; } = 4;
-        public int PreferUsingWildAsHigherCardInContinuationWeight { get; set; } = 10;
-        public int LowerValueContinuationWeight { get; set; } = 2;
-        public int ContinuationFollowUpWeight { get; set; } = 3;
+        // All options below are external multipliers for strategy base scores.
+        // 0 disables a strategy, 1 keeps its built-in default strength, values
+        // above 1 strengthen its effect proportionally.
+
+        // PreferSinglesNotBreakingNonWildCombinationsWeightStrategy
+        public float PreferSinglesNotBreakingNonWildCombinationsWeight { get; set; } = 1f;
+
+        // PreferTricksWithMoreContinuationsWeightStrategy
+        public float ContinuationCountWeight { get; set; } = 1f;
+
+        // PreferTricksThatAreMostLikelyNonBreakableWeightStrategy
+        public float PreferNonBreakableOpeningWeight { get; set; } = 1f;
+
+        // PreferLowerTricksWhenHandIsLargeWeightStrategy
+        public float PreferLowerStartWeight { get; set; } = 1f;
+
+        // PreferShorterTricksWhenHandIsLargeWeightStrategy
+        public float PreferShorterStartWeight { get; set; } = 1f;
+
+        // PenalizeWildCardsInOpeningWeightStrategy
+        public float WildCardOpeningWeight { get; set; } = 1f;
+
+        // PenalizeBombOpeningWeightStrategy
+        public float BombOpeningWeight { get; set; } = 1f;
+
+        // PenalizeOpeningWhenHigherRelatedCombinationExistsWeightStrategy
+        public float HigherRelatedCombinationOpeningWeight { get; set; } = 1f;
+
+        // PenalizeWildCardsInContinuationWeightStrategy
+        public float WildCardContinuationWeight { get; set; } = 1f;
+
+        // PenalizeBombContinuationWeightStrategy
+        public float BombContinuationWeight { get; set; } = 1f;
+
+        // PenalizeContinuationWhenHigherRelatedCombinationExistsWeightStrategy
+        public float HigherRelatedCombinationContinuationWeight { get; set; } = 1f;
+
+        // PreferUsingWildAsHigherCardInContinuationWeightStrategy
+        public float PreferUsingWildAsHigherCardInContinuationWeight { get; set; } = 1f;
+
+        // PreferLowerValueContinuationWeightStrategy
+        public float LowerValueContinuationWeight { get; set; } = 1f;
+
+        // PreferContinuationsWithFollowUpWeightStrategy
+        public float ContinuationFollowUpWeight { get; set; } = 1f;
+
+        // PreferNotPassingWhenHoldingPlayableBombInEndgameWeightStrategy
+        public float PlayableBombInEndgameWeight { get; set; } = 1f;
     }
 }

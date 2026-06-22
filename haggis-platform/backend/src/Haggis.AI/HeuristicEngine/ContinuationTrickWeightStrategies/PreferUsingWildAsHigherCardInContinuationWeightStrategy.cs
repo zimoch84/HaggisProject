@@ -1,17 +1,20 @@
 using System.Collections.Generic;
 using System.Linq;
 using Haggis.AI.Interfaces;
+using Haggis.AI.WeightNormalization;
 using Haggis.Domain.Model;
 
 namespace Haggis.AI.ContinuationTrickWeightStrategies
 {
     public sealed class PreferUsingWildAsHigherCardInContinuationWeightStrategy : IContinuationTrickWeightStrategy
     {
-        private int PreferUsingWildAsHigherCardInContinuationWeight { get; }
+        private const int BasePenalty = 30;
 
-        public PreferUsingWildAsHigherCardInContinuationWeightStrategy(int preferUsingWildAsHigherCardInContinuationWeight)
+        private float Weight { get; }
+
+        public PreferUsingWildAsHigherCardInContinuationWeightStrategy(float weight)
         {
-            PreferUsingWildAsHigherCardInContinuationWeight = preferUsingWildAsHigherCardInContinuationWeight;
+            Weight = weight;
         }
 
         public IReadOnlyList<(int Weight, Trick Trick)> GetWeight(List<Trick> allSuggestedTricks, RoundState gameState)
@@ -24,7 +27,7 @@ namespace Haggis.AI.ContinuationTrickWeightStrategies
 
         private int GetWeightForTrick(Trick trick, List<Trick> allSuggestedTricks)
         {
-            if (trick == null || PreferUsingWildAsHigherCardInContinuationWeight <= 0)
+            if (trick == null || Weight <= 0)
             {
                 return 0;
             }
@@ -53,9 +56,24 @@ namespace Haggis.AI.ContinuationTrickWeightStrategies
             }
 
             var totalRankImprovement = CalculateTotalRankImprovement(currentWildRanks, bestAlternativeWildRanks);
+            var maxAvailableImprovement = (allSuggestedTricks ?? new List<Trick>())
+                .Where(candidate => !ReferenceEquals(candidate, trick))
+                .Where(candidate => candidate != null)
+                .Where(candidate => candidate.Type == trick.Type)
+                .Where(candidate => candidate.Cards.Count == trick.Cards.Count)
+                .Where(candidate => candidate.Cards.Count(card => card.IsWild) == currentWildRanks.Count)
+                .Where(candidate => candidate.CompareTo(trick) > 0)
+                .Select(GetEffectiveWildRanks)
+                .Select(candidateWildRanks => CalculateTotalRankImprovement(currentWildRanks, candidateWildRanks))
+                .DefaultIfEmpty(0)
+                .Max();
             return totalRankImprovement <= 0
                 ? 0
-                : -(totalRankImprovement * PreferUsingWildAsHigherCardInContinuationWeight);
+                : HeuristicWeightNormalization.ApplyWeight(
+                    HeuristicWeightNormalization.BaseScore(
+                        -HeuristicWeightNormalization.NormalizeRatio(totalRankImprovement, maxAvailableImprovement),
+                        BasePenalty),
+                    Weight);
         }
 
         private static List<int> GetEffectiveWildRanks(Trick trick)

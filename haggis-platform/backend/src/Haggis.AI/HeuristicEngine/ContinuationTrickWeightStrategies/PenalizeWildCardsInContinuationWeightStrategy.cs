@@ -1,18 +1,20 @@
 using System.Collections.Generic;
 using System.Linq;
 using Haggis.AI.Interfaces;
+using Haggis.AI.WeightNormalization;
 using Haggis.Domain.Model;
 
 namespace Haggis.AI.ContinuationTrickWeightStrategies
 {
     public sealed class PenalizeWildCardsInContinuationWeightStrategy : IContinuationTrickWeightStrategy
     {
-        private const int MaxPenaltyCap = 50;
-        private int WildCardContinuationPenaltyFactor { get; }
+        private const int BasePenalty = 50;
 
-        public PenalizeWildCardsInContinuationWeightStrategy(int wildCardContinuationPenaltyFactor)
+        private float Weight { get; }
+
+        public PenalizeWildCardsInContinuationWeightStrategy(float weight)
         {
-            WildCardContinuationPenaltyFactor = wildCardContinuationPenaltyFactor;
+            Weight = weight;
         }
 
         public IReadOnlyList<(int Weight, Trick Trick)> GetWeight(List<Trick> allSuggestedTricks, RoundState gameState)
@@ -22,15 +24,15 @@ namespace Haggis.AI.ContinuationTrickWeightStrategies
                 .Select(trick =>
                 {
                     var wildCount = trick?.Cards.Count(card => card.IsWild) ?? 0;
-                    var weight = wildCount == 0
-                        ? 0
-                        : -(handCount * wildCount * WildCardContinuationPenaltyFactor);
-                    if (weight < -MaxPenaltyCap)
+                    if (wildCount == 0 || Weight <= 0 || trick == null)
                     {
-                        weight = -MaxPenaltyCap;
+                        return (0, trick);
                     }
 
-                    return (weight, trick);
+                    var wildSignal = HeuristicWeightNormalization.NormalizeRatio(wildCount, trick.Cards.Count);
+                    var handSignal = HeuristicWeightNormalization.HandPhase(handCount);
+                    var baseScore = HeuristicWeightNormalization.BaseScore(-(wildSignal * handSignal), BasePenalty);
+                    return (HeuristicWeightNormalization.ApplyWeight(baseScore, Weight), trick);
                 })
                 .ToList();
         }

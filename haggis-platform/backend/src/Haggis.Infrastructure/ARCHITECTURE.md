@@ -52,9 +52,7 @@ Heuristic AI example:
   "ai": {
     "strategy": "heuristic",
     "useWildsInContinuations": true,
-    "takeLessValueTrickFirst": true,
-    "filter": "continuations",
-    "filterLimit": 5
+    "takeLessValueTrickFirst": true
   }
 }
 ```

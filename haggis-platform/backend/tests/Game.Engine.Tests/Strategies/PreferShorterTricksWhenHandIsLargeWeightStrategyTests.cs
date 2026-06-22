@@ -18,10 +18,10 @@ namespace HaggisTests.Strategies
         [Test]
         public void GetWeight_WhenHandIsLarge_ShouldPreferShorterTrick()
         {
-            var strategy = new PreferShorterTricksWhenHandIsLargeWeightStrategy(7, 2);
+            var strategy = new PreferShorterTricksWhenHandIsLargeWeightStrategy(1);
             var player = new AIPlayer("p1")
             {
-                Hand = new List<string> { "2R", "2B", "3R", "3B", "4R", "4B" }.ToCards()
+                Hand = new List<string> { "2R", "2B", "3R", "3B", "4R", "4B", "5R", "5B", "6R", "6B" }.ToCards()
             };
             var state = new RoundState(new List<IHaggisPlayer> { player, new AIPlayer("p2"), new AIPlayer("p3") });
             var single = new Trick(TrickType.SINGLE, new List<Card> { "2R".ToCard() });
@@ -34,9 +34,9 @@ namespace HaggisTests.Strategies
             var pairWeight = weights.Single(result => ReferenceEquals(result.Trick, pair)).Weight;
             var tripleWeight = weights.Single(result => ReferenceEquals(result.Trick, triple)).Weight;
 
-            Assert.That(singleWeight, Is.EqualTo(2));
-            Assert.That(pairWeight, Is.EqualTo(2));
-            Assert.That(tripleWeight, Is.EqualTo(2));
+            Assert.That(singleWeight, Is.GreaterThan(pairWeight));
+            Assert.That(pairWeight, Is.GreaterThanOrEqualTo(tripleWeight));
+            Assert.That(singleWeight, Is.LessThanOrEqualTo(24));
         }
 
         [Test]
@@ -48,9 +48,8 @@ namespace HaggisTests.Strategies
                 {
                     PreferSinglesNotBreakingNonWildCombinationsWeight = 0,
                     ContinuationCountWeight = 0,
-                    HigherRelatedCombinationOpeningPenaltyFactor = 0,
-                    ShorterStartCutoff = 7,
-                    ShorterStartNormalization = 2
+                    HigherRelatedCombinationOpeningWeight = 0,
+                    PreferShorterStartWeight = 1
                 });
 
             var p1 = new AIPlayer("p1", strategy)

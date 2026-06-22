@@ -12,7 +12,6 @@ namespace Haggis.AI.Benchmark
         private static readonly HashSet<string> Supported = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "normal",
-            "heuristic-continuations",
             "random",
             "montecarlo-fast"
         };
@@ -89,10 +88,6 @@ namespace Haggis.AI.Benchmark
                 case "normal":
                     return HeuristicPlayStrategy.Create(
                         new FilterNoneStrategy(),
-                        heuristicOptions: new HeuristicOptions());
-                case "heuristic-continuations":
-                    return HeuristicPlayStrategy.Create(
-                        new FilterContinuations(5, false),
                         heuristicOptions: new HeuristicOptions());
                 case "random":
                     return new RandomPlayStrategy();

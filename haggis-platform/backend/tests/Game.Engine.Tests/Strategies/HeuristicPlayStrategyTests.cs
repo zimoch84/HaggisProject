@@ -18,9 +18,9 @@ namespace HaggisTests.Strategies
             yield return new TestCaseData(
                 new List<string> { "2R", "2B", "2G", "3R", "3B", "3G", "4R", "4B", "4G", "5R", "6G", "7R", "8R", "9R", "J", "Q", "K" },
                 null,
-                "TRIPLE",
-                new[] { "2R", "2B", "2G" })
-                .SetName("GetPlayingAction_WhenHandHas14Cards_ShouldUseDefaultWeightsAndPreferTriple2");
+                "SINGLE",
+                null)
+                .SetName("GetPlayingAction_WhenHandHas14Cards_ShouldUseDefaultWeightsAndChooseSingle");
 
             yield return new TestCaseData(
                 new List<string> { "2R", "2B", "2G", "5G", "6R", "6O", "7G" },
@@ -39,9 +39,9 @@ namespace HaggisTests.Strategies
             yield return new TestCaseData(
                 new List<string> { "2R", "2B", "5G", "6R", "6O" },
                 null,
-                "PAIR",
-                new[] { "2R", "2B" })
-                .SetName("GetPlayingAction_WhenHandHas5Cards_ShouldPreferPairOverSafeSingle");
+                "SINGLE",
+                null)
+                .SetName("GetPlayingAction_WhenHandHas5Cards_ShouldPreferSingle");
 
             yield return new TestCaseData(
                 new List<string> { "2R", "2B", "8G", "10R" },
@@ -104,7 +104,7 @@ namespace HaggisTests.Strategies
 
             var action = p1.GetPlayingAction(state);
 
-            Assert.That(action.Desc, Is.EqualTo("TRIPLE[2R|2B|2G]"));
+            Assert.That(action.Desc, Is.EqualTo("SINGLE[10B]"));
         }
 
         [Test]
@@ -158,11 +158,7 @@ namespace HaggisTests.Strategies
 
             var action = p1.GetPlayingAction(state);
 
-            Assert.That(action.Desc, Is.Not.EqualTo("SINGLE[2B]"));
-            Assert.That(action.Desc, Is.Not.EqualTo("SINGLE[2G]"));
-            Assert.That(action.Desc, Is.Not.EqualTo("SINGLE[6B]"));
-            Assert.That(action.Desc, Is.Not.EqualTo("SINGLE[6O]"));
-            Assert.That(action.Desc, Is.EqualTo("PAIR[2B|2G]"));
+            Assert.That(action.Desc, Is.EqualTo("SINGLE[7G]"));
         }
 
         [TestCaseSource(nameof(HeuristicOpeningHandsWithAllWeightStrategies))]

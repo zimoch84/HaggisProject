@@ -30,19 +30,17 @@ namespace Haggis.AI.Strategies
                     : new List<IStartingTrickWeightStrategy>
                     {
                     new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(
-                        heuristicOptions.PreferNonBreakableOpeningMaxWeight),
+                        heuristicOptions.PreferNonBreakableOpeningWeight),
                     new PreferLowerTricksWhenHandIsLargeWeightStrategy(
-                        heuristicOptions.PreferLowerStartCutoff,
-                        heuristicOptions.PreferLowerStartMaxWeight),
+                        heuristicOptions.PreferLowerStartWeight),
                     new PreferShorterTricksWhenHandIsLargeWeightStrategy(
-                        heuristicOptions.ShorterStartCutoff,
-                        heuristicOptions.ShorterStartNormalization),
+                        heuristicOptions.PreferShorterStartWeight),
                     new PenalizeBombOpeningWeightStrategy(
-                        heuristicOptions.BombOpeningPenaltyFactor),
+                        heuristicOptions.BombOpeningWeight),
                     new PenalizeWildCardsInOpeningWeightStrategy(
-                        heuristicOptions.WildCardOpeningPenaltyFactor),
+                        heuristicOptions.WildCardOpeningWeight),
                     new PenalizeOpeningWhenHigherRelatedCombinationExistsWeightStrategy(
-                        heuristicOptions.HigherRelatedCombinationOpeningPenaltyFactor),
+                        heuristicOptions.HigherRelatedCombinationOpeningWeight),
                     new PreferTricksWithMoreContinuationsWeightStrategy(
                         heuristicOptions.ContinuationCountWeight),
                     new PreferSinglesNotBreakingNonWildCombinationsWeightStrategy(

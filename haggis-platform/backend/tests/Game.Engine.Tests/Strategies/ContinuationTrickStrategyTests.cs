@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Haggis.AI.ContinuationTrickWeightStrategies;
 using Haggis.AI.Interfaces;
 using Haggis.AI.Model;
 using Haggis.AI.Strategies;
@@ -203,46 +204,25 @@ namespace HaggisTests.Strategies
         }
 
         [Test]
-        public void GetPlayingAction_WhenWildcardSequenceHasQueenVariant_ShouldLogQueenCandidateAndChooseDeterministicBestSequence()
+        public void GetPlayingAction_WhenPassCompetesWithPlayableBombInEndgame_ShouldChooseBomb()
         {
-            var diagnostics = new List<string>();
-            var previousDiagnosticsSink = ContinuationTrickStrategy.DiagnosticsSink;
-
-            try
-            {
-                ContinuationTrickStrategy.DiagnosticsSink = diagnostics.Add;
-                var strategy = new ContinuationTrickStrategy();
-                var openerHand = new List<Card>
+            var strategy = new ContinuationTrickStrategy(
+                continuationTrickFilterStrategies: new[] { new PassthroughContinuationFilterStrategy() },
+                continuationTrickWeightStrategies: new IContinuationTrickWeightStrategy[]
                 {
-                    new Card(Rank.JACK),
-                    "8B".ToCard(),
-                    "9B".ToCard(),
-                    "2R".ToCard()
-                };
-                var currentHand = new List<string> { "10B", "10G", "10O", "9R", "J", "Q", "K" }.ToCards();
-                var openingTrick = new Trick(
-                    TrickType.SEQ3,
-                    new List<Card>
-                    {
-                        new Card(Rank.JACK).WildAs("7B".ToCard()),
-                        "8B".ToCard(),
-                        "9B".ToCard()
-                    });
+                    new PreferNotPassingWhenHoldingPlayableBombInEndgameWeightStrategy(1)
+                });
+            var state = CreateContinuationState(
+                currentPlayerHand: new List<string> { "5R", "6G", "10O", "J", "Q", "K" },
+                openerHand: new List<string> { "4R", "2B" },
+                openingTrick: new Trick(TrickType.SINGLE, new List<Card> { "4R".ToCard() }));
 
-                var state = CreateContinuationState(currentHand, openerHand, openingTrick);
+            var action = strategy.GetPlayingAction(state);
 
-                var action = strategy.GetPlayingAction(state);
-
-                Assert.That(
-                    diagnostics.Any(message =>
-                        message.Contains("Continuation trick candidate: SEQ3[J[8B]|Q[9B]|10B]")),
-                    Is.True);
-                Assert.That(action.Desc, Is.EqualTo("SEQ3[J[8B]|K[9B]|10B]"));
-            }
-            finally
-            {
-                ContinuationTrickStrategy.DiagnosticsSink = previousDiagnosticsSink;
-            }
+            Assert.That(action, Is.Not.Null);
+            Assert.That(action.IsPass, Is.False);
+            Assert.That(action.Trick.Type, Is.EqualTo(TrickType.BOMB));
+            Assert.That(action.Desc, Is.EqualTo("BOMB[J|Q]"));
         }
 
         private static RoundState CreateContinuationState(List<string> currentPlayerHand, List<string> openerHand, Trick openingTrick)

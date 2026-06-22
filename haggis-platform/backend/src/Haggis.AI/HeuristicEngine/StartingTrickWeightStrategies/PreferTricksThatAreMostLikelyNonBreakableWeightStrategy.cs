@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Haggis.AI.Interfaces;
+using Haggis.AI.WeightNormalization;
 using Haggis.Domain.Enums;
 using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
@@ -12,12 +13,13 @@ namespace Haggis.AI.StartingTrickWeightStrategies
     {
         private const int MinNaturalRank = (int)Rank.TWO;
         private const int MaxNaturalRank = (int)Rank.TEN;
+        private const int BaseWeight = 25;
 
-        private int PreferNonBreakableOpeningMaxWeight { get; }
+        private float Weight { get; }
 
-        public PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(int preferNonBreakableOpeningMaxWeight)
+        public PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(float weight)
         {
-            PreferNonBreakableOpeningMaxWeight = preferNonBreakableOpeningMaxWeight;
+            Weight = weight;
         }
 
         public IReadOnlyList<(int Weight, Trick Trick)> GetWeight(List<Trick> allSuggestedTricks, RoundState gameState)
@@ -31,7 +33,7 @@ namespace Haggis.AI.StartingTrickWeightStrategies
         {
             if (trick == null ||
                 gameState?.CurrentPlayer?.Hand == null ||
-                PreferNonBreakableOpeningMaxWeight <= 0 ||
+                Weight <= 0 ||
                 trick.Cards.Count == 0)
             {
                 return 0;
@@ -54,7 +56,7 @@ namespace Haggis.AI.StartingTrickWeightStrategies
                 return 0;
             }
 
-            return PreferNonBreakableOpeningMaxWeight;
+            return HeuristicWeightNormalization.ApplyWeight(BaseWeight, Weight);
         }
 
         private static double CalculateProbabilityThatTrickIsNonBreakable(Trick trick, RoundState gameState)
