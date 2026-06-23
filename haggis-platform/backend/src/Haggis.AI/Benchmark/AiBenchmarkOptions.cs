@@ -13,6 +13,9 @@ namespace Haggis.AI.Benchmark
         public string CsvPath { get; set; }
         public string LogPath { get; set; }
         public int MaxMovesPerGame { get; set; } = 10000;
+        public Strategies.HeuristicOptions Ai1HeuristicOptions { get; set; }
+        public Strategies.HeuristicOptions Ai2HeuristicOptions { get; set; }
+        public Strategies.HeuristicOptions Ai3HeuristicOptions { get; set; }
 
         public string GetSeatStrategy(int seatNumber)
         {
@@ -26,6 +29,21 @@ namespace Haggis.AI.Benchmark
                     return Ai3Strategy;
                 default:
                     return Ai1Strategy;
+            }
+        }
+
+        public Strategies.HeuristicOptions GetSeatHeuristicOptions(int seatNumber)
+        {
+            switch (seatNumber)
+            {
+                case 1:
+                    return Ai1HeuristicOptions;
+                case 2:
+                    return Ai2HeuristicOptions;
+                case 3:
+                    return Ai3HeuristicOptions;
+                default:
+                    return null;
             }
         }
 

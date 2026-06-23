@@ -1,39 +1,85 @@
 using System;
+using System.IO;
+using System.Linq;
 using Haggis.AI.Benchmark;
 
 try
 {
-    var options = AiBenchmarkArgumentParser.Parse(args);
-    var results = new AiBenchmarkRunner().Run(options);
-    var summary = new AiBenchmarkSummary(results);
-
-    Console.WriteLine(summary.Format());
-
-    var outputTimestamp = DateTime.Now;
-    if (!string.IsNullOrWhiteSpace(options.CsvPath))
+    var mode = GetMode(args);
+    if (string.Equals(mode, "tuning", StringComparison.OrdinalIgnoreCase))
     {
-        var csvPath = AiBenchmarkOutputPath.WithRunSuffix(options.CsvPath, options, outputTimestamp);
-        AiBenchmarkCsvWriter.Write(csvPath, results);
-        Console.WriteLine();
-        Console.WriteLine($"CSV written: {csvPath}");
-    }
+        var options = HeuristicTuningArgumentParser.Parse(args);
+        var produced = new HeuristicTuningRunner().Run(options);
 
-    if (!string.IsNullOrWhiteSpace(options.LogPath))
+        Console.WriteLine();
+        Console.WriteLine($"Tuning CSV: {options.CsvPath}");
+        Console.WriteLine($"Weight sets requested: {options.WeightSets.Count}");
+        Console.WriteLine($"Weight sets executed: {produced.Count}");
+        Console.WriteLine($"Weight sets skipped (resume): {options.WeightSets.Count - produced.Count}");
+
+        foreach (var result in produced)
+        {
+            Console.WriteLine(
+                $"run heuristicWinRate={result.HeuristicWinRatePct:0.00}% monteCarloWinRate={result.MonteCarloWinRatePct:0.00}% heuristicAvgScore={result.HeuristicAverageScore:0.00} monteCarloAvgScore={result.MonteCarloAverageScore:0.00} weights={HeuristicOptionsSerializer.Serialize(result.HeuristicOptions)}");
+        }
+
+        var best = produced
+            .OrderByDescending(result => result.HeuristicWinRatePct)
+            .ThenByDescending(result => result.HeuristicAverageScore)
+            .FirstOrDefault();
+
+        if (best != null)
+        {
+            Console.WriteLine();
+            Console.WriteLine(
+                $"Best new run: heuristicWinRate={best.HeuristicWinRatePct:0.00}% heuristicAvgScore={best.HeuristicAverageScore:0.00} weights={HeuristicOptionsSerializer.Serialize(best.HeuristicOptions)}");
+        }
+
+        Environment.ExitCode = 0;
+    }
+    else
     {
-        var logPath = AiBenchmarkOutputPath.WithRunSuffix(options.LogPath, options, outputTimestamp);
-        AiBenchmarkGameLogWriter.Write(logPath, results);
-        Console.WriteLine();
-        Console.WriteLine($"Game log written: {logPath}");
-    }
+        var options = AiBenchmarkArgumentParser.Parse(args);
+        var results = new AiBenchmarkRunner().Run(options);
+        var summary = new AiBenchmarkSummary(results);
 
-    Environment.ExitCode = summary.FailedGames == 0 ? 0 : 1;
+        Console.WriteLine(summary.Format());
+
+        var outputTimestamp = DateTime.Now;
+        if (!string.IsNullOrWhiteSpace(options.CsvPath))
+        {
+            var csvPath = AiBenchmarkOutputPath.WithRunSuffix(options.CsvPath, options, outputTimestamp);
+            AiBenchmarkCsvWriter.Write(csvPath, results);
+            Console.WriteLine();
+            Console.WriteLine($"CSV written: {csvPath}");
+
+            var heuristicCsvPath = Path.Combine(
+                Path.GetDirectoryName(csvPath) ?? string.Empty,
+                $"{Path.GetFileNameWithoutExtension(csvPath)}_heuristic-weights{Path.GetExtension(csvPath)}");
+            AiBenchmarkHeuristicWeightsCsvWriter.Write(heuristicCsvPath, options, results);
+            Console.WriteLine($"Heuristic weights CSV written: {heuristicCsvPath}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.LogPath))
+        {
+            var logPath = AiBenchmarkOutputPath.WithRunSuffix(options.LogPath, options, outputTimestamp);
+            AiBenchmarkGameLogWriter.Write(logPath, results);
+            Console.WriteLine();
+            Console.WriteLine($"Game log written: {logPath}");
+        }
+
+        Environment.ExitCode = summary.FailedGames == 0 ? 0 : 1;
+    }
 }
 catch (Exception exception)
 {
+    var mode = GetMode(args);
     Console.Error.WriteLine(exception.Message);
     Console.Error.WriteLine();
     Console.Error.WriteLine("Supported arguments:");
-    foreach (var argument in AiBenchmarkArgumentParser.SupportedArguments())
+    foreach (var argument in string.Equals(mode, "tuning", StringComparison.OrdinalIgnoreCase)
+                 ? HeuristicTuningArgumentParser.SupportedArguments()
+                 : AiBenchmarkArgumentParser.SupportedArguments())
     {
         Console.Error.WriteLine($"  {argument}");
     }
@@ -45,4 +91,19 @@ catch (Exception exception)
     }
 
     Environment.ExitCode = 2;
+}
+
+static string GetMode(string[] args)
+{
+    foreach (var argument in args ?? Array.Empty<string>())
+    {
+        if (string.IsNullOrWhiteSpace(argument) || !argument.StartsWith("--mode=", StringComparison.Ordinal))
+        {
+            continue;
+        }
+
+        return argument.Substring("--mode=".Length).Trim();
+    }
+
+    return "benchmark";
 }

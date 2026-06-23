@@ -76,7 +76,7 @@ namespace Haggis.AI.Benchmark
             return simulations > 0 && timeBudgetMs > 0;
         }
 
-        public static IPlayStrategy Create(string strategyName)
+        public static IPlayStrategy Create(string strategyName, HeuristicOptions heuristicOptions = null)
         {
             if (TryParseMonteCarloStrategy(strategyName, out var simulations, out var timeBudgetMs, out var workers))
             {
@@ -88,7 +88,7 @@ namespace Haggis.AI.Benchmark
                 case "normal":
                     return HeuristicPlayStrategy.Create(
                         new FilterNoneStrategy(),
-                        heuristicOptions: new HeuristicOptions());
+                        heuristicOptions: heuristicOptions ?? new HeuristicOptions());
                 case "random":
                     return new RandomPlayStrategy();
                 case "montecarlo-fast":

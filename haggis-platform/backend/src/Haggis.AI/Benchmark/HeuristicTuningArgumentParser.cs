@@ -3,11 +3,13 @@ using System.Collections.Generic;
 
 namespace Haggis.AI.Benchmark
 {
-    public static class AiBenchmarkArgumentParser
+    public static class HeuristicTuningArgumentParser
     {
-        public static AiBenchmarkOptions Parse(string[] args)
+        public static HeuristicTuningBatchOptions Parse(string[] args)
         {
-            var options = new AiBenchmarkOptions();
+            var options = new HeuristicTuningBatchOptions();
+            var weightSets = new List<Strategies.HeuristicOptions>();
+
             foreach (var argument in args ?? Array.Empty<string>())
             {
                 if (string.IsNullOrWhiteSpace(argument) || !argument.StartsWith("--", StringComparison.Ordinal))
@@ -23,9 +25,10 @@ namespace Haggis.AI.Benchmark
                     ? "true"
                     : argument.Substring(separatorIndex + 1);
 
-                Apply(options, key.Trim(), value.Trim());
+                Apply(options, weightSets, key.Trim(), value.Trim());
             }
 
+            options.WeightSets = weightSets;
             Validate(options);
             return options;
         }
@@ -34,32 +37,33 @@ namespace Haggis.AI.Benchmark
         {
             return new[]
             {
-                "--games=1000",
-                "--players=3",
+                "--mode=tuning",
+                "--games=100",
                 "--seed-start=1",
                 "--game-over-score=250",
-                "--ai1=normal",
-                "--ai1-weights=ContinuationFollowUpWeight=0.5;BombOpeningWeight=0",
-                "--ai2=montecarlo:800:100:4",
-                "--ai2-weights=ContinuationFollowUpWeight=1.25",
-                "--ai3=normal",
-                "--ai3-weights=ContinuationFollowUpWeight=1",
+                "--ai2=montecarlo:2000:2000:4",
                 "--rotate=true",
-                "--csv=path",
-                "--log=path",
-                "--max-moves=10000"
+                "--csv=results_heuristic-vs-montecarlo-2000-2000-4_100-seeds.csv",
+                "--max-moves=20000",
+                "--baseline-weight=1",
+                "--weight-step=0.25",
+                "--weights=ContinuationFollowUpWeight=1;BombOpeningWeight=1",
+                "--weights=ContinuationFollowUpWeight=0.5;BombOpeningWeight=2"
             };
         }
 
-        private static void Apply(AiBenchmarkOptions options, string key, string value)
+        private static void Apply(
+            HeuristicTuningBatchOptions options,
+            List<Strategies.HeuristicOptions> weightSets,
+            string key,
+            string value)
         {
             switch (key.ToLowerInvariant())
             {
+                case "mode":
+                    break;
                 case "games":
                     options.Games = ParseInt(key, value);
-                    break;
-                case "players":
-                    options.Players = ParseInt(key, value);
                     break;
                 case "seed-start":
                     options.SeedStart = ParseInt(key, value);
@@ -67,23 +71,15 @@ namespace Haggis.AI.Benchmark
                 case "game-over-score":
                     options.GameOverScore = ParseInt(key, value);
                     break;
-                case "ai1":
-                    options.Ai1Strategy = value;
+                case "baseline-weight":
+                    options.BaselineWeight = ParseFloat(key, value);
+                    break;
+                case "weight-step":
+                    options.WeightStep = ParseFloat(key, value);
                     break;
                 case "ai2":
-                    options.Ai2Strategy = value;
-                    break;
-                case "ai1-weights":
-                    options.Ai1HeuristicOptions = HeuristicOptionsSerializer.Parse(value);
-                    break;
-                case "ai2-weights":
-                    options.Ai2HeuristicOptions = HeuristicOptionsSerializer.Parse(value);
-                    break;
-                case "ai3-weights":
-                    options.Ai3HeuristicOptions = HeuristicOptionsSerializer.Parse(value);
-                    break;
-                case "ai3":
-                    options.Ai3Strategy = value;
+                case "montecarlo":
+                    options.MonteCarloStrategy = value;
                     break;
                 case "rotate":
                     options.Rotate = ParseBool(key, value);
@@ -91,27 +87,22 @@ namespace Haggis.AI.Benchmark
                 case "csv":
                     options.CsvPath = value;
                     break;
-                case "log":
-                    options.LogPath = value;
-                    break;
                 case "max-moves":
                     options.MaxMovesPerGame = ParseInt(key, value);
                     break;
+                case "weights":
+                    weightSets.Add(HeuristicOptionsSerializer.Parse(value) ?? new Strategies.HeuristicOptions());
+                    break;
                 default:
-                    throw new ArgumentException($"Unknown argument '--{key}'.");
+                    throw new ArgumentException($"Unknown argument '--{key}' for tuning mode.");
             }
         }
 
-        private static void Validate(AiBenchmarkOptions options)
+        private static void Validate(HeuristicTuningBatchOptions options)
         {
             if (options.Games <= 0)
             {
                 throw new ArgumentException("--games must be greater than zero.");
-            }
-
-            if (options.Players < 2 || options.Players > 3)
-            {
-                throw new ArgumentException("--players must be 2 or 3.");
             }
 
             if (options.GameOverScore <= 0)
@@ -124,9 +115,26 @@ namespace Haggis.AI.Benchmark
                 throw new ArgumentException("--max-moves must be greater than zero.");
             }
 
-            AiBenchmarkStrategyFactory.EnsureSupported(options.Ai1Strategy);
-            AiBenchmarkStrategyFactory.EnsureSupported(options.Ai2Strategy);
-            AiBenchmarkStrategyFactory.EnsureSupported(options.Ai3Strategy);
+            if (string.IsNullOrWhiteSpace(options.CsvPath))
+            {
+                throw new ArgumentException("--csv is required in tuning mode.");
+            }
+
+            AiBenchmarkStrategyFactory.EnsureSupported(options.MonteCarloStrategy);
+            if (!options.MonteCarloStrategy.Trim().StartsWith("montecarlo", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Tuning mode currently supports only MonteCarlo as --ai2.");
+            }
+
+            if (options.BaselineWeight < 0f)
+            {
+                throw new ArgumentException("--baseline-weight must be non-negative.");
+            }
+
+            if (options.WeightStep <= 0f)
+            {
+                throw new ArgumentException("--weight-step must be greater than zero.");
+            }
         }
 
         private static int ParseInt(string key, string value)
@@ -144,6 +152,16 @@ namespace Haggis.AI.Benchmark
             if (!bool.TryParse(value, out var parsed))
             {
                 throw new ArgumentException($"--{key} must be true or false.");
+            }
+
+            return parsed;
+        }
+
+        private static float ParseFloat(string key, string value)
+        {
+            if (!float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+            {
+                throw new ArgumentException($"--{key} must be a number.");
             }
 
             return parsed;

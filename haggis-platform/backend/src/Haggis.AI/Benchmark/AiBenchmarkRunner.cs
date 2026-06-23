@@ -66,8 +66,15 @@ namespace Haggis.AI.Benchmark
             var maxTreeNodeCount = 0;
             var maxTreeDepth = 0;
             var strategiesByPlayer = BuildStrategiesByPlayer(options, rotation);
+            var heuristicWeightsByPlayer = BuildHeuristicWeightsByPlayer(options);
             var players = strategiesByPlayer
-                .Select(item => (IHaggisPlayer)CreatePlayer(item.Key, item.Value, logLines, aggregatedTiming, mctsResult =>
+                .Select(item => (IHaggisPlayer)CreatePlayer(
+                    item.Key,
+                    item.Value,
+                    options.GetSeatHeuristicOptions(SeatNumber(item.Key)),
+                    logLines,
+                    aggregatedTiming,
+                    mctsResult =>
                 {
                     monteCarloDecisionCount++;
                     totalTreeNodeCount += mctsResult.TreeNodeCount;
@@ -176,6 +183,7 @@ namespace Haggis.AI.Benchmark
                 LogLines = logLines,
                 Scores = scores,
                 StrategiesByPlayer = strategiesByPlayer,
+                HeuristicWeightsByPlayer = heuristicWeightsByPlayer,
                 Timing = HasTiming(aggregatedTiming) ? aggregatedTiming : null,
                 MonteCarloDecisionCount = monteCarloDecisionCount,
                 AverageTreeNodeCount = monteCarloDecisionCount == 0 ? 0 : (double)totalTreeNodeCount / monteCarloDecisionCount,
@@ -190,11 +198,12 @@ namespace Haggis.AI.Benchmark
         private static AIPlayer CreatePlayer(
             string playerName,
             string strategyName,
+            HeuristicOptions heuristicOptions,
             List<string> logLines,
             MctsTimingResult aggregatedTiming,
             Action<MonteCarloResult> onMonteCarloComputed = null)
         {
-            var strategy = AiBenchmarkStrategyFactory.Create(strategyName);
+            var strategy = AiBenchmarkStrategyFactory.Create(strategyName, heuristicOptions);
             if (strategy is MonteCarloStrategy monteCarloStrategy)
             {
                 monteCarloStrategy.CaptureTiming = true;
@@ -468,6 +477,19 @@ namespace Haggis.AI.Benchmark
             }
 
             return strategies;
+        }
+
+        private static Dictionary<string, string> BuildHeuristicWeightsByPlayer(AiBenchmarkOptions options)
+        {
+            var heuristicWeights = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            for (var index = 0; index < options.Players; index++)
+            {
+                var playerName = $"p{index + 1}";
+                heuristicWeights[playerName] = HeuristicOptionsSerializer.Serialize(options.GetSeatHeuristicOptions(index + 1));
+            }
+
+            return heuristicWeights;
         }
 
         private static int SeatNumber(string playerName)

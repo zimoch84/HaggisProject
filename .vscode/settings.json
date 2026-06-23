@@ -2,5 +2,9 @@
     "dart.flutterSdkPath": "Q:\\Program Files\\Flutter",
     "dart.flutterHotReloadOnSave": "all",
     "dart.projectSearchDepth": 5,
-    "chatgpt.openOnStartup": true
+    "chatgpt.openOnStartup": true,
+    "nunitTestRunner.projectsPatterns": [
+        "haggis-platform/backend/tests/Game.Engine.Tests/HaggisTests.csproj",
+        "haggis-platform/backend/tests/Haggis.Infrastructure.Tests/Haggis.Infrastructure.Tests.csproj"
+    ]
 }

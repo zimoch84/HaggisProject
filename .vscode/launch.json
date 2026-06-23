@@ -10,9 +10,11 @@
       "args": [],
       "cwd": "${workspaceFolder}/haggis-platform/backend/src/Haggis.Infrastructure",
       "stopAtEntry": false,
+      "justMyCode": true,
       "console": "internalConsole",
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development",
         "ASPNETCORE_URLS": "http://localhost:6666"
       }
     },
@@ -25,10 +27,33 @@
       "args": [
         "test",
         "${workspaceFolder}/haggis-platform/backend/tests/Game.Engine.Tests/HaggisTests.csproj",
-        "--no-build"
+        "--no-build",
+        "--logger",
+        "console;verbosity=minimal"
       ],
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/haggis-platform/backend/tests/Game.Engine.Tests",
       "stopAtEntry": false,
+      "justMyCode": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Haggis Game Engine Tests - Heuristics (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build HaggisTests",
+      "program": "dotnet",
+      "args": [
+        "test",
+        "${workspaceFolder}/haggis-platform/backend/tests/Game.Engine.Tests/HaggisTests.csproj",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~HaggisTests.Strategies",
+        "--logger",
+        "console;verbosity=minimal"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/backend/tests/Game.Engine.Tests",
+      "stopAtEntry": false,
+      "justMyCode": false,
       "console": "integratedTerminal"
     },
     {
@@ -107,17 +132,60 @@
       "preLaunchTask": "build Haggis.AiBenchmark",
       "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
       "args": [
-        "--games=4",
+        "--games=1",
         "--players=3",
         "--seed-start=1",
         "--game-over-score=250",
         "--ai1=normal",
-        "--ai2=montecarlo:200:200:4",
+        "--ai2=montecarlo:2000:2000:4",
         "--ai3=random",
         "--rotate=true",
-        "--max-moves=10000",
+        "--max-moves=20000",
         "--log=outcomes.txt",
         "--csv=results.csv"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/backend",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Haggis AI Benchmark - heuristic vs montecarlo (2P tuning)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.AiBenchmark",
+      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
+      "args": [
+        "--games=1",
+        "--players=2",
+        "--seed-start=1",
+        "--game-over-score=250",
+        "--ai1=normal",
+        "--ai1-weights=ContinuationFollowUpWeight=1;LowerValueContinuationWeight=1;WildCardContinuationWeight=1;PreferUsingWildAsHigherCardInContinuationWeight=1;PlayableBombInEndgameWeight=1;PreferShorterStartWeight=1;BombOpeningWeight=1",
+        "--ai2=montecarlo:200:200:4",
+        "--rotate=true",
+        "--max-moves=20000",
+        "--log=outcomes_tuning.txt",
+        "--csv=results_tuning.csv"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/backend",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Haggis AI Benchmark - heuristic vs montecarlo (2P tuning resume 5 seeds)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.AiBenchmark",
+      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
+      "args": [
+        "--mode=tuning",
+        "--games=5",
+        "--seed-start=1",
+        "--game-over-score=250",
+        "--ai2=montecarlo:200:200:4",
+        "--rotate=true",
+        "--max-moves=20000",
+        "--csv=results_heuristic-vs-montecarlo-200-200-4_100-seeds.csv"
       ],
       "cwd": "${workspaceFolder}/haggis-platform/backend",
       "stopAtEntry": false,
@@ -144,7 +212,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Flutter Android 1",
+      "name": "DEBUG Flutter Android 1",
       "type": "dart",
       "request": "launch",
       "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.Flutter.UI",
@@ -154,7 +222,7 @@
       "preLaunchTask": "start Android Emulator 1"
     },
     {
-      "name": "Flutter Android 2",
+      "name": "DEBUG Flutter Android 2",
       "type": "dart",
       "request": "launch",
       "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.Flutter.UI",
@@ -163,22 +231,15 @@
       "deviceId": "emulator-5556",
       "preLaunchTask": "start Android Emulator 2"
     }
+    
   ],
   "compounds": [
-    {
-      "name": "2 Flutter Android Apps Debug",
-      "configurations": [
-        "Flutter Android 1",
-        "Flutter Android 2"
-      ],
-      "stopAll": true
-    },
     {
       "name": "Backend + 2 Flutter Android Apps",
       "configurations": [
         "Haggis Backend (.NET)",
-        "Flutter Android 1",
-        "Flutter Android 2"
+        "DEBUG Flutter Android 1",
+        "DEBUG Flutter Android 2"
       ],
       "stopAll": true
     }

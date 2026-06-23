@@ -19,7 +19,9 @@ namespace Haggis.AI.Benchmark
             AverageGameElapsedMs = CompletedGames == 0 ? 0 : Results.Where(r => r.Completed).Average(r => r.GameElapsedMs);
             TotalGameElapsedMs = Results.Where(r => r.Completed).Sum(r => r.GameElapsedMs);
             AverageFinalScore = CalculateAverageFinalScore(Results);
+            WinsByStrategy = CalculateStrategyWins(Results);
             WinRateByStrategy = CalculateStrategyWinRates(Results);
+            AverageScoreByStrategy = CalculateAverageScoreByStrategy(Results);
             WinRateBySeat = CalculateSeatWinRates(Results);
             AverageTiming = CalculateAverageTiming(Results);
             AverageMctsDecisionsPerGame = CalculateAverageMctsDecisionsPerGame(Results);
@@ -38,7 +40,9 @@ namespace Haggis.AI.Benchmark
         public double AverageGameElapsedMs { get; }
         public long TotalGameElapsedMs { get; }
         public double AverageFinalScore { get; }
+        public IReadOnlyDictionary<string, int> WinsByStrategy { get; }
         public IReadOnlyDictionary<string, double> WinRateByStrategy { get; }
+        public IReadOnlyDictionary<string, double> AverageScoreByStrategy { get; }
         public IReadOnlyDictionary<int, double> WinRateBySeat { get; }
         public MctsTimingResult AverageTiming { get; }
         public double AverageMctsDecisionsPerGame { get; }
@@ -66,7 +70,10 @@ namespace Haggis.AI.Benchmark
 
             foreach (var item in WinRateByStrategy.OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase))
             {
-                lines.Add($"  {item.Key}: {item.Value.ToString("0.00", CultureInfo.InvariantCulture)}%");
+                var wins = WinsByStrategy.TryGetValue(item.Key, out var countedWins) ? countedWins : 0;
+                var averageScore = AverageScoreByStrategy.TryGetValue(item.Key, out var score) ? score : 0d;
+                lines.Add(
+                    $"  {item.Key}: wins={wins}, winRate={item.Value.ToString("0.00", CultureInfo.InvariantCulture)}%, avgScore={averageScore.ToString("0.00", CultureInfo.InvariantCulture)}");
             }
 
             lines.Add(string.Empty);
@@ -146,6 +153,17 @@ namespace Haggis.AI.Benchmark
             return string.Join(Environment.NewLine, lines);
         }
 
+        private static IReadOnlyDictionary<string, int> CalculateStrategyWins(IReadOnlyList<AiBenchmarkGameResult> results)
+        {
+            return results
+                .Where(result => result.Completed)
+                .GroupBy(result => result.WinnerStrategy ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Count(),
+                    StringComparer.OrdinalIgnoreCase);
+        }
+
         private static IReadOnlyDictionary<string, double> CalculateStrategyWinRates(IReadOnlyList<AiBenchmarkGameResult> results)
         {
             var completed = results.Where(result => result.Completed).ToList();
@@ -159,6 +177,26 @@ namespace Haggis.AI.Benchmark
                 .ToDictionary(
                     group => group.Key,
                     group => group.Count() * 100.0 / completed.Count,
+                    StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static IReadOnlyDictionary<string, double> CalculateAverageScoreByStrategy(IReadOnlyList<AiBenchmarkGameResult> results)
+        {
+            var strategyScores = results
+                .Where(result => result.Completed)
+                .SelectMany(result => result.StrategiesByPlayer.Select(playerStrategy => new
+                {
+                    Strategy = playerStrategy.Value ?? string.Empty,
+                    Score = result.Scores.TryGetValue(playerStrategy.Key, out var score) ? score : (int?)null
+                }))
+                .Where(item => item.Score.HasValue)
+                .ToList();
+
+            return strategyScores
+                .GroupBy(item => item.Strategy, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Average(item => item.Score.Value),
                     StringComparer.OrdinalIgnoreCase);
         }
 
