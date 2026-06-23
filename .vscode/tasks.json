@@ -47,7 +47,8 @@
       "command": "dotnet",
       "args": [
         "build",
-        "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/Haggis.AiBenchmark.csproj"
+        "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/Haggis.AiBenchmark.csproj",
+        "--no-restore"
       ],
       "problemMatcher": "$msCompile"
     },

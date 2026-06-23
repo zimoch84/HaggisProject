@@ -169,6 +169,41 @@ namespace HaggisTests
         }
 
         [Test]
+        public void HeuristicGeneticTuningArgumentParser_ShouldParseOptions()
+        {
+            var options = HeuristicGeneticTuningArgumentParser.Parse(new[]
+            {
+                "--mode=genetic",
+                "--games=100",
+                "--seed-start=3",
+                "--game-over-score=250",
+                "--ai2=montecarlo:2000:2000:4",
+                "--rotate=true",
+                "--csv=results.csv",
+                "--max-moves=20000",
+                "--generations=7",
+                "--children-per-generation=15",
+                "--parent-count=10",
+                "--mutation-rate=0.5",
+                "--mutation-min=-3",
+                "--mutation-max=3",
+                "--random-seed=99",
+                "--baseline-weight=1.25"
+            });
+
+            Assert.That(options.Games, Is.EqualTo(100));
+            Assert.That(options.SeedStart, Is.EqualTo(3));
+            Assert.That(options.Generations, Is.EqualTo(7));
+            Assert.That(options.ChildrenPerGeneration, Is.EqualTo(15));
+            Assert.That(options.TopParentCount, Is.EqualTo(10));
+            Assert.That(options.MutationRate, Is.EqualTo(0.5f));
+            Assert.That(options.MutationDeltaMin, Is.EqualTo(-3f));
+            Assert.That(options.MutationDeltaMax, Is.EqualTo(3f));
+            Assert.That(options.RandomSeed, Is.EqualTo(99));
+            Assert.That(options.BaselineWeight, Is.EqualTo(1.25f));
+        }
+
+        [Test]
         public void Run_WithSeatHeuristicWeights_ShouldCaptureWeightsInResult()
         {
             var options = new AiBenchmarkOptions
@@ -728,6 +763,112 @@ namespace HaggisTests
         }
 
         [Test]
+        public void HeuristicGeneticTuningRunner_ShouldUseTopParentsAndProduceChildren()
+        {
+            var path = Path.GetTempFileName();
+            try
+            {
+                for (var index = 0; index < 12; index++)
+                {
+                    HeuristicTuningCsvWriter.Append(path, new HeuristicTuningRunResult
+                    {
+                        Games = 100,
+                        SeedStart = 1,
+                        Rotate = true,
+                        GameOverScore = 250,
+                        MaxMovesPerGame = 20000,
+                        MonteCarloStrategy = "montecarlo:2000:2000:4",
+                        HeuristicOptions = new HeuristicOptions
+                        {
+                            BombOpeningWeight = index < 10 ? 1f + index : 100f + index,
+                            ContinuationFollowUpWeight = index < 10 ? 2f + index : 200f + index
+                        },
+                        CompletedGames = 200,
+                        FailedGames = 0,
+                        HeuristicWins = 100 - index,
+                        MonteCarloWins = 100 + index,
+                        HeuristicWinRatePct = 50 - index,
+                        HeuristicAverageScore = 200 - index
+                    });
+                }
+
+                var evaluator = new CapturingGeneticEvaluator();
+                var runner = new HeuristicGeneticTuningRunner(evaluator, new Random(123), null);
+
+                var produced = runner.Run(new HeuristicGeneticTuningOptions
+                {
+                    Games = 100,
+                    SeedStart = 1,
+                    Rotate = true,
+                    GameOverScore = 250,
+                    MaxMovesPerGame = 20000,
+                    MonteCarloStrategy = "montecarlo:2000:2000:4",
+                    CsvPath = path,
+                    Generations = 1,
+                    ChildrenPerGeneration = 3,
+                    TopParentCount = 10,
+                    MutationRate = 0f,
+                    MutationDeltaMin = 0f,
+                    MutationDeltaMax = 0f,
+                    RandomSeed = 123,
+                    BaselineWeight = 1f
+                });
+
+                Assert.That(produced, Has.Count.EqualTo(3));
+                Assert.That(evaluator.CapturedWeights, Has.Count.EqualTo(3));
+                Assert.That(evaluator.CapturedWeights.All(weight => weight.BombOpeningWeight < 100f), Is.True);
+                Assert.That(evaluator.CapturedWeights.All(weight => weight.ContinuationFollowUpWeight < 200f), Is.True);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Test]
+        public void HeuristicGeneticTuningRunner_ShouldBootstrapBaselineWhenCsvIsEmpty()
+        {
+            var path = Path.GetTempFileName();
+            File.Delete(path);
+
+            try
+            {
+                var evaluator = new CapturingGeneticEvaluator();
+                var runner = new HeuristicGeneticTuningRunner(evaluator, new Random(7), null);
+
+                var produced = runner.Run(new HeuristicGeneticTuningOptions
+                {
+                    Games = 100,
+                    SeedStart = 1,
+                    Rotate = true,
+                    GameOverScore = 250,
+                    MaxMovesPerGame = 20000,
+                    MonteCarloStrategy = "montecarlo:2000:2000:4",
+                    CsvPath = path,
+                    Generations = 1,
+                    ChildrenPerGeneration = 1,
+                    TopParentCount = 10,
+                    MutationRate = 0f,
+                    MutationDeltaMin = 0f,
+                    MutationDeltaMax = 0f,
+                    RandomSeed = 7,
+                    BaselineWeight = 1f
+                });
+
+                Assert.That(produced.Count, Is.GreaterThanOrEqualTo(1));
+                Assert.That(evaluator.CapturedWeights[0].BombOpeningWeight, Is.EqualTo(1f));
+                Assert.That(evaluator.CapturedWeights[0].ContinuationFollowUpWeight, Is.EqualTo(1f));
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        [Test]
         public void HeuristicTuningEvaluator_ShouldAggregateCompletedGamesIntoSingleRunResult()
         {
             var benchmarkResults = new[]
@@ -878,6 +1019,37 @@ namespace HaggisTests
                     HeuristicWinRatePct = winRate,
                     MonteCarloWinRatePct = 100 - winRate,
                     HeuristicAverageScore = averageScore,
+                    MonteCarloAverageScore = 180
+                };
+            }
+        }
+
+        private sealed class CapturingGeneticEvaluator : IHeuristicTuningEvaluator
+        {
+            public System.Collections.Generic.List<HeuristicOptions> CapturedWeights { get; } =
+                new System.Collections.Generic.List<HeuristicOptions>();
+
+            public HeuristicTuningRunResult Evaluate(HeuristicTuningBatchOptions batchOptions, HeuristicOptions heuristicOptions)
+            {
+                var cloned = HeuristicOptionsSerializer.Clone(heuristicOptions);
+                CapturedWeights.Add(cloned);
+
+                return new HeuristicTuningRunResult
+                {
+                    Games = batchOptions.Games,
+                    SeedStart = batchOptions.SeedStart,
+                    Rotate = batchOptions.Rotate,
+                    GameOverScore = batchOptions.GameOverScore,
+                    MaxMovesPerGame = batchOptions.MaxMovesPerGame,
+                    MonteCarloStrategy = batchOptions.MonteCarloStrategy,
+                    HeuristicOptions = cloned,
+                    CompletedGames = batchOptions.Games * 2,
+                    FailedGames = 0,
+                    HeuristicWins = 75,
+                    MonteCarloWins = 25,
+                    HeuristicWinRatePct = 75,
+                    MonteCarloWinRatePct = 25,
+                    HeuristicAverageScore = 240,
                     MonteCarloAverageScore = 180
                 };
             }

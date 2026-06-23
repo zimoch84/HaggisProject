@@ -192,6 +192,34 @@
       "console": "integratedTerminal"
     },
     {
+      "name": "Haggis AI Benchmark - heuristic vs montecarlo genetic (2P genetic 5 seeds)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.AiBenchmark",
+      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
+      "args": [
+        "--mode=genetic",
+        "--games=5",
+        "--seed-start=1",
+        "--game-over-score=250",
+        "--ai2=montecarlo:200:200:8",
+        "--rotate=true",
+        "--max-moves=20000",
+        "--csv=results_heuristic-vs-montecarlo-200-200-4_100-seeds.csv",
+        "--generations=5",
+        "--children-per-generation=20",
+        "--parent-count=10",
+        "--mutation-rate=0.35",
+        "--mutation-min=-3",
+        "--mutation-max=3",
+        "--random-seed=12345",
+        "--baseline-weight=1"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/backend",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
       "name": "Haggis MCTS Run Analyzer",
       "type": "coreclr",
       "request": "launch",

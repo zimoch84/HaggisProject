@@ -1,10 +1,13 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Haggis.AI.Benchmark;
 
 try
 {
+    Trace.Listeners.Clear();
+
     var mode = GetMode(args);
     if (string.Equals(mode, "tuning", StringComparison.OrdinalIgnoreCase))
     {
@@ -33,6 +36,35 @@ try
             Console.WriteLine();
             Console.WriteLine(
                 $"Best new run: heuristicWinRate={best.HeuristicWinRatePct:0.00}% heuristicAvgScore={best.HeuristicAverageScore:0.00} weights={HeuristicOptionsSerializer.Serialize(best.HeuristicOptions)}");
+        }
+
+        Environment.ExitCode = 0;
+    }
+    else if (string.Equals(mode, "genetic", StringComparison.OrdinalIgnoreCase))
+    {
+        var options = HeuristicGeneticTuningArgumentParser.Parse(args);
+        var produced = new HeuristicGeneticTuningRunner(
+            new HeuristicTuningEvaluator(),
+            new Random(options.RandomSeed),
+            message => Console.WriteLine(message)).Run(options);
+
+        Console.WriteLine();
+        Console.WriteLine($"Genetic tuning CSV: {options.CsvPath}");
+        Console.WriteLine($"Generations: {options.Generations}");
+        Console.WriteLine($"Children per generation: {options.ChildrenPerGeneration}");
+        Console.WriteLine($"Produced new runs: {produced.Count}");
+
+        var best = produced
+            .OrderByDescending(result => result.HeuristicWins)
+            .ThenByDescending(result => result.HeuristicWinRatePct)
+            .ThenByDescending(result => result.HeuristicAverageScore)
+            .FirstOrDefault();
+
+        if (best != null)
+        {
+            Console.WriteLine();
+            Console.WriteLine(
+                $"Best new run: heuristicWins={best.HeuristicWins} heuristicWinRate={best.HeuristicWinRatePct:0.00}% heuristicAvgScore={best.HeuristicAverageScore:0.00} weights={HeuristicOptionsSerializer.Serialize(best.HeuristicOptions)}");
         }
 
         Environment.ExitCode = 0;
@@ -79,7 +111,9 @@ catch (Exception exception)
     Console.Error.WriteLine("Supported arguments:");
     foreach (var argument in string.Equals(mode, "tuning", StringComparison.OrdinalIgnoreCase)
                  ? HeuristicTuningArgumentParser.SupportedArguments()
-                 : AiBenchmarkArgumentParser.SupportedArguments())
+                 : string.Equals(mode, "genetic", StringComparison.OrdinalIgnoreCase)
+                     ? HeuristicGeneticTuningArgumentParser.SupportedArguments()
+                     : AiBenchmarkArgumentParser.SupportedArguments())
     {
         Console.Error.WriteLine($"  {argument}");
     }
