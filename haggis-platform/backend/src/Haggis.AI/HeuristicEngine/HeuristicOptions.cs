@@ -7,48 +7,48 @@ namespace Haggis.AI.Strategies
         // above 1 strengthen its effect proportionally.
 
         // PreferSinglesNotBreakingNonWildCombinationsWeightStrategy
-        public float PreferSinglesNotBreakingNonWildCombinationsWeight { get; set; } = 1f;
+        public float PreferSinglesNotBreakingNonWildCombinationsWeight { get; set; } = 2.1f;
 
         // PreferTricksWithMoreContinuationsWeightStrategy
-        public float ContinuationCountWeight { get; set; } = 1f;
+        public float ContinuationCountWeight { get; set; } = 3.68f;
 
         // PreferTricksThatAreMostLikelyNonBreakableWeightStrategy
-        public float PreferNonBreakableOpeningWeight { get; set; } = 1f;
+        public float PreferNonBreakableOpeningWeight { get; set; } = 0.76f;
 
         // PreferLowerTricksWhenHandIsLargeWeightStrategy
-        public float PreferLowerStartWeight { get; set; } = 1f;
+        public float PreferLowerStartWeight { get; set; } = 3.5f;
 
         // PreferShorterTricksWhenHandIsLargeWeightStrategy
         public float PreferShorterStartWeight { get; set; } = 1f;
 
         // PenalizeWildCardsInOpeningWeightStrategy
-        public float WildCardOpeningWeight { get; set; } = 1f;
+        public float WildCardOpeningWeight { get; set; } = 2.4f;
 
         // PenalizeBombOpeningWeightStrategy
         public float BombOpeningWeight { get; set; } = 1f;
 
         // PenalizeOpeningWhenHigherRelatedCombinationExistsWeightStrategy
-        public float HigherRelatedCombinationOpeningWeight { get; set; } = 1f;
+        public float HigherRelatedCombinationOpeningWeight { get; set; } = 3f;
 
         // PenalizeWildCardsInContinuationWeightStrategy
-        public float WildCardContinuationWeight { get; set; } = 1f;
+        public float WildCardContinuationWeight { get; set; } = 0f;
 
         // PenalizeBombContinuationWeightStrategy
-        public float BombContinuationWeight { get; set; } = 1f;
+        public float BombContinuationWeight { get; set; } = 6f;
 
         // PenalizeContinuationWhenHigherRelatedCombinationExistsWeightStrategy
         public float HigherRelatedCombinationContinuationWeight { get; set; } = 1f;
 
         // PreferUsingWildAsHigherCardInContinuationWeightStrategy
-        public float PreferUsingWildAsHigherCardInContinuationWeight { get; set; } = 1f;
+        public float PreferUsingWildAsHigherCardInContinuationWeight { get; set; } = 1.3f;
 
         // PreferLowerValueContinuationWeightStrategy
-        public float LowerValueContinuationWeight { get; set; } = 1f;
+        public float LowerValueContinuationWeight { get; set; } = 0f;
 
         // PreferContinuationsWithFollowUpWeightStrategy
-        public float ContinuationFollowUpWeight { get; set; } = 1f;
+        public float ContinuationFollowUpWeight { get; set; } = 1.17f;
 
         // PreferNotPassingWhenHoldingPlayableBombInEndgameWeightStrategy
-        public float PlayableBombInEndgameWeight { get; set; } = 1f;
+        public float PlayableBombInEndgameWeight { get; set; } = 0f;
     }
 }
