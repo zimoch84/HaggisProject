@@ -89,6 +89,7 @@ namespace HaggisTests
         {
             Assert.DoesNotThrow(() => AiBenchmarkStrategyFactory.EnsureSupported("montecarlo:800:100"));
             Assert.DoesNotThrow(() => AiBenchmarkStrategyFactory.EnsureSupported("montecarlo:800:100:4"));
+            Assert.DoesNotThrow(() => AiBenchmarkStrategyFactory.EnsureSupported("montecarlo:800:100:4:5:3"));
             Assert.That(AiBenchmarkStrategyFactory.Create("montecarlo:800:100"), Is.TypeOf<Haggis.AI.Strategies.MonteCarloStrategy>());
             Assert.Throws<System.ArgumentException>(() => AiBenchmarkStrategyFactory.EnsureSupported("montecarlo:0:100"));
             Assert.Throws<System.ArgumentException>(() => AiBenchmarkStrategyFactory.EnsureSupported("montecarlo:800:0"));
@@ -674,7 +675,7 @@ namespace HaggisTests
         }
 
         [Test]
-        public void HeuristicTuningRunner_ShouldTreatDifferentBenchmarkConfigAsDifferentSimulation()
+        public void HeuristicTuningRunner_ShouldResumeWhenMonteCarloStrategyAndWeightsMatch()
         {
             var path = Path.GetTempFileName();
             try
@@ -714,8 +715,8 @@ namespace HaggisTests
                     WeightSets = new[] { weights }
                 });
 
-                Assert.That(evaluator.Calls, Is.EqualTo(1));
-                Assert.That(produced, Has.Count.EqualTo(1));
+                Assert.That(evaluator.Calls, Is.EqualTo(0));
+                Assert.That(produced, Has.Count.EqualTo(0));
             }
             finally
             {

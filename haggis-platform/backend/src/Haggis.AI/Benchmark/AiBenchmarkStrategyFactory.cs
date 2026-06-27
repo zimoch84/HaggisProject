@@ -17,7 +17,11 @@ namespace Haggis.AI.Benchmark
         };
 
         public static IReadOnlyCollection<string> SupportedStrategyNames =>
-            Supported.Concat(new[] { "montecarlo:<simulations>:<budget-ms>[:workers]" }).ToArray();
+            Supported.Concat(new[]
+            {
+                "montecarlo:<simulations>:<budget-ms>[:workers]",
+                "montecarlo:<simulations>:<budget-ms>[:workers]:<treeTopN>:<rolloutTopN>"
+            }).ToArray();
 
         public static void EnsureSupported(string strategyName)
         {
@@ -37,21 +41,23 @@ namespace Haggis.AI.Benchmark
                 return true;
             }
 
-            return TryParseMonteCarloStrategy(strategyName, out _, out _, out _);
+            return TryParseMonteCarloStrategy(strategyName, out _, out _, out _, out _);
         }
 
         private static bool TryParseMonteCarloStrategy(
             string strategyName,
             out int simulations,
             out long timeBudgetMs,
-            out int? workers)
+            out int? workers,
+            out MonteCarloHeuristicOptions heuristicOptions)
         {
             simulations = 0;
             timeBudgetMs = 0;
             workers = null;
+            heuristicOptions = null;
 
             var parts = (strategyName ?? string.Empty).Trim().Split(':');
-            if ((parts.Length != 3 && parts.Length != 4) ||
+            if (parts.Length < 3 || parts.Length > 6 ||
                 !string.Equals(parts[0], "montecarlo", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
@@ -67,10 +73,32 @@ namespace Haggis.AI.Benchmark
             {
                 if (!int.TryParse(parts[3], out var parsedWorkers) || parsedWorkers <= 0)
                 {
+                    if (!TryParseHeuristicOptions(parts, 3, out heuristicOptions))
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    workers = parsedWorkers;
+                    if (!TryParseHeuristicOptions(parts, 4, out heuristicOptions))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else if (parts.Length > 4)
+            {
+                if (!int.TryParse(parts[3], out var parsedWorkers) || parsedWorkers <= 0)
+                {
                     return false;
                 }
 
                 workers = parsedWorkers;
+                if (!TryParseHeuristicOptions(parts, 4, out heuristicOptions))
+                {
+                    return false;
+                }
             }
 
             return simulations > 0 && timeBudgetMs > 0;
@@ -78,9 +106,15 @@ namespace Haggis.AI.Benchmark
 
         public static IPlayStrategy Create(string strategyName, HeuristicOptions heuristicOptions = null)
         {
-            if (TryParseMonteCarloStrategy(strategyName, out var simulations, out var timeBudgetMs, out var workers))
+            if (TryParseMonteCarloStrategy(strategyName, out var simulations, out var timeBudgetMs, out var workers, out var monteCarloHeuristicOptions))
             {
-                return new MonteCarloStrategy(simulations, timeBudgetMs, workers);
+                var effectiveMonteCarloHeuristicOptions = monteCarloHeuristicOptions;
+                if (effectiveMonteCarloHeuristicOptions?.Enabled == true)
+                {
+                    effectiveMonteCarloHeuristicOptions.HeuristicOptions = heuristicOptions ?? new HeuristicOptions();
+                }
+
+                return new MonteCarloStrategy(simulations, timeBudgetMs, workers, null, effectiveMonteCarloHeuristicOptions);
             }
 
             switch ((strategyName ?? string.Empty).Trim().ToLowerInvariant())
@@ -97,6 +131,38 @@ namespace Haggis.AI.Benchmark
                     EnsureSupported(strategyName);
                     throw new InvalidOperationException("Strategy validation failed unexpectedly.");
             }
+        }
+
+        private static bool TryParseHeuristicOptions(string[] parts, int startIndex, out MonteCarloHeuristicOptions heuristicOptions)
+        {
+            heuristicOptions = null;
+            if (parts.Length <= startIndex)
+            {
+                return true;
+            }
+
+            if (parts.Length - startIndex != 2)
+            {
+                return false;
+            }
+
+            if (!int.TryParse(parts[startIndex], out var treeTopN) || treeTopN < 0)
+            {
+                return false;
+            }
+
+            if (!int.TryParse(parts[startIndex + 1], out var rolloutTopN) || rolloutTopN < 0)
+            {
+                return false;
+            }
+
+            heuristicOptions = new MonteCarloHeuristicOptions
+            {
+                Enabled = treeTopN > 0 || rolloutTopN > 0,
+                TreeTopN = treeTopN,
+                RolloutTopN = rolloutTopN
+            };
+            return true;
         }
     }
 }

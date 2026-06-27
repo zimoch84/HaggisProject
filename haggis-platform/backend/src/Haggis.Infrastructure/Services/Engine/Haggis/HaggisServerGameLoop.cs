@@ -388,7 +388,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         var difficulty = TryReadInt(aiElement, "difficulty");
         if (difficulty.HasValue)
         {
-            return ResolveDifficultyStrategy(difficulty.Value);
+            return ResolveDifficultyStrategy(difficulty.Value, ResolveMonteCarloHeuristicOptions(aiElement));
         }
 
         var strategyName = TryReadString(aiElement, "strategy");
@@ -405,19 +405,20 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
 
         var simulations = TryReadInt(aiElement, "simulations") ?? MonteCarloMediumSimulations;
         var timeBudgetMs = TryReadLong(aiElement, "timeBudgetMs") ?? MonteCarloMediumTimeBudgetMs;
-        return new MonteCarloStrategy(simulations, timeBudgetMs);
+        var heuristicOptions = ResolveMonteCarloHeuristicOptions(aiElement);
+        return new MonteCarloStrategy(simulations, timeBudgetMs, null, null, heuristicOptions);
     }
 
-    private static IPlayStrategy ResolveDifficultyStrategy(int difficulty)
+    private static IPlayStrategy ResolveDifficultyStrategy(int difficulty, MonteCarloHeuristicOptions heuristicOptions = null)
     {
         return difficulty switch
         {
             1 => new RandomPlayStrategy(),
             2 => HeuristicPlayStrategy.Create(),
-            3 => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs),
-            4 => new MonteCarloStrategy(MonteCarloHardSimulations, MonteCarloHardTimeBudgetMs),
-            5 => new MonteCarloStrategy(MonteCarloExpertSimulations, MonteCarloExpertTimeBudgetMs),
-            _ => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs)
+            3 => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs, null, null, heuristicOptions),
+            4 => new MonteCarloStrategy(MonteCarloHardSimulations, MonteCarloHardTimeBudgetMs, null, null, heuristicOptions),
+            5 => new MonteCarloStrategy(MonteCarloExpertSimulations, MonteCarloExpertTimeBudgetMs, null, null, heuristicOptions),
+            _ => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs, null, null, heuristicOptions)
         };
     }
 
@@ -427,6 +428,29 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         var filterLimit = Math.Max(1, TryReadInt(aiElement, "filterLimit") ?? 5);
 
         return new FilterNoneStrategy();
+    }
+
+    private static MonteCarloHeuristicOptions ResolveMonteCarloHeuristicOptions(JsonElement aiElement)
+    {
+        if (!TryGetObject(aiElement, "heuristic", out var heuristicElement) &&
+            !TryGetObject(aiElement, "heuristics", out heuristicElement) &&
+            !TryGetObject(aiElement, "heuristicOptions", out heuristicElement))
+        {
+            return null;
+        }
+
+        var heuristicOptions = JsonSerializer.Deserialize<HeuristicOptions>(heuristicElement.GetRawText()) ?? new HeuristicOptions();
+        var treeTopN = TryReadInt(heuristicElement, "treeTopN") ?? 0;
+        var rolloutTopN = TryReadInt(heuristicElement, "rolloutTopN") ?? 0;
+        var enabled = TryReadBool(heuristicElement, "enabled") ?? (treeTopN > 0 || rolloutTopN > 0);
+
+        return new MonteCarloHeuristicOptions
+        {
+            Enabled = enabled,
+            TreeTopN = treeTopN,
+            RolloutTopN = rolloutTopN,
+            HeuristicOptions = heuristicOptions
+        };
     }
 
     private static string? TryReadString(JsonElement source, string propertyName)
@@ -453,6 +477,18 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         }
 
         return value;
+    }
+
+    private static bool? TryReadBool(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object ||
+            !source.TryGetProperty(propertyName, out var propertyElement) ||
+            propertyElement.ValueKind != JsonValueKind.True && propertyElement.ValueKind != JsonValueKind.False)
+        {
+            return null;
+        }
+
+        return propertyElement.GetBoolean();
     }
 
     private static long? TryReadLong(JsonElement source, string propertyName)

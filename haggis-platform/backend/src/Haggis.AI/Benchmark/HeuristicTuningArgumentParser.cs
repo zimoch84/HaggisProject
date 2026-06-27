@@ -42,6 +42,7 @@ namespace Haggis.AI.Benchmark
                 "--seed-start=1",
                 "--game-over-score=250",
                 "--ai2=montecarlo:2000:2000:4",
+                "--ai2=montecarlo:2000:2000:4:5:3",
                 "--rotate=true",
                 "--csv=results_heuristic-vs-montecarlo-2000-2000-4_100-seeds.csv",
                 "--max-moves=20000",

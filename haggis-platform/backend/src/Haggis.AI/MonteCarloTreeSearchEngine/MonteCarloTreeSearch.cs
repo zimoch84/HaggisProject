@@ -396,7 +396,15 @@ namespace MonteCarlo
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     var rolloutActionsStart = Stopwatch.GetTimestamp();
-                    var rolloutActions = job.RolloutState.Actions;
+                    IList<TAction> rolloutActions;
+                    if (job.RolloutState is MonteCarloHaggisState monteCarloState)
+                    {
+                        rolloutActions = monteCarloState.GetRolloutActions().Cast<TAction>().ToList();
+                    }
+                    else
+                    {
+                        rolloutActions = job.RolloutState.Actions;
+                    }
                     job.Timing?.AddMoveGenerationRollout(Stopwatch.GetTimestamp() - rolloutActionsStart);
 
                     if (rolloutActions.Count == 0)

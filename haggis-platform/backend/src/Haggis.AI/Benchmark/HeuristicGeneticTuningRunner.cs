@@ -230,11 +230,6 @@ namespace Haggis.AI.Benchmark
         private static bool MatchesConfig(HeuristicTuningRunResult result, HeuristicGeneticTuningOptions options)
         {
             return result != null &&
-                   result.Games == options.Games &&
-                   result.SeedStart == options.SeedStart &&
-                   result.Rotate == options.Rotate &&
-                   result.GameOverScore == options.GameOverScore &&
-                   result.MaxMovesPerGame == options.MaxMovesPerGame &&
                    string.Equals(result.MonteCarloStrategy, options.MonteCarloStrategy, StringComparison.OrdinalIgnoreCase);
         }
 

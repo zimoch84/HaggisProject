@@ -10,13 +10,18 @@ namespace Haggis.AI.Benchmark
 {
     public static class HeuristicTuningCsvWriter
     {
-        private static readonly string[] ConfigColumns =
+        private static readonly string[] HeaderConfigColumns =
         {
             "games",
             "seedStart",
             "rotate",
             "gameOverScore",
             "maxMovesPerGame",
+            "monteCarloStrategy"
+        };
+
+        private static readonly string[] KeyConfigColumns =
+        {
             "monteCarloStrategy"
         };
 
@@ -38,7 +43,7 @@ namespace Haggis.AI.Benchmark
         };
 
         public static IReadOnlyList<string> HeaderColumns { get; } =
-            ConfigColumns
+            HeaderConfigColumns
                 .Concat(HeuristicOptionsSerializer.WeightPropertyNames)
                 .Concat(OutcomeColumns)
                 .ToArray();
@@ -189,7 +194,7 @@ namespace Haggis.AI.Benchmark
 
         private static string BuildKey(IReadOnlyDictionary<string, string> row)
         {
-            return string.Join("|", ConfigColumns
+            return string.Join("|", KeyConfigColumns
                 .Concat(HeuristicOptionsSerializer.WeightPropertyNames)
                 .Select(column => $"{column}={(row.TryGetValue(column, out var value) ? value : string.Empty)}"));
         }

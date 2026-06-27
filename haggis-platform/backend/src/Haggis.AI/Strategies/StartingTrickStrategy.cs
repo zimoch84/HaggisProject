@@ -29,22 +29,22 @@ namespace Haggis.AI.Strategies
                     ? new List<IStartingTrickWeightStrategy> { startingTrickWeightStrategy }
                     : new List<IStartingTrickWeightStrategy>
                     {
-                    new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(
-                        heuristicOptions.PreferNonBreakableOpeningWeight),
-                    new PreferLowerTricksWhenHandIsLargeWeightStrategy(
-                        heuristicOptions.PreferLowerStartWeight),
-                    new PreferShorterTricksWhenHandIsLargeWeightStrategy(
-                        heuristicOptions.PreferShorterStartWeight),
-                    new PenalizeBombOpeningWeightStrategy(
-                        heuristicOptions.BombOpeningWeight),
-                    new PenalizeWildCardsInOpeningWeightStrategy(
-                        heuristicOptions.WildCardOpeningWeight),
-                    new PenalizeOpeningWhenHigherRelatedCombinationExistsWeightStrategy(
-                        heuristicOptions.HigherRelatedCombinationOpeningWeight),
-                    new PreferTricksWithMoreContinuationsWeightStrategy(
-                        heuristicOptions.ContinuationCountWeight),
-                    new PreferSinglesNotBreakingNonWildCombinationsWeightStrategy(
-                        heuristicOptions.PreferSinglesNotBreakingNonWildCombinationsWeight)
+                        new PreferTricksThatAreMostLikelyNonBreakableWeightStrategy(
+                            heuristicOptions.PreferNonBreakableOpeningWeight),
+                        new PreferLowerTricksWhenHandIsLargeWeightStrategy(
+                            heuristicOptions.PreferLowerStartWeight),
+                        new PreferShorterTricksWhenHandIsLargeWeightStrategy(
+                            heuristicOptions.PreferShorterStartWeight),
+                        new PenalizeBombOpeningWeightStrategy(
+                            heuristicOptions.BombOpeningWeight),
+                        new PenalizeWildCardsInOpeningWeightStrategy(
+                            heuristicOptions.WildCardOpeningWeight),
+                        new PenalizeOpeningWhenHigherRelatedCombinationExistsWeightStrategy(
+                            heuristicOptions.HigherRelatedCombinationOpeningWeight),
+                        new PreferTricksWithMoreContinuationsWeightStrategy(
+                            heuristicOptions.ContinuationCountWeight),
+                        new PreferSinglesNotBreakingNonWildCombinationsWeightStrategy(
+                            heuristicOptions.PreferSinglesNotBreakingNonWildCombinationsWeight)
                     });
         }
 
