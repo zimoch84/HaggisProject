@@ -145,5 +145,54 @@ namespace HaggisTests.Strategies
             Assert.That(filtered, Does.Contain(naturalPair9));
             Assert.That(filtered, Does.Contain(wildcardPair10));
         }
+
+        [Test]
+        public void FilterTricks_WhenEquivalentWildAssignmentsExist_ShouldPreferLowerWildPerReplacementRank()
+        {
+            var strategy = new FilterRedundantWildAssignmentsContinuationStrategy();
+            var preferred = new Trick(TrickType.SEQ3, new List<Card>
+            {
+                "10B".ToCard(),
+                "J".ToCard().WildAs("J".ToCard()),
+                "Q".ToCard().WildAs("Q".ToCard())
+            });
+            var redundant = new Trick(TrickType.SEQ3, new List<Card>
+            {
+                "10B".ToCard(),
+                "Q".ToCard().WildAs("J".ToCard()),
+                "J".ToCard().WildAs("Q".ToCard())
+            });
+
+            var filtered = strategy.FilterTricks(new List<Trick> { redundant, preferred }, gameState: null);
+
+            Assert.That(filtered, Has.Count.EqualTo(1));
+            Assert.That(filtered.Single(), Is.SameAs(preferred));
+        }
+
+        [Test]
+        public void FilterTricks_WhenWildcardContinuationsHaveSameEffectiveRanksButDifferentSuits_ShouldKeepBoth()
+        {
+            var strategy = new FilterRedundantWildAssignmentsContinuationStrategy();
+            var yellowSequence = new Trick(TrickType.SEQ3, new List<Card>
+            {
+                "8Y".ToCard(),
+                "J".ToCard().WildAs("9Y".ToCard()),
+                "10Y".ToCard()
+            });
+            var greenSequence = new Trick(TrickType.SEQ3, new List<Card>
+            {
+                "8G".ToCard(),
+                "9G".ToCard(),
+                "J".ToCard().WildAs("10G".ToCard())
+            });
+
+            var filtered = strategy.FilterTricks(
+                new List<Trick> { yellowSequence, greenSequence },
+                gameState: null);
+
+            Assert.That(filtered, Has.Count.EqualTo(2));
+            Assert.That(filtered, Does.Contain(yellowSequence));
+            Assert.That(filtered, Does.Contain(greenSequence));
+        }
     }
 }

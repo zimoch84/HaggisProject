@@ -57,76 +57,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Haggis AI Benchmark - normal vs normal",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build Haggis.AiBenchmark",
-      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
-      "args": [
-        "--games=100",
-        "--players=3",
-        "--seed-start=1",
-        "--game-over-score=250",
-        "--ai1=normal",
-        "--ai2=normal",
-        "--ai3=normal",
-        "--rotate=true",
-        "--max-moves=10000",
-        "--log=outcomes.txt",
-        "--csv=results.csv"
-      ],
-      "cwd": "${workspaceFolder}/haggis-platform/backend",
-      "stopAtEntry": false,
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Haggis AI Benchmark - normal vs random+normal",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build Haggis.AiBenchmark",
-      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
-      "args": [
-        "--games=100",
-        "--players=3",
-        "--seed-start=1",
-        "--game-over-score=250",
-        "--ai1=normal",
-        "--ai2=random",
-        "--ai3=normal",
-        "--rotate=true",
-        "--max-moves=10000",
-        "--log=outcomes.txt",
-        "--csv=results.csv"
-      ],
-      "cwd": "${workspaceFolder}/haggis-platform/backend",
-      "stopAtEntry": false,
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Haggis AI Benchmark - normal vs heuristic-continuations+normal",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build Haggis.AiBenchmark",
-      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
-      "args": [
-        "--games=100",
-        "--players=3",
-        "--seed-start=1",
-        "--game-over-score=250",
-        "--ai1=normal",
-        "--ai2=heuristic-continuations",
-        "--ai3=normal",
-        "--rotate=true",
-        "--max-moves=10000",
-        "--log=outcomes.txt",
-        "--csv=results.csv"
-      ],
-      "cwd": "${workspaceFolder}/haggis-platform/backend",
-      "stopAtEntry": false,
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Haggis AI Benchmark - normal vs montecarlo vs random",
+      "name": "Haggis AI Benchmark - normal vs montecarlo vs random 3P (1 game)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build Haggis.AiBenchmark",
@@ -149,19 +80,19 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Haggis AI Benchmark - heuristic vs montecarlo (2P tuning)",
+      "name": "Haggis AI Benchmark - heuristic vs montecarlo vs montecarlo+heuristic (3P tuning) (1 game)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build Haggis.AiBenchmark",
       "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
       "args": [
         "--games=1",
-        "--players=2",
+        "--players=3",
         "--seed-start=1",
         "--game-over-score=250",
         "--ai1=normal",
-        "--ai1-weights=ContinuationFollowUpWeight=1;LowerValueContinuationWeight=1;WildCardContinuationWeight=1;PreferUsingWildAsHigherCardInContinuationWeight=1;PlayableBombInEndgameWeight=1;PreferShorterStartWeight=1;BombOpeningWeight=1",
         "--ai2=montecarlo:200:200:4",
+        "--ai3=montecarlo:200:200:4:5:3",
         "--rotate=true",
         "--max-moves=20000",
         "--log=outcomes_tuning.txt",
@@ -172,27 +103,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Haggis AI Benchmark - heuristic vs montecarlo (2P tuning resume 5 seeds)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build Haggis.AiBenchmark",
-      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
-      "args": [
-        "--mode=tuning",
-        "--games=5",
-        "--seed-start=1",
-        "--game-over-score=250",
-        "--ai2=montecarlo:200:200:4",
-        "--rotate=true",
-        "--max-moves=20000",
-        "--csv=results_heuristic-vs-montecarlo-200-200-4_100-seeds.csv"
-      ],
-      "cwd": "${workspaceFolder}/haggis-platform/backend",
-      "stopAtEntry": false,
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Haggis AI Benchmark - heuristic vs montecarlo genetic (2P genetic 5 seeds)",
+      "name": "Genetic Heuristic weight search - heuristic vs montecarlo (2P) (5 games)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build Haggis.AiBenchmark",
@@ -220,7 +131,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Haggis AI Benchmark - heuristic vs montecarlo+heuristic genetic (2P genetic 5 seeds)",
+      "name": "Genetic Heuristic weight search - heuristic vs montecarlo+heuristic (2P) (5 games)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build Haggis.AiBenchmark",
@@ -262,6 +173,29 @@
         "--timebudget=100",
         "--workers=1",
         "--output=logs/mcts-run.txt"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/backend",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Haggis MCTS Run Analyzer - Target Decision",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.MctsRunAnalyzer",
+      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.MctsRunAnalyzer/bin/Debug/net8.0/Haggis.MctsRunAnalyzer.dll",
+      "args": [
+        "--seed=115826734",
+        "--ai1=normal",
+        "--ai2=montecarlo:2000:2000:4:5:3",
+        "--ai3=random",
+        "--round=4",
+        "--move=1",
+        "--iterations=2000",
+        "--timebudget=2000",
+        "--workers=1",
+        "--replay-log=${workspaceFolder}/haggis-platform/backend/game_seed_115826734_heuristicoption_player-AI-1_difficulty-2__player-AI-2_difficulty-5.txt",
+        "--output=logs/mcts-target-decision.txt"
       ],
       "cwd": "${workspaceFolder}/haggis-platform/backend",
       "stopAtEntry": false,

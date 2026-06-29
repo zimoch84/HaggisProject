@@ -331,8 +331,8 @@ components:
           minimum: 1
           maximum: 5
           description: >
-            1=random move, 2=heuristic, 3=montecarlo, 4=montecarlo (higher time budget),
-            5=montecarlo (highest time budget).
+            1=random move, 2=heuristic, 3=montecarlo, 4=montecarlo:2000:2000:4,
+            5=montecarlo:2000:2000:4:5:3.
 
     HaggisCreateGameOptions:
       type: object

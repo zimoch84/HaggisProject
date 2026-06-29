@@ -11,7 +11,7 @@ public abstract class GameLoopEngineBase<TState, TMove, TCommand>
     protected abstract bool IsNextMoveCommand(TCommand command);
     protected abstract TState CreateInitialState(string gameId, TCommand command);
     protected abstract IReadOnlyList<TMove> GetLegalMoves(TState state);
-    protected abstract bool TryResolveMoveFromCommand(TState state, TCommand command, out TMove move);
+    protected abstract bool TryResolveMoveFromCommand(TState state, TCommand command, IReadOnlyList<TMove> legalMoves, out TMove move);
     protected abstract bool ShouldUseAiMove(TState state, TCommand command);
     protected abstract TMove ResolveAiMove(string gameId, TState state, IReadOnlyList<TMove> legalMoves);
     protected abstract MoveValidationResult ValidateMove(TState state, TCommand command, TMove move, IReadOnlyList<TMove> legalMoves);
@@ -51,7 +51,7 @@ public abstract class GameLoopEngineBase<TState, TMove, TCommand>
             throw new InvalidOperationException("No legal moves are available in current state.");
         }
 
-        var hasCommandMove = TryResolveMoveFromCommand(state, command, out var move);
+        var hasCommandMove = TryResolveMoveFromCommand(state, command, legalMoves, out var move);
         if (!hasCommandMove)
         {
             if (!ShouldUseAiMove(state, command))

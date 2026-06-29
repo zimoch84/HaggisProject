@@ -20,6 +20,11 @@ namespace Haggis.AI.Strategies
         private IMonteCarloActionSelectionStrategy ActionSelectionStrategy { get; }
         private MonteCarloHeuristicOptions HeuristicOptions { get; }
 
+        public bool UsesHeuristic => HeuristicOptions?.Enabled == true;
+        public int? HeuristicTreeTopN => HeuristicOptions?.TreeTopN;
+        public int? HeuristicRolloutTopN => HeuristicOptions?.RolloutTopN;
+        public HeuristicOptions DiagnosticHeuristicOptions => HeuristicOptions?.HeuristicOptions;
+
         public event Action<MonteCarloResult> OnComputed;
         public event Action<MctsTraceEvent> OnTrace;
         public string TraceContext { get; set; }

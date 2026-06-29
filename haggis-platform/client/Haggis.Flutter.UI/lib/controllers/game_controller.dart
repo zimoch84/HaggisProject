@@ -46,6 +46,7 @@ class GameController extends ChangeNotifier {
   bool _hasEstablishedSnapshotBaseline = false;
   bool _processingCommandQueue = false;
   bool _disposed = false;
+  bool _commandInFlight = false;
   int _appliedMovesReplayGeneration = 0;
   int _collectAnimationGeneration = 0;
   List<TrickMove>? _visibleTrickReplay;
@@ -74,10 +75,14 @@ class GameController extends ChangeNotifier {
       (_snapshot?.version ?? 0) > 0 &&
       (_snapshot?.currentPlayerId ?? '').isNotEmpty;
 
-  bool get canPass => (_snapshot?.possibleActions ?? const <PossibleAction>[])
-      .any((PossibleAction action) => action.type.toLowerCase() == 'pass');
+  bool get canPass =>
+      (_snapshot?.possibleActions ?? const <PossibleAction>[]).any(
+        (PossibleAction action) => action.type.toLowerCase() == 'pass',
+      ) &&
+      !_commandInFlight;
 
-  bool get canPlaySelectedCards => matchingPlayableActions.isNotEmpty;
+  bool get canPlaySelectedCards =>
+      matchingPlayableActions.isNotEmpty && !_commandInFlight;
 
   PossibleActionViewModel? get selectedPlayableAction {
     final matches = matchingPlayableActions;
@@ -265,6 +270,11 @@ class GameController extends ChangeNotifier {
   }
 
   void playAction(PossibleActionViewModel action) {
+    if (_commandInFlight) {
+      return;
+    }
+
+    _commandInFlight = true;
     if (action.type.toLowerCase() == 'pass') {
       _client.sendPass(playerId);
     } else {
@@ -319,7 +329,7 @@ class GameController extends ChangeNotifier {
   }
 
   bool isCardPlayable(String card) {
-    return isCurrentPlayersTurn && canSelectCard(card);
+    return isCurrentPlayersTurn && !_commandInFlight && canSelectCard(card);
   }
 
   bool isCardSelected(String card) => _selectedCards.contains(card);
@@ -426,6 +436,10 @@ class GameController extends ChangeNotifier {
     _syncSelectedCardWithSnapshot();
   }
 
+  void applyStateMessageForTesting(Map<String, dynamic> json) {
+    _applyStateMessage(json);
+  }
+
   void _onMessage(Map<String, dynamic> json) {
     final type = (json['type'] ?? '').toString();
 
@@ -443,12 +457,14 @@ class GameController extends ChangeNotifier {
     }
 
     if (type == 'CommandApplied') {
+      _commandInFlight = false;
       _pendingCommandMessages.add(json);
       unawaited(_processCommandQueue());
       return;
     }
 
     if (type == 'GameSnapshot') {
+      _commandInFlight = false;
       _pendingCommandMessages.clear();
       _cancelAppliedMovesReplay();
       _applyStateMessage(json);
@@ -456,6 +472,7 @@ class GameController extends ChangeNotifier {
     }
 
     if ((json['error'] ?? '').toString().isNotEmpty) {
+      _commandInFlight = false;
       _status = json['error'].toString();
       notifyListeners();
     }
@@ -790,11 +807,27 @@ class GameController extends ChangeNotifier {
       return null;
     }
 
-    if (currentSnapshot.roundNumber <= previousSnapshot.roundNumber) {
+    final previousRound = currentSnapshot.previousRound;
+    if (previousRound == null) {
       return null;
     }
 
-    final previousRound = currentSnapshot.previousRound;
+    final roundAdvanced =
+        currentSnapshot.roundNumber > previousSnapshot.roundNumber;
+    final gameFinishedOnCurrentRound =
+        currentSnapshot.gameOver &&
+        previousRound.roundNumber == previousSnapshot.roundNumber;
+    if (!roundAdvanced && !gameFinishedOnCurrentRound) {
+      return null;
+    }
+
+    if (_completedRounds.any(
+      (RoundOverViewModel round) =>
+          round.roundNumber == previousRound.roundNumber,
+    )) {
+      return null;
+    }
+
     final playerScores =
         previousRound?.playerScores ?? const <PreviousRoundPlayerScore>[];
     final currentPlayersById = <String, GamePlayer>{
@@ -825,10 +858,11 @@ class GameController extends ChangeNotifier {
 
     return RoundOverViewModel(
       gameId: room.gameId,
-      roundNumber: previousSnapshot.roundNumber,
+      roundNumber: previousRound.roundNumber,
       nextRoundNumber: currentSnapshot.roundNumber,
-      status:
-          'Round ${previousSnapshot.roundNumber} finished. Round ${currentSnapshot.roundNumber} started.',
+      status: currentSnapshot.gameOver
+          ? 'Round ${previousRound.roundNumber} finished. Game over.'
+          : 'Round ${previousRound.roundNumber} finished. Round ${currentSnapshot.roundNumber} started.',
       winnerPlayerId: previousRound?.winnerPlayerName ?? '',
       players: players,
       haggisCards: List<String>.unmodifiable(

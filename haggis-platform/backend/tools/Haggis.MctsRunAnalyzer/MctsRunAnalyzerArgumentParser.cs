@@ -36,12 +36,16 @@ namespace Haggis.MctsRunAnalyzer
             return new[]
             {
                 "--seed=1",
+                "--players=3",
                 "--ai1=montecarlo",
                 "--ai2=normal",
                 "--ai3=normal",
+                "--round=1",
+                "--move=1",
                 "--iterations=1000",
                 "--timebudget=1000",
                 "--workers=1",
+                "--replay-log=path",
                 "--output=path"
             };
         }
@@ -63,6 +67,9 @@ namespace Haggis.MctsRunAnalyzer
                 case "seed":
                     options.Seed = ParseInt(key, value);
                     break;
+                case "players":
+                    options.Players = ParseInt(key, value);
+                    break;
                 case "ai1":
                     options.Ai1Strategy = value;
                     break;
@@ -71,6 +78,12 @@ namespace Haggis.MctsRunAnalyzer
                     break;
                 case "ai3":
                     options.Ai3Strategy = value;
+                    break;
+                case "round":
+                    options.RoundNumber = ParseInt(key, value);
+                    break;
+                case "move":
+                    options.MoveNumber = ParseLong(key, value);
                     break;
                 case "iterations":
                     options.Iterations = ParseInt(key, value);
@@ -84,6 +97,9 @@ namespace Haggis.MctsRunAnalyzer
                 case "output":
                     options.OutputPath = value;
                     break;
+                case "replay-log":
+                    options.ReplayLogPath = value;
+                    break;
                 default:
                     throw new ArgumentException($"Unknown argument '--{key}'.");
             }
@@ -96,6 +112,21 @@ namespace Haggis.MctsRunAnalyzer
                 throw new ArgumentException("--iterations must be greater than zero.");
             }
 
+            if (options.Players is not 2 and not 3)
+            {
+                throw new ArgumentException("--players must be 2 or 3.");
+            }
+
+            if (options.RoundNumber <= 0)
+            {
+                throw new ArgumentException("--round must be greater than zero.");
+            }
+
+            if (options.MoveNumber <= 0)
+            {
+                throw new ArgumentException("--move must be greater than zero.");
+            }
+
             if (options.TimeBudgetMs <= 0)
             {
                 throw new ArgumentException("--timebudget must be greater than zero.");
@@ -106,9 +137,17 @@ namespace Haggis.MctsRunAnalyzer
                 throw new ArgumentException("--workers must be greater than zero.");
             }
 
+            if (!string.IsNullOrWhiteSpace(options.ReplayLogPath) && !System.IO.File.Exists(options.ReplayLogPath))
+            {
+                throw new ArgumentException($"Replay log file not found: {options.ReplayLogPath}");
+            }
+
             EnsureSupported(options.Ai1Strategy);
             EnsureSupported(options.Ai2Strategy);
-            EnsureSupported(options.Ai3Strategy);
+            if (options.Players == 3)
+            {
+                EnsureSupported(options.Ai3Strategy);
+            }
         }
 
         private static void EnsureSupported(string strategy)

@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace MonteCarlo
 {
-    public sealed class MonteCarloHaggisState : IState<MonteCarloHaggisPlayer, MonteCarloHaggisAction>
+    public sealed class MonteCarloHaggisState : IState<MonteCarloHaggisPlayer, MonteCarloHaggisAction>, IPlayerSetState<MonteCarloHaggisPlayer>
     {
         public RoundState DomainState { get; }
         private IMonteCarloActionSelectionStrategy ActionSelectionStrategy { get; }
@@ -30,6 +30,9 @@ namespace MonteCarlo
         }
 
         public MonteCarloHaggisPlayer CurrentPlayer => new MonteCarloHaggisPlayer(DomainState.CurrentPlayer);
+
+        public IReadOnlyList<MonteCarloHaggisPlayer> Players =>
+            DomainState.Players.Select(player => new MonteCarloHaggisPlayer(player)).ToList();
 
         public IList<MonteCarloHaggisAction> Actions => TreeMoveGenerationService.GetPossibleActionsForCurrentPlayer(DomainState);
 

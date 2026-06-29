@@ -38,8 +38,26 @@ namespace MonteCarlo
         public double? Wins { get; set; }
         public double? Uct { get; set; }
         public int? UntriedRemaining { get; set; }
+        public int? UntriedBefore { get; set; }
+        public int? UntriedAfter { get; set; }
+        public int? ActionCount { get; set; }
+        public int? ChildCount { get; set; }
+        public int? ParentRuns { get; set; }
+        public int? PendingRuns { get; set; }
+        public int? EffectiveRuns { get; set; }
+        public int? ParentPendingRuns { get; set; }
+        public int? ParentEffectiveRuns { get; set; }
         public int? Seed { get; set; }
         public double? Result { get; set; }
+        public double? AverageForRootPlayer { get; set; }
+        public double? AverageForNodePlayer { get; set; }
+        public double? AverageForSelectionPlayer { get; set; }
+        public double? UctForSelectionPlayer { get; set; }
+        public double? Exploration { get; set; }
+        public string PerspectivePlayer { get; set; }
+        public string RootAction { get; set; }
+        public string RootSelectionMode { get; set; }
+        public bool? Selected { get; set; }
         public IDictionary<string, int> Scores { get; set; }
         public IDictionary<string, int> OpponentRemainingCardsOnFinish { get; set; }
     }
@@ -92,8 +110,11 @@ namespace MonteCarlo
             public IList<Node<TPlayer, TAction>> Children { get; } = new List<Node<TPlayer, TAction>>();
 
             public int NumRuns { get; set; }
+            private int pendingRuns;
 
-            public double NumWins { get; set; }
+            private readonly Dictionary<string, double> totalResultByPlayer = new Dictionary<string, double>(StringComparer.Ordinal);
+
+            public double NumWins => GetTotalResult(Player);
 
             private readonly object sync = new object();
 
@@ -111,30 +132,57 @@ namespace MonteCarlo
 
             public IList<TAction> Actions => CachedActions;
 
-            public double ExploitationValue => NumRuns == 0 ? 0 : NumWins / NumRuns;
+            public double ExploitationValue => GetAverageResult(Player);
 
             public double ExplorationValue => CalculateExplorationValue();
 
             private double CalculateExplorationValue()
             {
-                if (Parent?.NumRuns == null)
+                var snapshot = GetPendingSnapshot();
+                if (Parent == null)
                 {
                     return 0;
                 }
 
-                if (NumRuns > 0)
+                var parentSnapshot = Parent.GetPendingSnapshot();
+                if (snapshot.EffectiveRuns > 0 && parentSnapshot.EffectiveRuns > 0)
                 {
-                    return Math.Sqrt(2 * Math.Log(Parent.NumRuns) / NumRuns);
+                    return Math.Sqrt(2 * Math.Log(parentSnapshot.EffectiveRuns) / snapshot.EffectiveRuns);
                 }
 
                 return 99999;
             }
 
-            private double UCT => ExploitationValue + ExplorationValue;
+            public int PendingRuns
+            {
+                get
+                {
+                    lock (sync)
+                    {
+                        return pendingRuns;
+                    }
+                }
+            }
+
+            public double GetAverageResult(TPlayer player)
+            {
+                if (NumRuns == 0)
+                {
+                    return 0;
+                }
+
+                return GetTotalResult(player) / NumRuns;
+            }
+
+            public double GetUCT(TPlayer perspectivePlayer)
+            {
+                return GetAverageResult(perspectivePlayer) + ExplorationValue;
+            }
 
             public Node<TPlayer, TAction> SelectChild()
             {
-                return Children.MaxElementBy(e => e.UCT);
+                var perspectivePlayer = State.CurrentPlayer;
+                return Children.MaxElementBy(child => child.GetUCT(perspectivePlayer));
             }
 
             public Node<TPlayer, TAction> AddChild(TAction action, IState<TPlayer, TAction> state, int id, MctsTimingCollector timing = null)
@@ -217,7 +265,10 @@ namespace MonteCarlo
 
                         completedResults[rolloutResult.Iteration] = rolloutResult;
                         pendingJobs--;
-                        completedRollouts++;
+                        if (!rolloutResult.Cancelled)
+                        {
+                            completedRollouts++;
+                        }
 
                         while (completedResults.TryGetValue(nextResultToApply, out var readyResult))
                         {
@@ -242,6 +293,26 @@ namespace MonteCarlo
                     catch (AggregateException)
                     {
                     }
+
+                    while (resultQueue.TryTake(out var pendingResult))
+                    {
+                        completedResults[pendingResult.Iteration] = pendingResult;
+                        if (!pendingResult.Cancelled)
+                        {
+                            completedRollouts++;
+                        }
+                    }
+
+                    foreach (var remainingResult in completedResults
+                                 .OrderBy(item => item.Key)
+                                 .Select(item => item.Value)
+                                 .ToList())
+                    {
+                        var backpropStart = Stopwatch.GetTimestamp();
+                        ApplyRolloutResult(remainingResult);
+                        options.Timing?.AddBackpropagation(Stopwatch.GetTimestamp() - backpropStart);
+                        EmitTrace(options.Trace, remainingResult.TraceEvents);
+                    }
                 }
 
                 return (scheduledRollouts, completedRollouts, workers);
@@ -263,6 +334,9 @@ namespace MonteCarlo
 
                 var selectionRandom = CreateRandom(seed, iteration, 0);
                 var traceEvents = traceEnabled ? new List<MctsTraceEvent>() : null;
+                var rootPlayer = Player;
+                string rootAction = null;
+                var rootSelectionMode = "Unknown";
 
                 while (node.UntriedActions.Count == 0)
                 {
@@ -272,7 +346,21 @@ namespace MonteCarlo
                     }
 
                     var selectionStart = Stopwatch.GetTimestamp();
-                    node = node.SelectChild();
+                    var selectingFromRoot = node.Parent == null;
+                    if (selectingFromRoot)
+                    {
+                        AddRootSelectionCandidateTrace(
+                            traceEvents,
+                            traceContext,
+                            iteration,
+                            workerIndex,
+                            node,
+                            state.CurrentPlayer,
+                            rootPlayer);
+                    }
+
+                    var selectedNode = node.SelectChild();
+                    node = selectedNode;
                     AddTrace(traceEvents, new MctsTraceEvent
                     {
                         Type = "select",
@@ -284,8 +372,29 @@ namespace MonteCarlo
                         Action = FormatAction(node.Action),
                         Runs = node.NumRuns,
                         Wins = node.NumWins,
-                        Uct = node.UCT
+                        Uct = node.GetUCT(state.CurrentPlayer),
+                        PerspectivePlayer = FormatPlayer(state.CurrentPlayer),
+                        AverageForRootPlayer = node.GetAverageResult(rootPlayer),
+                        AverageForNodePlayer = node.GetAverageResult(node.Player),
+                        AverageForSelectionPlayer = node.GetAverageResult(state.CurrentPlayer),
+                        UctForSelectionPlayer = node.GetUCT(state.CurrentPlayer),
+                        Exploration = node.ExplorationValue,
+                        ParentRuns = node.Parent?.NumRuns,
+                        PendingRuns = node.PendingRuns,
+                        EffectiveRuns = node.GetEffectiveRuns(),
+                        ParentPendingRuns = node.Parent?.PendingRuns,
+                        ParentEffectiveRuns = node.Parent?.GetEffectiveRuns(),
+                        ChildCount = node.Parent?.Children.Count,
+                        UntriedRemaining = node.Parent?.UntriedActions.Count,
+                        ActionCount = node.Parent?.Actions.Count,
+                        RootAction = selectingFromRoot ? FormatAction(node.Action) : rootAction,
+                        RootSelectionMode = selectingFromRoot ? "SelectUCT" : rootSelectionMode
                     });
+                    if (selectingFromRoot)
+                    {
+                        rootAction = FormatAction(node.Action);
+                        rootSelectionMode = "SelectUCT";
+                    }
                     state.ApplyAction(node.Action);
                     timing?.AddSelection(Stopwatch.GetTimestamp() - selectionStart);
                 }
@@ -293,6 +402,8 @@ namespace MonteCarlo
                 if (node.UntriedActions.Count > 0)
                 {
                     var expansionStart = Stopwatch.GetTimestamp();
+                    var expandingFromRoot = node.Parent == null;
+                    var untriedBefore = node.UntriedActions.Count;
                     var action = node.UntriedActions.RandomChoice(selectionRandom);
                     var parent = node;
                     state.ApplyAction(action);
@@ -312,8 +423,38 @@ namespace MonteCarlo
                         NodeId = node.Id,
                         Depth = node.Depth,
                         Action = FormatAction(action),
-                        UntriedRemaining = parent.UntriedActions.Count
+                        UntriedRemaining = parent.UntriedActions.Count,
+                        UntriedBefore = untriedBefore,
+                        UntriedAfter = parent.UntriedActions.Count,
+                        ChildCount = parent.Children.Count,
+                        ActionCount = parent.Actions.Count,
+                        Seed = CreateSeed(seed, iteration, 0),
+                        RootAction = expandingFromRoot ? FormatAction(action) : rootAction,
+                        RootSelectionMode = expandingFromRoot ? "ExpandUntried" : rootSelectionMode
                     });
+                    if (expandingFromRoot)
+                    {
+                        AddTrace(traceEvents, new MctsTraceEvent
+                        {
+                            Type = "root_expand",
+                            Context = traceContext,
+                            Iteration = iteration,
+                            Worker = workerIndex,
+                            NodeId = parent.Id,
+                            ParentNodeId = parent.Parent?.Id,
+                            Depth = parent.Depth,
+                            Action = FormatAction(action),
+                            UntriedBefore = untriedBefore,
+                            UntriedAfter = parent.UntriedActions.Count,
+                            ChildCount = parent.Children.Count,
+                            ActionCount = parent.Actions.Count,
+                            Seed = CreateSeed(seed, iteration, 0),
+                            RootAction = FormatAction(action),
+                            RootSelectionMode = "ExpandUntried"
+                        });
+                        rootAction = FormatAction(action);
+                        rootSelectionMode = "ExpandUntried";
+                    }
                     timing?.AddExpansion(Stopwatch.GetTimestamp() - expansionStart);
                 }
 
@@ -321,7 +462,11 @@ namespace MonteCarlo
                 var rolloutState = state.Clone();
                 timing?.AddCloneState(Stopwatch.GetTimestamp() - rolloutCloneStart);
                 var rolloutRandom = CreateRandom(seed, iteration, 1);
-                var rootPlayer = Player;
+                if (rootAction == null && node.Parent == null && node.Action != null)
+                {
+                    rootAction = FormatAction(node.Action);
+                    rootSelectionMode = "SingleChild";
+                }
 
                 AddTrace(traceEvents, new MctsTraceEvent
                 {
@@ -332,8 +477,12 @@ namespace MonteCarlo
                     NodeId = node.Id,
                     Depth = node.Depth,
                     Player = FormatPlayer(rolloutState.CurrentPlayer),
-                    Seed = CreateSeed(seed, iteration, 1)
+                    Seed = CreateSeed(seed, iteration, 1),
+                    RootAction = rootAction,
+                    RootSelectionMode = rootSelectionMode
                 });
+
+                AddPendingRunToPath(node);
 
                 return new RolloutJob<TPlayer, TAction>
                 {
@@ -341,11 +490,15 @@ namespace MonteCarlo
                     WorkerIndex = workerIndex,
                     Node = node,
                     RootPlayer = rootPlayer,
+                    Players = GetPlayersFromState(State),
                     RolloutState = rolloutState,
                     RolloutRandom = rolloutRandom,
                     TraceContext = traceContext,
                     TraceEvents = traceEvents,
-                    Timing = timing
+                    Timing = timing,
+                    RootAction = rootAction,
+                    RootSelectionMode = rootSelectionMode,
+                    HasPendingReservation = true
                 };
             }
 
@@ -372,17 +525,34 @@ namespace MonteCarlo
             {
                 foreach (var job in jobQueue.GetConsumingEnumerable())
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        break;
-                    }
-
-                    var result = ExecuteRollout(job, workerIndex, cancellationToken);
+                    var result = cancellationToken.IsCancellationRequested
+                        ? CreateCancelledResult(job, workerIndex)
+                        : ExecuteRollout(job, workerIndex, cancellationToken);
                     if (result != null)
                     {
                         resultQueue.Add(result);
                     }
                 }
+            }
+
+            private static RolloutResult<TPlayer, TAction> CreateCancelledResult(
+                RolloutJob<TPlayer, TAction> job,
+                int workerIndex)
+            {
+                return new RolloutResult<TPlayer, TAction>
+                {
+                    Node = job.Node,
+                    Iteration = job.Iteration,
+                    WorkerIndex = workerIndex,
+                    ResultsByPlayer = new Dictionary<string, double>(StringComparer.Ordinal),
+                    TraceContext = job.TraceContext,
+                    TraceEvents = job.TraceEvents,
+                    RootPlayer = job.RootPlayer,
+                    RootAction = job.RootAction,
+                    RootSelectionMode = job.RootSelectionMode,
+                    HasPendingReservation = job.HasPendingReservation,
+                    Cancelled = true
+                };
             }
 
             private static RolloutResult<TPlayer, TAction> ExecuteRollout(
@@ -433,10 +603,20 @@ namespace MonteCarlo
 
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    return null;
+                    return CreateCancelledResult(job, workerIndex);
                 }
 
-                var result = job.RolloutState.GetResult(job.RootPlayer);
+                var resultsByPlayer = job.Players
+                    .GroupBy(GetPlayerKey)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => job.RolloutState.GetResult(group.First()),
+                        StringComparer.Ordinal);
+                double rootResult;
+                if (!resultsByPlayer.TryGetValue(GetPlayerKey(job.RootPlayer), out rootResult))
+                {
+                    rootResult = 0;
+                }
                 job.Timing?.AddRollout(Stopwatch.GetTimestamp() - rolloutStart);
                 var finalScores = BuildScoreSnapshot(job.RolloutState);
                 var finalOpponentRemainingCards = BuildOpponentRemainingCardsSnapshot(job.RolloutState);
@@ -448,7 +628,9 @@ namespace MonteCarlo
                     Worker = job.WorkerIndex,
                     NodeId = job.Node.Id,
                     Plies = ply,
-                    Result = result,
+                    Result = rootResult,
+                    RootAction = job.RootAction,
+                    RootSelectionMode = job.RootSelectionMode,
                     Scores = finalScores,
                     OpponentRemainingCardsOnFinish = finalOpponentRemainingCards
                 });
@@ -457,8 +639,14 @@ namespace MonteCarlo
                 {
                     Node = job.Node,
                     Iteration = job.Iteration,
-                    Result = result,
-                    TraceEvents = job.TraceEvents
+                    WorkerIndex = job.WorkerIndex,
+                    ResultsByPlayer = resultsByPlayer,
+                    TraceContext = job.TraceContext,
+                    TraceEvents = job.TraceEvents,
+                    RootPlayer = job.RootPlayer,
+                    RootAction = job.RootAction,
+                    RootSelectionMode = job.RootSelectionMode,
+                    HasPendingReservation = job.HasPendingReservation
                 };
             }
 
@@ -565,21 +753,241 @@ namespace MonteCarlo
 
             private static void ApplyRolloutResult(RolloutResult<TPlayer, TAction> result)
             {
+                if (result.HasPendingReservation)
+                {
+                    RemovePendingRunFromPath(result.Node);
+                }
+
+                if (result.Cancelled)
+                {
+                    return;
+                }
+
                 var node = result.Node;
                 while (node != null)
                 {
+                    var nodePlayerKey = GetPlayerKey(node.Player);
+                    double nodePlayerTotal;
+                    double nodePlayerResult;
+
                     lock (node.sync)
                     {
                         node.NumRuns++;
-                        node.NumWins += result.Result;
+
+                        foreach (var item in result.ResultsByPlayer)
+                        {
+                            double currentTotal;
+                            node.totalResultByPlayer.TryGetValue(item.Key, out currentTotal);
+                            node.totalResultByPlayer[item.Key] = currentTotal + item.Value;
+                        }
+
+                        node.totalResultByPlayer.TryGetValue(nodePlayerKey, out nodePlayerTotal);
+                        result.ResultsByPlayer.TryGetValue(nodePlayerKey, out nodePlayerResult);
+                    }
+                    AddTrace(result.TraceEvents as ICollection<MctsTraceEvent>, new MctsTraceEvent
+                    {
+                        Type = "backprop",
+                        Context = result.TraceContext,
+                        Iteration = result.Iteration,
+                        Worker = result.WorkerIndex,
+                        NodeId = node.Id,
+                        ParentNodeId = node.Parent?.Id,
+                        Depth = node.Depth,
+                        Action = FormatAction(node.Action),
+                        Player = FormatPlayer(node.Player),
+                        Runs = node.NumRuns,
+                        Wins = nodePlayerTotal,
+                        Result = nodePlayerResult,
+                        AverageForNodePlayer = node.GetAverageResult(node.Player),
+                        AverageForRootPlayer = node.GetAverageResult(result.RootPlayer),
+                        PendingRuns = node.PendingRuns,
+                        EffectiveRuns = node.GetEffectiveRuns(),
+                        ParentPendingRuns = node.Parent?.PendingRuns,
+                        ParentEffectiveRuns = node.Parent?.GetEffectiveRuns(),
+                        RootAction = result.RootAction,
+                        RootSelectionMode = result.RootSelectionMode
+                    });
+                    if (node.Parent == null && result.Iteration > 0 && (result.Iteration + 1) % 100 == 0)
+                    {
+                        AddRootSnapshotTrace(
+                            result.TraceEvents as ICollection<MctsTraceEvent>,
+                            result.TraceContext,
+                            result.Iteration,
+                            result.WorkerIndex,
+                            node,
+                            result.RootPlayer);
                     }
                     node = node.Parent;
                 }
             }
 
+            private static void AddPendingRunToPath(Node<TPlayer, TAction> node)
+            {
+                while (node != null)
+                {
+                    lock (node.sync)
+                    {
+                        node.pendingRuns++;
+                    }
+
+                    node = node.Parent;
+                }
+            }
+
+            private static void RemovePendingRunFromPath(Node<TPlayer, TAction> node)
+            {
+                while (node != null)
+                {
+                    lock (node.sync)
+                    {
+                        if (node.pendingRuns > 0)
+                        {
+                            node.pendingRuns--;
+                        }
+                    }
+
+                    node = node.Parent;
+                }
+            }
+
+            private static void AddRootSelectionCandidateTrace(
+                ICollection<MctsTraceEvent> traceEvents,
+                string traceContext,
+                int iteration,
+                int workerIndex,
+                Node<TPlayer, TAction> root,
+                TPlayer selectionPlayer,
+                TPlayer rootPlayer)
+            {
+                if (traceEvents == null || root == null)
+                {
+                    return;
+                }
+
+                var selectedChild = root.Children.Count == 0
+                    ? null
+                    : root.Children.MaxElementBy(child => child.GetUCT(selectionPlayer));
+
+                foreach (var child in root.Children.OrderByDescending(child => child.GetUCT(selectionPlayer)))
+                {
+                    AddTrace(traceEvents, new MctsTraceEvent
+                    {
+                        Type = "root_selection_candidate",
+                        Context = traceContext,
+                        Iteration = iteration,
+                        Worker = workerIndex,
+                        NodeId = root.Id,
+                        ParentNodeId = root.Parent?.Id,
+                        Depth = root.Depth,
+                        Action = FormatAction(child.Action),
+                        Player = FormatPlayer(child.Player),
+                        PerspectivePlayer = FormatPlayer(selectionPlayer),
+                        Runs = child.NumRuns,
+                        Wins = child.GetTotalResult(rootPlayer),
+                        AverageForRootPlayer = child.GetAverageResult(rootPlayer),
+                        AverageForNodePlayer = child.GetAverageResult(child.Player),
+                        AverageForSelectionPlayer = child.GetAverageResult(selectionPlayer),
+                        Uct = child.GetUCT(selectionPlayer),
+                        UctForSelectionPlayer = child.GetUCT(selectionPlayer),
+                        Exploration = child.ExplorationValue,
+                        ParentRuns = root.NumRuns,
+                        PendingRuns = child.PendingRuns,
+                        EffectiveRuns = child.GetEffectiveRuns(),
+                        ParentPendingRuns = root.PendingRuns,
+                        ParentEffectiveRuns = root.GetEffectiveRuns(),
+                        ChildCount = root.Children.Count,
+                        UntriedRemaining = root.UntriedActions.Count,
+                        ActionCount = root.Actions.Count,
+                        Selected = ReferenceEquals(child, selectedChild),
+                        RootAction = FormatAction(child.Action),
+                        RootSelectionMode = "SelectUCT"
+                    });
+                }
+            }
+
+            private static void AddRootSnapshotTrace(
+                ICollection<MctsTraceEvent> traceEvents,
+                string traceContext,
+                int iteration,
+                int workerIndex,
+                Node<TPlayer, TAction> root,
+                TPlayer rootPlayer)
+            {
+                if (traceEvents == null || root == null)
+                {
+                    return;
+                }
+
+                foreach (var child in root.Children.OrderByDescending(child => child.NumRuns))
+                {
+                    AddTrace(traceEvents, new MctsTraceEvent
+                    {
+                        Type = "root_snapshot",
+                        Context = traceContext,
+                        Iteration = iteration,
+                        Worker = workerIndex,
+                        NodeId = root.Id,
+                        ParentNodeId = root.Parent?.Id,
+                        Depth = root.Depth,
+                        Action = FormatAction(child.Action),
+                        Player = FormatPlayer(child.Player),
+                        PerspectivePlayer = FormatPlayer(rootPlayer),
+                        Runs = child.NumRuns,
+                        Wins = child.GetTotalResult(rootPlayer),
+                        AverageForRootPlayer = child.GetAverageResult(rootPlayer),
+                        AverageForNodePlayer = child.GetAverageResult(child.Player),
+                        AverageForSelectionPlayer = child.GetAverageResult(rootPlayer),
+                        Uct = child.GetUCT(rootPlayer),
+                        UctForSelectionPlayer = child.GetUCT(rootPlayer),
+                        Exploration = child.ExplorationValue,
+                        ParentRuns = root.NumRuns,
+                        PendingRuns = child.PendingRuns,
+                        EffectiveRuns = child.GetEffectiveRuns(),
+                        ParentPendingRuns = root.PendingRuns,
+                        ParentEffectiveRuns = root.GetEffectiveRuns(),
+                        ChildCount = root.Children.Count,
+                        UntriedRemaining = root.UntriedActions.Count,
+                        ActionCount = root.Actions.Count,
+                        RootAction = FormatAction(child.Action),
+                        RootSelectionMode = "Snapshot"
+                    });
+                }
+            }
+
             public override string ToString()
             {
-                return $"{NumWins}/{NumRuns}: ({ExploitationValue}/{ExplorationValue}={UCT}), {Action}";
+                return $"{NumWins}/{NumRuns}: ({ExploitationValue}/{ExplorationValue}), Player={Player}, Action={Action}";
+            }
+
+            private double GetTotalResult(TPlayer player)
+            {
+                var playerKey = GetPlayerKey(player);
+                double total;
+                return totalResultByPlayer.TryGetValue(playerKey, out total) ? total : 0;
+            }
+
+            public int GetEffectiveRuns()
+            {
+                var snapshot = GetPendingSnapshot();
+                return snapshot.EffectiveRuns;
+            }
+
+            private PendingSnapshot GetPendingSnapshot()
+            {
+                lock (sync)
+                {
+                    return new PendingSnapshot
+                    {
+                        PendingRuns = pendingRuns,
+                        EffectiveRuns = NumRuns + pendingRuns
+                    };
+                }
+            }
+
+            private struct PendingSnapshot
+            {
+                public int PendingRuns { get; set; }
+                public int EffectiveRuns { get; set; }
             }
         }
 
@@ -591,11 +999,15 @@ namespace MonteCarlo
             public int WorkerIndex { get; set; }
             public Node<TPlayer, TAction> Node { get; set; }
             public TPlayer RootPlayer { get; set; }
+            public IReadOnlyList<TPlayer> Players { get; set; }
             public IState<TPlayer, TAction> RolloutState { get; set; }
             public Random RolloutRandom { get; set; }
             public string TraceContext { get; set; }
             public List<MctsTraceEvent> TraceEvents { get; set; }
             public MctsTimingCollector Timing { get; set; }
+            public string RootAction { get; set; }
+            public string RootSelectionMode { get; set; }
+            public bool HasPendingReservation { get; set; }
         }
 
         private sealed class RolloutResult<TPlayer, TAction>
@@ -603,9 +1015,16 @@ namespace MonteCarlo
             where TAction : IAction
         {
             public int Iteration { get; set; }
+            public int WorkerIndex { get; set; }
             public Node<TPlayer, TAction> Node { get; set; }
-            public double Result { get; set; }
+            public IDictionary<string, double> ResultsByPlayer { get; set; }
             public IReadOnlyList<MctsTraceEvent> TraceEvents { get; set; }
+            public string TraceContext { get; set; }
+            public TPlayer RootPlayer { get; set; }
+            public string RootAction { get; set; }
+            public string RootSelectionMode { get; set; }
+            public bool HasPendingReservation { get; set; }
+            public bool Cancelled { get; set; }
         }
 
         public static IEnumerable<IMctsNode<TAction>> GetTopActions<TPlayer, TAction>(IState<TPlayer, TAction> state, int maxIterations)
@@ -678,6 +1097,7 @@ namespace MonteCarlo
             {
                 TopActions = root.Children
                     .OrderByDescending(n => n.NumRuns)
+                    .ThenByDescending(n => n.GetAverageResult(root.Player))
                     .Cast<IMctsNode<TAction>>()
                     .ToList(),
                 ScheduledRollouts = stats.ScheduledRollouts,
@@ -734,6 +1154,24 @@ namespace MonteCarlo
             }
 
             return maxDepth;
+        }
+
+        private static IReadOnlyList<TPlayer> GetPlayersFromState<TPlayer, TAction>(IState<TPlayer, TAction> state)
+            where TPlayer : IPlayer
+            where TAction : IAction
+        {
+            var playerSetState = state as IPlayerSetState<TPlayer>;
+            if (playerSetState?.Players != null)
+            {
+                return playerSetState.Players.ToList();
+            }
+
+            return new List<TPlayer> { state.CurrentPlayer };
+        }
+
+        private static string GetPlayerKey<TPlayer>(TPlayer player) where TPlayer : IPlayer
+        {
+            return player == null ? string.Empty : player.ToString() ?? string.Empty;
         }
     }
 }

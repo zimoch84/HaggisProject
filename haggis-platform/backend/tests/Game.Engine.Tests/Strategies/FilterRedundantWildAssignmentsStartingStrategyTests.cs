@@ -104,6 +104,29 @@ namespace HaggisTests.Strategies
         }
 
         [Test]
+        public void FilterTricks_WhenEquivalentWildAssignmentsExist_ShouldPreferLowerWildPerReplacementRank()
+        {
+            var strategy = new FilterRedundantWildAssignmentsStartingStrategy();
+            var preferred = new Trick(TrickType.SEQ3, new List<Card>
+            {
+                "10B".ToCard(),
+                "J".ToCard().WildAs("J".ToCard()),
+                "Q".ToCard().WildAs("Q".ToCard())
+            });
+            var redundant = new Trick(TrickType.SEQ3, new List<Card>
+            {
+                "10B".ToCard(),
+                "Q".ToCard().WildAs("J".ToCard()),
+                "J".ToCard().WildAs("Q".ToCard())
+            });
+
+            var filtered = strategy.FilterTricks(new List<Trick> { redundant, preferred });
+
+            Assert.That(filtered, Has.Count.EqualTo(1));
+            Assert.That(filtered.Single(), Is.SameAs(preferred));
+        }
+
+        [Test]
         public void StartingTrickStrategy_WhenNoOptionalFilterIsConfigured_ShouldKeepRedundantWildAssignments()
         {
             var diagnostics = CaptureDiagnostics(new StartingTrickStrategy(new FilterNoneStrategy(), new ZeroWeightStartingStrategy()));

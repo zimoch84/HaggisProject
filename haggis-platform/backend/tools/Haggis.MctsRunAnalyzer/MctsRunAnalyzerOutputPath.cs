@@ -21,7 +21,7 @@ namespace Haggis.MctsRunAnalyzer
                 fileName = "mcts-run";
             }
 
-            var suffix = $"{timestamp:yyyyMMdd_HHmmss}_{SanitizeFileNamePart(options?.StrategyLabel ?? "unknown")}_seed{options?.Seed ?? 0}";
+            var suffix = $"{timestamp:yyyyMMdd_HHmmss}_{SanitizeFileNamePart(options?.StrategyLabel ?? "unknown")}_seed{options?.Seed ?? 0}_r{options?.RoundNumber ?? 0}_m{options?.MoveNumber ?? 0}";
             var suffixedFileName = $"{fileName}_{suffix}{extension}";
 
             return string.IsNullOrWhiteSpace(directory)
@@ -31,7 +31,7 @@ namespace Haggis.MctsRunAnalyzer
 
         private static string BuildDefaultPath(MctsRunAnalyzerOptions options, DateTime timestamp)
         {
-            var fileName = $"mcts-run_{timestamp:yyyyMMdd_HHmmss}_{SanitizeFileNamePart(options?.StrategyLabel ?? "unknown")}_seed{options?.Seed ?? 0}.txt";
+            var fileName = $"mcts-run_{timestamp:yyyyMMdd_HHmmss}_{SanitizeFileNamePart(options?.StrategyLabel ?? "unknown")}_seed{options?.Seed ?? 0}_r{options?.RoundNumber ?? 0}_m{options?.MoveNumber ?? 0}.txt";
             return Path.Combine("logs", fileName);
         }
 
