@@ -57,6 +57,11 @@ flutter:
   assets:
     - assets/applicationsettings.json
     - assets/table.png
+    - assets/table_background.png
+    - assets/Haggis_16_9_board.png
+    - assets/input_text_long.png
+    - assets/haggis_name_single_multi_blank.png
+    - assets/ui/buttons/
     - assets/Cards/OldStyle/
     - assets/icons/app_icon.jpg
     - assets/icons/app_icon_circle.png

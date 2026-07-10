@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../infrastructure/logging/app_logger.dart';
 import '../infrastructure/remote/global_lobby_websocket_client.dart';
 import '../models/lobby_models.dart';
 import '../view_models/lobby_view_model.dart';
@@ -29,15 +30,18 @@ class LobbyController extends ChangeNotifier {
   );
 
   Future<void> connect() async {
+    AppLogger.info('LobbyCtrl', 'Starting lobby connect via $serverBaseUrl.');
     await _client.connect();
     _subscription = _client.messages.listen(
       _onMessage,
       onError: (Object error, StackTrace _) {
         status = 'Lobby socket error: $error';
+        AppLogger.error('LobbyCtrl', 'Lobby subscription error.', error);
         notifyListeners();
       },
       onDone: () {
         status = 'Lobby socket closed.';
+        AppLogger.warn('LobbyCtrl', 'Lobby subscription closed.');
         notifyListeners();
       },
     );
@@ -47,6 +51,7 @@ class LobbyController extends ChangeNotifier {
 
   void refreshRooms() {
     _isBusy = true;
+    AppLogger.info('LobbyCtrl', 'Refreshing room list.');
     _client.requestRoomList();
     status = 'Refreshing rooms...';
     notifyListeners();
@@ -62,6 +67,7 @@ class LobbyController extends ChangeNotifier {
     _pendingCreatedRoomId = roomId;
     _isBusy = true;
     status = "Creating room '$normalizedName'...";
+    AppLogger.info('LobbyCtrl', 'Creating room "$normalizedName" ($roomId).');
     notifyListeners();
 
     try {
@@ -104,6 +110,7 @@ class LobbyController extends ChangeNotifier {
   void _onMessage(Map<String, dynamic> json) {
     final type = (json['type'] ?? '').toString();
     final operation = (json['operation'] ?? '').toString();
+    AppLogger.info('LobbyCtrl', 'Received message type=$type operation=$operation.');
 
     if (type == 'GlobalChatBootstrap') {
       messages

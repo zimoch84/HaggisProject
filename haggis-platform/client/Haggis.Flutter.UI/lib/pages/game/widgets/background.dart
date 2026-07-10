@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../menu/menu_assets.dart';
+
 class GameBackground extends StatelessWidget {
   const GameBackground({super.key});
 
@@ -9,7 +11,7 @@ class GameBackground extends StatelessWidget {
       children: [
         Positioned.fill(
           child: Image.asset(
-            'assets/table.png',
+            MenuAssets.tableBackground,
             fit: BoxFit.cover,
             alignment: Alignment.center,
           ),

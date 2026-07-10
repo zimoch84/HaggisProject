@@ -3,6 +3,7 @@ import 'dart:collection';
 
 import 'package:flutter/material.dart';
 
+import '../infrastructure/logging/app_logger.dart';
 import '../infrastructure/remote/remote_game_websocket_client.dart';
 import '../models/game_models.dart';
 import '../models/lobby_models.dart';
@@ -212,6 +213,10 @@ class GameController extends ChangeNotifier {
   }
 
   Future<void> connect() async {
+    AppLogger.info(
+      'GameCtrl',
+      'Connecting to game room ${room.gameId} via $serverBaseUrl as $playerId.',
+    );
     _client = RemoteGameWebSocketClient(
       serverBaseUrl: serverBaseUrl,
       gameId: room.gameId,
@@ -221,10 +226,12 @@ class GameController extends ChangeNotifier {
       _onMessage,
       onError: (Object error, StackTrace _) {
         _status = 'Game socket error: $error';
+        AppLogger.error('GameCtrl', 'Game subscription error.', error);
         notifyListeners();
       },
       onDone: () {
         _status = 'Game socket closed.';
+        AppLogger.warn('GameCtrl', 'Game subscription closed.');
         notifyListeners();
       },
     );
@@ -233,10 +240,12 @@ class GameController extends ChangeNotifier {
   }
 
   void joinGame() {
+    AppLogger.info('GameCtrl', 'Joining game ${room.gameId} as $playerId.');
     _client.join(playerId);
   }
 
   void requestSnapshot() {
+    AppLogger.info('GameCtrl', 'Requesting snapshot for ${room.gameId}.');
     _client.requestSnapshot(playerId);
   }
 
@@ -246,6 +255,10 @@ class GameController extends ChangeNotifier {
     }
 
     _autoStartRequested = true;
+    AppLogger.info(
+      'GameCtrl',
+      'Sending create game for ${room.gameId}. seed=$_forcedStartSeed players=${singlePlayer ? _buildSinglePlayerRoster() : room.players.length}',
+    );
     _client.createGame(
       playerId,
       singlePlayer ? 3 : room.players.length,
@@ -275,6 +288,7 @@ class GameController extends ChangeNotifier {
     }
 
     _commandInFlight = true;
+    AppLogger.info('GameCtrl', 'Sending action ${action.displayAction}.');
     if (action.type.toLowerCase() == 'pass') {
       _client.sendPass(playerId);
     } else {
@@ -442,6 +456,7 @@ class GameController extends ChangeNotifier {
 
   void _onMessage(Map<String, dynamic> json) {
     final type = (json['type'] ?? '').toString();
+    AppLogger.info('GameCtrl', 'Received message type=$type payload=$json');
 
     if (type == 'RoomJoined') {
       final roomJson = json['room'] as Map<String, dynamic>?;
@@ -828,8 +843,7 @@ class GameController extends ChangeNotifier {
       return null;
     }
 
-    final playerScores =
-        previousRound?.playerScores ?? const <PreviousRoundPlayerScore>[];
+    final playerScores = previousRound.playerScores;
     final currentPlayersById = <String, GamePlayer>{
       for (final GamePlayer player in currentSnapshot.players)
         player.id: player,
@@ -863,10 +877,10 @@ class GameController extends ChangeNotifier {
       status: currentSnapshot.gameOver
           ? 'Round ${previousRound.roundNumber} finished. Game over.'
           : 'Round ${previousRound.roundNumber} finished. Round ${currentSnapshot.roundNumber} started.',
-      winnerPlayerId: previousRound?.winnerPlayerName ?? '',
+      winnerPlayerId: previousRound.winnerPlayerName,
       players: players,
       haggisCards: List<String>.unmodifiable(
-        previousRound?.haggisCards ?? const <String>[],
+        previousRound.haggisCards,
       ),
       lastSequenceLines: List<String>.unmodifiable(sequence),
     );

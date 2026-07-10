@@ -5,10 +5,9 @@ import '../models/lobby_models.dart';
 import '../models/single_player_models.dart';
 import '../view_models/app_flow_view_model.dart';
 import '../view_models/connect_view_model.dart';
-import '../pages/connect_page.dart';
 import '../pages/game_page.dart';
+import '../pages/haggis_name_menu_page.dart';
 import '../pages/lobby_page.dart';
-import '../pages/mode_select_page.dart';
 import '../pages/single_player_setup_page.dart';
 import 'app_build_info.dart';
 import 'app_settings.dart';
@@ -117,21 +116,26 @@ class _HaggisHomePageState extends State<HaggisHomePage> {
 
     switch (flow.screen) {
       case AppScreen.connect:
-        return ConnectPage(
+        return HaggisNameMenuPage(
           viewModel: ConnectViewModel(
             playerId: flow.playerId,
             serverBaseUrl: flow.serverBaseUrl,
             isConnecting: _connecting,
             error: _connectError,
           ),
-          onConnect: _enterModeSelect,
+          onSinglePlayer: _openSinglePlayerFromNameMenu,
+          onMultiplayer: _openMultiplayerFromNameMenu,
         );
       case AppScreen.modeSelect:
-        return ModeSelectPage(
-          playerId: flow.playerId,
-          onSinglePlayer: _appFlowController.openSinglePlayerSetup,
-          onMultiPlayer: _appFlowController.connectToLobby,
-          onDisconnect: _appFlowController.disconnectLobby,
+        return HaggisNameMenuPage(
+          viewModel: ConnectViewModel(
+            playerId: flow.playerId,
+            serverBaseUrl: flow.serverBaseUrl,
+            isConnecting: _connecting,
+            error: _connectError,
+          ),
+          onSinglePlayer: _openSinglePlayerFromNameMenu,
+          onMultiplayer: _openMultiplayerFromNameMenu,
         );
       case AppScreen.singlePlayerSetup:
         return SinglePlayerSetupPage(
@@ -182,6 +186,16 @@ class _HaggisHomePageState extends State<HaggisHomePage> {
         });
       }
     }
+  }
+
+  Future<void> _openSinglePlayerFromNameMenu(String playerId) async {
+    await _enterModeSelect(playerId);
+    _appFlowController.openSinglePlayerSetup();
+  }
+
+  Future<void> _openMultiplayerFromNameMenu(String playerId) async {
+    await _enterModeSelect(playerId);
+    await _appFlowController.connectToLobby();
   }
 
   Future<void> _bootstrap() async {

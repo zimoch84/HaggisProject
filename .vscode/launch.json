@@ -19,6 +19,23 @@
       }
     },
     {
+      "name": "Haggis Backend LAN (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.Infrastructure",
+      "program": "${workspaceFolder}/haggis-platform/backend/src/Haggis.Infrastructure/bin/Debug/net9.0/Haggis.Infrastructure.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/haggis-platform/backend/src/Haggis.Infrastructure",
+      "stopAtEntry": false,
+      "justMyCode": true,
+      "console": "internalConsole",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://0.0.0.0:6666"
+      }
+    },
+    {
       "name": "Haggis Game Engine Tests (.NET)",
       "type": "coreclr",
       "request": "launch",
@@ -220,6 +237,16 @@
       "flutterMode": "debug",
       "deviceId": "emulator-5556",
       "preLaunchTask": "start Android Emulator 2"
+    },
+    {
+      "name": "DEBUG Flutter Galaxy S23+ Like",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.Flutter.UI",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "emulator-5560",
+      "preLaunchTask": "start Android Emulator Galaxy S23+ Like"
     }
     
   ],
@@ -230,6 +257,23 @@
         "Haggis Backend (.NET)",
         "DEBUG Flutter Android 1",
         "DEBUG Flutter Android 2"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Backend LAN + 2 Flutter Android Apps",
+      "configurations": [
+        "Haggis Backend LAN (.NET)",
+        "DEBUG Flutter Android 1",
+        "DEBUG Flutter Android 2"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Backend LAN + Flutter Galaxy S23+ Like",
+      "configurations": [
+        "Haggis Backend LAN (.NET)",
+        "DEBUG Flutter Galaxy S23+ Like"
       ],
       "stopAll": true
     }
