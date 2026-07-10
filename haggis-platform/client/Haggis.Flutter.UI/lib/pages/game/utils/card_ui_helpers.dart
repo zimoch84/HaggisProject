@@ -154,6 +154,33 @@ String? wildMiniAssetPath(String rankToken) {
   }
 }
 
+({String inner, String logo, String point})? wildLayerAssetPaths(
+  String rankToken,
+) {
+  switch (rankToken.toUpperCase()) {
+    case 'J':
+      return (
+        inner: 'assets/Cards/OldStyle/jack_inner.png',
+        logo: 'assets/Cards/OldStyle/jack_logo.png',
+        point: 'assets/Cards/OldStyle/jack_point.png',
+      );
+    case 'Q':
+      return (
+        inner: 'assets/Cards/OldStyle/queen_inner.png',
+        logo: 'assets/Cards/OldStyle/queen_logo.png',
+        point: 'assets/Cards/OldStyle/queen_point.png',
+      );
+    case 'K':
+      return (
+        inner: 'assets/Cards/OldStyle/king_inner.png',
+        logo: 'assets/Cards/OldStyle/king_logo.png',
+        point: 'assets/Cards/OldStyle/king_point.png',
+      );
+    default:
+      return null;
+  }
+}
+
 String? wildCardAssetPath(String rankToken) {
   switch (rankToken.toUpperCase()) {
     case 'J':
