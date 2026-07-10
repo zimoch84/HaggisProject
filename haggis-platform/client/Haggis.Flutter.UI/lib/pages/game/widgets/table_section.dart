@@ -67,63 +67,80 @@ class TableSection extends StatelessWidget {
     return Column(
       children: [
         Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 280),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              final offsetAnimation = Tween<Offset>(
-                begin: const Offset(0, -0.08),
-                end: Offset.zero,
-              ).animate(animation);
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(position: offsetAnimation, child: child),
-              );
-            },
-            child: collectingTrick != null
-                ? Align(
-                    alignment: Alignment.topCenter,
-                    key: ValueKey<String>(
-                      'collect:${collectingTrick.winnerPlayerId}:${collectingTrick.cards.join('|')}',
-                    ),
-                    child: _AnimatedCollectTrickPile(collect: collectingTrick),
-                  )
-                : latestVisibleMove != null
-                ? Align(
-                    alignment: Alignment.topCenter,
-                    key: ValueKey<String>('cards:$trickKey'),
-                    child: _TableTrickDisplay(
-                      cardMove: latestCardMove,
-                      passMove: latestPassMove,
-                    ),
-                  )
-                : viewModel.trick.isEmpty
-                ? const SizedBox.shrink(key: ValueKey<String>('empty-table'))
-                : ListView.separated(
-                    key: ValueKey<String>('text:$trickKey'),
-                    itemCount: viewModel.trick.length,
-                    separatorBuilder: (BuildContext context, int index) =>
-                        const SizedBox(height: 10),
-                    itemBuilder: (BuildContext context, int index) {
-                      final move = viewModel.trick[index];
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder:
+                      (Widget child, Animation<double> animation) {
+                        final offsetAnimation = Tween<Offset>(
+                          begin: const Offset(0, -0.08),
+                          end: Offset.zero,
+                        ).animate(animation);
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: offsetAnimation,
+                            child: child,
+                          ),
+                        );
+                      },
+                  child: collectingTrick != null
+                      ? Align(
+                          alignment: Alignment.topCenter,
+                          key: ValueKey<String>(
+                            'collect:${collectingTrick.winnerPlayerId}:${collectingTrick.cards.join('|')}',
+                          ),
+                          child: _AnimatedCollectTrickPile(
+                            collect: collectingTrick,
+                          ),
+                        )
+                      : latestVisibleMove != null
+                      ? Align(
+                          alignment: Alignment.topCenter,
+                          key: ValueKey<String>('cards:$trickKey'),
+                          child: _TableTrickDisplay(
+                            cardMove: latestCardMove,
+                            passMove: latestPassMove,
+                          ),
+                        )
+                      : viewModel.trick.isEmpty
+                      ? const SizedBox.shrink(
+                          key: ValueKey<String>('empty-table'),
+                        )
+                      : ListView.separated(
+                          key: ValueKey<String>('text:$trickKey'),
+                          itemCount: viewModel.trick.length,
+                          separatorBuilder: (BuildContext context, int index) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (BuildContext context, int index) {
+                            final move = viewModel.trick[index];
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xAA131F22),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color(0x6656B891),
+                                ),
+                              ),
+                              child: Text(
+                                '${move.playerId}: ${move.description}',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            );
+                          },
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xAA131F22),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0x6656B891)),
-                        ),
-                        child: Text(
-                          '${move.playerId}: ${move.description}',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      );
-                    },
-                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -180,7 +197,22 @@ class TableSection extends StatelessWidget {
                           style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
-                    const Spacer(),
+                    Expanded(
+                      child:
+                          viewModel.isGameInitialized &&
+                              readyPreviewLabel != null
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Center(
+                                child: _ReadyPreviewPanel(
+                                  label: readyPreviewLabel!,
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
                     if (viewModel.isGameInitialized &&
                         controller.selectedCards.isNotEmpty)
                       Padding(
@@ -267,36 +299,44 @@ class TableSection extends StatelessWidget {
                       ),
                   ],
                 ),
-                if (viewModel.isGameInitialized &&
-                    readyPreviewLabel != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xAA162A2E),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0x6656B891)),
-                    ),
-                    child: Text(
-                      readyPreviewLabel!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ReadyPreviewPanel extends StatelessWidget {
+  const _ReadyPreviewPanel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 520),
+      child: Container(
+        width: MediaQuery.sizeOf(context).width * 0.34,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xAA162A2E),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0x6656B891)),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }

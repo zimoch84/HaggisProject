@@ -194,12 +194,10 @@ Future<void> openHandTuning({
   required BuildContext context,
   required double handCardScale,
   required double handSpacingScale,
-  required double handArcScale,
   required double handVerticalOffset,
   required bool showCardHitZones,
   required ValueChanged<double> onCardScaleChanged,
   required ValueChanged<double> onSpacingScaleChanged,
-  required ValueChanged<double> onArcScaleChanged,
   required ValueChanged<double> onVerticalOffsetChanged,
   required ValueChanged<bool> onShowCardHitZonesChanged,
 }) async {
@@ -209,7 +207,6 @@ Future<void> openHandTuning({
       final screenSize = MediaQuery.of(context).size;
       double cardScale = handCardScale;
       double spacingScale = handSpacingScale;
-      double arcScale = handArcScale;
       double verticalOffset = handVerticalOffset;
       bool cardHitZones = showCardHitZones;
 
@@ -244,7 +241,6 @@ Future<void> openHandTuning({
                   child: HandTuningPanel(
                     cardScale: cardScale,
                     spacingScale: spacingScale,
-                    arcScale: arcScale,
                     verticalOffset: verticalOffset,
                     showCardHitZones: cardHitZones,
                     onCardScaleChanged: (double value) {
@@ -258,12 +254,6 @@ Future<void> openHandTuning({
                         spacingScale = value;
                       });
                       onSpacingScaleChanged(value);
-                    },
-                    onArcScaleChanged: (double value) {
-                      updateValues(() {
-                        arcScale = value;
-                      });
-                      onArcScaleChanged(value);
                     },
                     onVerticalOffsetChanged: (double value) {
                       updateValues(() {

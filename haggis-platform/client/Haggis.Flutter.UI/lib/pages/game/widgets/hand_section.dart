@@ -18,7 +18,6 @@ class HandSection extends StatelessWidget {
     required this.showCardHitZones,
     required this.cardScale,
     required this.spacingScale,
-    required this.arcScale,
     required this.verticalOffset,
   });
 
@@ -34,7 +33,6 @@ class HandSection extends StatelessWidget {
   final bool showCardHitZones;
   final double cardScale;
   final double spacingScale;
-  final double arcScale;
   final double verticalOffset;
 
   @override
@@ -67,7 +65,6 @@ class HandSection extends StatelessWidget {
                                 showHitZoneOutline: showCardHitZones,
                                 cardScale: cardScale * 0.92,
                                 spacingScale: spacingScale,
-                                arcScale: arcScale,
                                 verticalOffset: verticalOffset.clamp(
                                   -12.0,
                                   36.0,
@@ -103,7 +100,6 @@ class HandSection extends StatelessWidget {
                                 showHitZoneOutline: showCardHitZones,
                                 cardScale: cardScale,
                                 spacingScale: spacingScale,
-                                arcScale: arcScale,
                                 verticalOffset: verticalOffset,
                               ),
                       ),
@@ -235,11 +231,9 @@ class HandTuningPanel extends StatelessWidget {
     super.key,
     required this.cardScale,
     required this.spacingScale,
-    required this.arcScale,
     required this.verticalOffset,
     required this.onCardScaleChanged,
     required this.onSpacingScaleChanged,
-    required this.onArcScaleChanged,
     required this.onVerticalOffsetChanged,
     required this.showCardHitZones,
     required this.onShowCardHitZonesChanged,
@@ -247,11 +241,9 @@ class HandTuningPanel extends StatelessWidget {
 
   final double cardScale;
   final double spacingScale;
-  final double arcScale;
   final double verticalOffset;
   final ValueChanged<double> onCardScaleChanged;
   final ValueChanged<double> onSpacingScaleChanged;
-  final ValueChanged<double> onArcScaleChanged;
   final ValueChanged<double> onVerticalOffsetChanged;
   final bool showCardHitZones;
   final ValueChanged<bool> onShowCardHitZonesChanged;
@@ -288,13 +280,6 @@ class HandTuningPanel extends StatelessWidget {
             min: 0.7,
             max: 1.6,
             onChanged: onSpacingScaleChanged,
-          ),
-          HandTuningSlider(
-            label: 'Luk wachlarza',
-            value: arcScale,
-            min: 0.7,
-            max: 1.8,
-            onChanged: onArcScaleChanged,
           ),
           HandTuningSlider(
             label: 'Skala kart',

@@ -22,7 +22,6 @@ Widget buildGamePageView({
   required bool showCardHitZones,
   required double handCardScale,
   required double handSpacingScale,
-  required double handArcScale,
   required double handVerticalOffset,
   required Future<void> Function() onOpenLastRound,
   required Future<void> Function() onOpenScoreHistory,
@@ -40,9 +39,9 @@ Widget buildGamePageView({
   final playableCards = resolvePlayableCards(controller, viewModel);
   final selectedMatches = controller.matchingPlayableActions;
   final readyPreviewLabel = selectedMatches.length == 1
-      ? 'Ready (selected): ${selectedMatches.first.displayAction}'
+      ? selectedMatches.first.displayAction
       : controller.selectedCards.isNotEmpty
-      ? 'Selected: ${controller.selectedCards.join(' ')}'
+      ? controller.selectedCards.join(' ')
       : null;
   return Scaffold(
     extendBodyBehindAppBar: true,
@@ -65,7 +64,6 @@ Widget buildGamePageView({
                       reservedTableGap,
                   isLandscape: isLandscape,
                   handCardScale: handCardScale,
-                  handArcScale: handArcScale,
                   handVerticalOffset: handVerticalOffset,
                 );
                 if (isLandscape) {
@@ -118,7 +116,6 @@ Widget buildGamePageView({
                           showCardHitZones: showCardHitZones,
                           cardScale: handCardScale,
                           spacingScale: handSpacingScale,
-                          arcScale: handArcScale,
                           verticalOffset: handVerticalOffset,
                         ),
                       ),
@@ -173,7 +170,6 @@ Widget buildGamePageView({
                         showCardHitZones: showCardHitZones,
                         cardScale: handCardScale,
                         spacingScale: handSpacingScale,
-                        arcScale: handArcScale,
                         verticalOffset: handVerticalOffset,
                       ),
                     ),

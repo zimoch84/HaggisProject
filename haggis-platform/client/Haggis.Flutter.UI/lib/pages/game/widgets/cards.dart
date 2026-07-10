@@ -140,17 +140,10 @@ class HandCard extends StatelessWidget {
                       ),
                       Align(
                         alignment: Alignment.topLeft,
-                        child: Container(
+                        child: Padding(
                           padding: EdgeInsets.symmetric(
                             horizontal: 8 * scale.clamp(0.9, 1.2),
                             vertical: 6 * scale.clamp(0.9, 1.2),
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0E8D8),
-                            borderRadius: BorderRadius.circular(
-                              10 * scale.clamp(0.9, 1.2),
-                            ),
-                            border: Border.all(color: const Color(0x22B4A893)),
                           ),
                           child: CardCorner(display: display, compact: true),
                         ),
@@ -378,7 +371,6 @@ class PlayerHandFan extends StatelessWidget {
     required this.showHitZoneOutline,
     required this.cardScale,
     required this.spacingScale,
-    required this.arcScale,
     required this.verticalOffset,
   });
 
@@ -390,7 +382,6 @@ class PlayerHandFan extends StatelessWidget {
   final bool showHitZoneOutline;
   final double cardScale;
   final double spacingScale;
-  final double arcScale;
   final double verticalOffset;
 
   @override
@@ -399,7 +390,7 @@ class PlayerHandFan extends StatelessWidget {
     final preferredStep = 32.0 * spacingScale;
     final minimumStep = 14.0 * spacingScale;
     final cardHeight = 98.0 * cardScale;
-    final naturalFanHeight = cardHeight + (48 * cardScale) + (24 * arcScale);
+    final naturalFanHeight = cardHeight + (48 * cardScale);
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -507,10 +498,7 @@ class PlayerHandFan extends StatelessWidget {
   }
 
   double _baseCardTop(int index, int count, bool isSelected) {
-    final center = (count - 1) / 2;
-    final distanceFromCenter = index - center;
-    final normalized = center == 0 ? 0.0 : distanceFromCenter / center;
-    final baseTop = 8 + normalized.abs() * 10 * arcScale;
+    const baseTop = 8.0;
     return isSelected ? baseTop - (18 * cardScale) : baseTop;
   }
 
@@ -524,10 +512,7 @@ class PlayerHandFan extends StatelessWidget {
     required double fanHeight,
     required double verticalAdjustment,
   }) {
-    final center = (count - 1) / 2;
-    final distanceFromCenter = index - center;
-    final normalized = center == 0 ? 0.0 : distanceFromCenter / center;
-    final angle = normalized * 0.12 * arcScale;
+    const angle = 0.0;
     final maxTop = fanHeight > cardHeight ? fanHeight - cardHeight : 0.0;
     final top =
         (_baseCardTop(index, count, selectedCards.contains(cards[index])) +

@@ -8,11 +8,10 @@ double computeHandSectionHeight({
   required double availableHeight,
   required bool isLandscape,
   required double handCardScale,
-  required double handArcScale,
   required double handVerticalOffset,
 }) {
   final cardHeight = 98.0 * handCardScale;
-  final fanExtraHeight = (48.0 * handCardScale) + (24.0 * handArcScale);
+  final fanExtraHeight = 48.0 * handCardScale;
   final verticalTravel = handVerticalOffset.abs();
   const bottomPadding = 0.0;
   const safetyMargin = 0.0;

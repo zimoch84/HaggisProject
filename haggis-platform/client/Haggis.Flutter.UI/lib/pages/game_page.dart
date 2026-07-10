@@ -16,7 +16,6 @@ class _GamePageState extends State<GamePage> {
   HandSortMode handSortMode = HandSortMode.rank;
   double handCardScale = 1.44;
   double handSpacingScale = 1.17;
-  double handArcScale = 1.25;
   double handVerticalOffset = 48.49;
   bool showCardHitZones = false;
   final List<String> savedGroup = <String>[];
@@ -56,7 +55,6 @@ class _GamePageState extends State<GamePage> {
       showCardHitZones: showCardHitZones,
       handCardScale: handCardScale,
       handSpacingScale: handSpacingScale,
-      handArcScale: handArcScale,
       handVerticalOffset: handVerticalOffset,
       onOpenLastRound: _openLastRound,
       onOpenScoreHistory: _openScoreHistory,
@@ -74,7 +72,6 @@ class _GamePageState extends State<GamePage> {
     context: context,
     handCardScale: handCardScale,
     handSpacingScale: handSpacingScale,
-    handArcScale: handArcScale,
     handVerticalOffset: handVerticalOffset,
     showCardHitZones: showCardHitZones,
     onCardScaleChanged: (double value) {
@@ -85,11 +82,6 @@ class _GamePageState extends State<GamePage> {
     onSpacingScaleChanged: (double value) {
       setState(() {
         handSpacingScale = value;
-      });
-    },
-    onArcScaleChanged: (double value) {
-      setState(() {
-        handArcScale = value;
       });
     },
     onVerticalOffsetChanged: (double value) {
