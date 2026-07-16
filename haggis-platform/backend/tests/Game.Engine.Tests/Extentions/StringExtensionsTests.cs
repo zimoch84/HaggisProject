@@ -1,9 +1,10 @@
-using NUnit.Framework;
+ï»¿using NUnit.Framework;
 using Haggis.Domain.Extentions;
 using Haggis.Domain.Enums;
 using Haggis.Domain.Model;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace HaggisTests
 {
@@ -45,6 +46,24 @@ namespace HaggisTests
         }
 
         [Test]
+        public void ToTrick_WhenPairStartsWithTen_ShouldParseRankAndSuitsCorrectly()
+        {
+            var trick = "10RB_PAIR".ToTrick();
+
+            Assert.That(trick.Type, Is.EqualTo(TrickType.PAIR));
+            Assert.That(trick.Cards.Select(card => card.ToString()), Is.EqualTo(new[] { "10R", "10B" }));
+        }
+
+        [Test]
+        public void ToTrick_WhenSingleIsWildWithoutSuit_ShouldParseSingleWildCard()
+        {
+            var trick = "J_SINGLE".ToTrick();
+
+            Assert.That(trick.Type, Is.EqualTo(TrickType.SINGLE));
+            Assert.That(trick.Cards.Select(card => card.ToString()), Is.EqualTo(new[] { "J" }));
+        }
+
+        [Test]
         public void ToTrick_InvalidInput_ThrowsException()
         {
             // Arrange
@@ -59,13 +78,13 @@ namespace HaggisTests
 
             var cards = "[2O|3O|4O|6B|6G|7Y|7G|7O|8G|9B|9R|10O|10Y|10B|J|Q|K]".ToCards();
 
-            Assert.That(cards, Is.InstanceOf<List<Card>>()); // SprawdŸ, czy jest list¹ Card
-            Assert.That(cards.Count, Is.GreaterThan(0)); // SprawdŸ, czy lista nie jest pusta
+            Assert.That(cards, Is.InstanceOf<List<Card>>()); // Verify result type
+            Assert.That(cards.Count, Is.GreaterThan(0)); // Verify list is not empty
 
-            // Sprawdzenie zawartoœci listy, mo¿esz dodaæ wiêcej asercji w zale¿noœci od oczekiwañ
-            Assert.That(cards[0], Is.EqualTo(new Card(Rank.TWO, Suit.ORANGE))); // Przyk³ad - sprawdŸ pierwsz¹ kartê
-            Assert.That(cards[1], Is.EqualTo(new Card(Rank.THREE, Suit.ORANGE))); // SprawdŸ drug¹ kartê
-            Assert.That(cards[2], Is.EqualTo(new Card(Rank.FOUR, Suit.ORANGE))); // SprawdŸ trzeci¹ kartê
+            // Verify a few representative values
+            Assert.That(cards[0], Is.EqualTo(new Card(Rank.TWO, Suit.ORANGE))); // First card
+            Assert.That(cards[1], Is.EqualTo(new Card(Rank.THREE, Suit.ORANGE))); // Second card
+            Assert.That(cards[2], Is.EqualTo(new Card(Rank.FOUR, Suit.ORANGE))); // Third card
         }
 
     }

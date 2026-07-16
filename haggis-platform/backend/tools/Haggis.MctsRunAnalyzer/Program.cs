@@ -17,6 +17,7 @@ try
         run.TargetStrategy,
         run.ChosenAction,
         run.SetupLines,
+        run.HeuristicRanking,
         run.TraceEvents,
         run.ComputedResult);
 

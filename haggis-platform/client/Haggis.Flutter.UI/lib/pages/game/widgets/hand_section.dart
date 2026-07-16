@@ -14,9 +14,6 @@ class HandSection extends StatelessWidget {
     required this.onCardTap,
     required this.handSortMode,
     required this.onSortChanged,
-    required this.onCreateGroup,
-    required this.onClearGroup,
-    required this.onGroupRainbowBomb,
     required this.onGroupColorBomb,
     required this.showCardHitZones,
     required this.cardScale,
@@ -33,9 +30,6 @@ class HandSection extends StatelessWidget {
   final Future<void> Function(String card) onCardTap;
   final HandSortMode handSortMode;
   final ValueChanged<HandSortMode> onSortChanged;
-  final VoidCallback onCreateGroup;
-  final VoidCallback onClearGroup;
-  final VoidCallback? onGroupRainbowBomb;
   final VoidCallback? onGroupColorBomb;
   final bool showCardHitZones;
   final double cardScale;
@@ -45,149 +39,144 @@ class HandSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned.fill(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                SizedBox(
-                  width: savedGroup.isEmpty ? 0 : 176,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: savedGroup.isEmpty
-                        ? const SizedBox.shrink()
-                        : PlayerHandFan(
-                            cards: savedGroup,
-                            playableCards: playableCards,
-                            selectedCards: selectedCards,
-                            cardLabelBuilder: cardLabelBuilder,
-                            onCardTap: onCardTap,
-                            showHitZoneOutline: showCardHitZones,
-                            cardScale: cardScale * 0.92,
-                            spacingScale: spacingScale,
-                            arcScale: arcScale,
-                            verticalOffset: verticalOffset.clamp(-12.0, 36.0),
-                          ),
-                  ),
-                ),
-                SizedBox(width: savedGroup.isEmpty ? 0 : 12),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.bottomLeft,
-                    child: cards.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Brak kart na rece',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                shadows: [
-                                  Shadow(
-                                    color: Color(0xCC000000),
-                                    blurRadius: 8,
-                                  ),
-                                ],
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final savedGroupWidth = _resolveSavedGroupWidth(constraints.maxWidth);
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    SizedBox(
+                      width: savedGroupWidth,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: savedGroup.isEmpty
+                            ? const SizedBox.shrink()
+                            : PlayerHandFan(
+                                cards: savedGroup,
+                                playableCards: playableCards,
+                                selectedCards: selectedCards,
+                                cardLabelBuilder: cardLabelBuilder,
+                                onCardTap: onCardTap,
+                                showHitZoneOutline: showCardHitZones,
+                                cardScale: cardScale * 0.92,
+                                spacingScale: spacingScale,
+                                arcScale: arcScale,
+                                verticalOffset: verticalOffset.clamp(
+                                  -12.0,
+                                  36.0,
+                                ),
                               ),
-                            ),
-                          )
-                        : PlayerHandFan(
-                            cards: cards,
-                            playableCards: playableCards,
-                            selectedCards: selectedCards,
-                            cardLabelBuilder: cardLabelBuilder,
-                            onCardTap: onCardTap,
-                            showHitZoneOutline: showCardHitZones,
-                            cardScale: cardScale,
-                            spacingScale: spacingScale,
-                            arcScale: arcScale,
-                            verticalOffset: verticalOffset,
-                          ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Positioned(
-          top: 0,
-          right: 0,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (selectedCards.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: FilledButton.tonal(
-                    onPressed: onCreateGroup,
-                    style: FilledButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: const Color(0xAA31544B),
+                      ),
                     ),
-                    child: const Text('Grupuj zazn.'),
-                  ),
-                ),
-              if (onGroupRainbowBomb != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: FilledButton.tonalIcon(
-                    onPressed: onGroupRainbowBomb,
-                    icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                    label: const Text('Rainbow'),
-                    style: FilledButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: const Color(0xAA31544B),
+                    SizedBox(width: savedGroup.isEmpty ? 0 : 12),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomLeft,
+                        child: cards.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Brak kart na rece',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    shadows: [
+                                      Shadow(
+                                        color: Color(0xCC000000),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : PlayerHandFan(
+                                cards: cards,
+                                playableCards: playableCards,
+                                selectedCards: selectedCards,
+                                cardLabelBuilder: cardLabelBuilder,
+                                onCardTap: onCardTap,
+                                showHitZoneOutline: showCardHitZones,
+                                cardScale: cardScale,
+                                spacingScale: spacingScale,
+                                arcScale: arcScale,
+                                verticalOffset: verticalOffset,
+                              ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              if (onGroupColorBomb != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: FilledButton.tonalIcon(
-                    onPressed: onGroupColorBomb,
-                    icon: const Icon(Icons.palette_outlined, size: 18),
-                    label: const Text('Kolor'),
-                    style: FilledButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: const Color(0xAA31544B),
-                    ),
-                  ),
-                ),
-              if (savedGroup.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: FilledButton.tonal(
-                    onPressed: onClearGroup,
-                    style: FilledButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: const Color(0xAA31544B),
-                    ),
-                    child: const Text('Reset grupy'),
-                  ),
-                ),
-              HandSortToggle(
-                handSortMode: handSortMode,
-                onSortChanged: onSortChanged,
-              ),
-            ],
-          ),
-        ),
-        if (savedGroup.isNotEmpty)
-          const Positioned(
-            left: 20,
-            top: 10,
-            child: Text(
-              'Grupa',
-              style: TextStyle(
-                color: Colors.white70,
-                fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-      ],
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (onGroupColorBomb != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: FilledButton.tonalIcon(
+                        onPressed: onGroupColorBomb,
+                        icon: const Icon(Icons.palette_outlined, size: 18),
+                        label: const Text('Kolor'),
+                        style: FilledButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: const Color(0xAA31544B),
+                        ),
+                      ),
+                    ),
+                  HandSortToggle(
+                    handSortMode: handSortMode,
+                    onSortChanged: onSortChanged,
+                  ),
+                ],
+              ),
+            ),
+            if (savedGroup.isNotEmpty)
+              const Positioned(
+                left: 20,
+                top: 10,
+                child: Text(
+                  'Grupa',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
+  }
+
+  double _resolveSavedGroupWidth(double availableWidth) {
+    if (savedGroup.isEmpty) {
+      return 0;
+    }
+
+    final savedGroupCardScale = cardScale * 0.92;
+    final cardWidth = 62.0 * savedGroupCardScale;
+    final preferredStep = 32.0 * spacingScale;
+    final desiredWidth = cardWidth + ((savedGroup.length - 1) * preferredStep);
+    const horizontalPadding = 16.0;
+    const gapToMainHand = 12.0;
+
+    if (!availableWidth.isFinite) {
+      return desiredWidth + horizontalPadding;
+    }
+
+    final maxWidth = (availableWidth - gapToMainHand).clamp(
+      cardWidth,
+      double.infinity,
+    );
+    return (desiredWidth + horizontalPadding).clamp(cardWidth, maxWidth);
   }
 }
 

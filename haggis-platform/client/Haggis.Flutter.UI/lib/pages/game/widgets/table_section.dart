@@ -9,11 +9,21 @@ class TableSection extends StatelessWidget {
     super.key,
     required this.viewModel,
     required this.controller,
+    required this.onCreateGroup,
+    required this.readyPreviewLabel,
+    required this.hasSavedGroup,
+    required this.onClearGroup,
+    required this.onGroupRainbowBomb,
     required this.onPlayPressed,
   });
 
   final GameViewModel viewModel;
   final GameController controller;
+  final VoidCallback onCreateGroup;
+  final String? readyPreviewLabel;
+  final bool hasSavedGroup;
+  final VoidCallback onClearGroup;
+  final VoidCallback? onGroupRainbowBomb;
   final Future<void> Function() onPlayPressed;
 
   @override
@@ -122,71 +132,166 @@ class TableSection extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: SizedBox(
             width: MediaQuery.sizeOf(context).width - 64,
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (viewModel.isGameInitialized)
-                  OutlinedButton.icon(
-                    onPressed: canPass ? controller.pass : null,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0x6656B891)),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
+                Row(
+                  children: [
+                    if (viewModel.isGameInitialized)
+                      OutlinedButton.icon(
+                        onPressed: canPass ? controller.pass : null,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Color(0x6656B891)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        icon: const Icon(Icons.front_hand_outlined),
+                        label: const Text(
+                          'Pass',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      )
+                    else
+                      FilledButton.icon(
+                        onPressed: canAttemptStart
+                            ? controller.startGame
+                            : null,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFB15D45),
+                          disabledBackgroundColor: const Color(0xFF5C4944),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        icon: const Icon(Icons.rocket_launch_outlined),
+                        label: const Text(
+                          'StartGame',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                    const Spacer(),
+                    if (viewModel.isGameInitialized &&
+                        controller.selectedCards.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: FilledButton.tonal(
+                          onPressed: onCreateGroup,
+                          style: FilledButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: const Color(0xAA31544B),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text('Group'),
+                        ),
                       ),
+                    if (viewModel.isGameInitialized &&
+                        onGroupRainbowBomb != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: FilledButton.tonalIcon(
+                          onPressed: onGroupRainbowBomb,
+                          icon: const Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 18,
+                          ),
+                          label: const Text('Rainbow'),
+                          style: FilledButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: const Color(0xAA31544B),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (viewModel.isGameInitialized && hasSavedGroup)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: FilledButton.tonal(
+                          onPressed: onClearGroup,
+                          style: FilledButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: const Color(0xAA31544B),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text('Reset grupy'),
+                        ),
+                      ),
+                    if (viewModel.isGameInitialized)
+                      FilledButton.icon(
+                        onPressed: canPlay ? onPlayPressed : null,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFB15D45),
+                          disabledBackgroundColor: const Color(0xFF5C4944),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: const Text(
+                          'Play',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                  ],
+                ),
+                if (viewModel.isGameInitialized &&
+                    readyPreviewLabel != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    icon: const Icon(Icons.front_hand_outlined),
-                    label: const Text(
-                      'Pass',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                    decoration: BoxDecoration(
+                      color: const Color(0xAA162A2E),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0x6656B891)),
                     ),
-                  )
-                else
-                  FilledButton.icon(
-                    onPressed: canAttemptStart ? controller.startGame : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFB15D45),
-                      disabledBackgroundColor: const Color(0xFF5C4944),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
+                    child: Text(
+                      readyPreviewLabel!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    icon: const Icon(Icons.rocket_launch_outlined),
-                    label: const Text(
-                      'StartGame',
-                      style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
-                const Spacer(),
-                if (viewModel.isGameInitialized)
-                  FilledButton.icon(
-                    onPressed: canPlay ? onPlayPressed : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFB15D45),
-                      disabledBackgroundColor: const Color(0xFF5C4944),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text(
-                      'Play',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
+                ],
               ],
             ),
           ),

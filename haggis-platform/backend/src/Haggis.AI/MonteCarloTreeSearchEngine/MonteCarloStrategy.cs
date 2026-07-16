@@ -18,6 +18,12 @@ namespace Haggis.AI.Strategies
         private long TimeBudget { get; }
         private int Workers { get; }
         private IMonteCarloActionSelectionStrategy ActionSelectionStrategy { get; }
+        private MonteCarloHeuristicOptions HeuristicOptions { get; }
+
+        public bool UsesHeuristic => HeuristicOptions?.Enabled == true;
+        public int? HeuristicTreeTopN => HeuristicOptions?.TreeTopN;
+        public int? HeuristicRolloutTopN => HeuristicOptions?.RolloutTopN;
+        public HeuristicOptions DiagnosticHeuristicOptions => HeuristicOptions?.HeuristicOptions;
 
         public event Action<MonteCarloResult> OnComputed;
         public event Action<MctsTraceEvent> OnTrace;
@@ -33,12 +39,14 @@ namespace Haggis.AI.Strategies
             int simulations,
             long timeBudget,
             int? workers = null,
-            IMonteCarloActionSelectionStrategy actionSelectionStrategy = null)
+            IMonteCarloActionSelectionStrategy actionSelectionStrategy = null,
+            MonteCarloHeuristicOptions heuristicOptions = null)
         {
             Simulations = simulations;
             TimeBudget = timeBudget;
             Workers = workers ?? Math.Max(1, Environment.ProcessorCount - 1);
             ActionSelectionStrategy = actionSelectionStrategy;
+            HeuristicOptions = heuristicOptions;
         }
 
         public HaggisAction GetPlayingAction(RoundState gameState)
@@ -54,6 +62,7 @@ namespace Haggis.AI.Strategies
                 TraceContext,
                 OnTrace,
                 ActionSelectionStrategy,
+                HeuristicOptions,
                 CaptureTiming);
             timer.Stop();
             var actions = searchResult.TopActions.Select(a => new MonteCarloActionInfo
@@ -96,7 +105,7 @@ namespace Haggis.AI.Strategies
             long timeBudget,
             IMonteCarloActionSelectionStrategy actionSelectionStrategy)
         {
-            return Search(gameState, maxIteration, timeBudget, 1, unchecked((int)gameState.MoveIteration), null, null, actionSelectionStrategy, false)
+            return Search(gameState, maxIteration, timeBudget, 1, unchecked((int)gameState.MoveIteration), null, null, actionSelectionStrategy, null, false)
                 .TopActions
                 .ToList();
         }
@@ -117,23 +126,57 @@ namespace Haggis.AI.Strategies
             string traceContext,
             Action<MctsTraceEvent> trace,
             IMonteCarloActionSelectionStrategy actionSelectionStrategy,
+            MonteCarloHeuristicOptions heuristicOptions,
             bool captureTiming)
         {
             var gameStateClone = gameState.Clone();
             var timing = captureTiming ? new MctsTimingCollector() : null;
-            var monteCarloState = new MonteCarloHaggisState(gameStateClone, actionSelectionStrategy, timing);
+            var rolloutSelectionStrategy = BuildRolloutSelectionStrategy(heuristicOptions);
+            var treeSelectionStrategy = BuildTreeSelectionStrategy(actionSelectionStrategy, heuristicOptions);
+            var monteCarloState = new MonteCarloHaggisState(gameStateClone, treeSelectionStrategy, rolloutSelectionStrategy, timing);
             return MonteCarloTreeSearch.Search<MonteCarloHaggisPlayer, MonteCarloHaggisAction>(
                 monteCarloState,
                 new MctsOptions
                 {
                     MaxIterations = maxIteration,
                     TimeBudgetMs = timeBudget,
-                    Workers = workers,
-                    Seed = seed,
-                    TraceContext = traceContext,
-                    Trace = trace,
-                    Timing = timing
+                Workers = workers,
+                Seed = seed,
+                TraceContext = traceContext,
+                Trace = trace,
+                Timing = timing
                 });
+        }
+
+        private static IMonteCarloActionSelectionStrategy BuildTreeSelectionStrategy(
+            IMonteCarloActionSelectionStrategy actionSelectionStrategy,
+            MonteCarloHeuristicOptions heuristicOptions)
+        {
+            if (actionSelectionStrategy != null)
+            {
+                return actionSelectionStrategy;
+            }
+
+            if (heuristicOptions?.Enabled == true && heuristicOptions.TreeTopN > 0)
+            {
+                return new HeuristicMonteCarloActionSelectionStrategy(
+                    heuristicOptions.HeuristicOptions,
+                    heuristicOptions.TreeTopN);
+            }
+
+            return null;
+        }
+
+        private static IMonteCarloRolloutSelectionStrategy BuildRolloutSelectionStrategy(MonteCarloHeuristicOptions heuristicOptions)
+        {
+            if (heuristicOptions?.Enabled == true && heuristicOptions.RolloutTopN > 0)
+            {
+                return new HeuristicMonteCarloRolloutSelectionStrategy(
+                    heuristicOptions.HeuristicOptions,
+                    heuristicOptions.RolloutTopN);
+            }
+
+            return null;
         }
     }
 }

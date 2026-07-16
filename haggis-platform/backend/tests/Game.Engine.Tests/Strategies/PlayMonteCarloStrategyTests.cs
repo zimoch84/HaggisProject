@@ -236,6 +236,117 @@ namespace HaggisTests.Strategies
             Assert.That(second.TreeMaxDepth, Is.EqualTo(first.TreeMaxDepth));
         }
 
+        [Test]
+        public void HeuristicMonteCarloActionSelectionStrategy_ShouldSelectExpectedTopFiveOpeningMoves_ForRoundFourSeedHand()
+        {
+            var ai2 = new AIPlayer("AI-2")
+            {
+                Hand = Cards("3G", "4R", "5G", "8O", "10R", "5B", "5Y", "6R", "6B", "9O", "2O", "3B", "8R", "7R", "J", "Q", "K")
+            };
+            var opponent1 = new AIPlayer("opponent-1")
+            {
+                Hand = Cards("2R")
+            };
+            var opponent2 = new AIPlayer("opponent-2")
+            {
+                Hand = Cards("2G")
+            };
+            var state = new RoundState(new List<IHaggisPlayer> { ai2, opponent1, opponent2 });
+            var generatedActions = state.PossibleActions
+                .Select(MonteCarloHaggisAction.FromHaggisAction)
+                .ToList();
+            var strategy = new HeuristicMonteCarloActionSelectionStrategy(new HeuristicOptions(), topN: 5);
+
+            var selectedActions = strategy.Select(state, generatedActions)
+                .Select(action => action.Desc)
+                .ToArray();
+
+            Assert.That(selectedActions, Is.EqualTo(new[]
+            {
+                "SINGLE[2O]",
+                "PAIR[3B|3G]",
+                "SINGLE[4R]",
+                "SINGLE[10R]",
+                "PAIR[6R|6B]"
+            }));
+        }
+
+        [Test]
+        public void MonteCarloTreeSearch_ShouldPreferMoveThatWinsForRootPlayer_WhenOutcomeIsImmediate()
+        {
+            var rootPlayer = new TestPlayer("root");
+            var nextPlayer = new TestPlayer("next");
+            var rootState = TestState.CreateRoot(rootPlayer, nextPlayer);
+
+            var topActions = MonteCarloTreeSearch
+                .GetTopActions(rootState, maxIterations: 20, timeBudget: 10000)
+                .ToList();
+
+            Assert.That(topActions, Is.Not.Empty);
+            Assert.That(((TestAction)topActions[0].Action).Name, Is.EqualTo("good-for-root"));
+        }
+
+        [Test]
+        public void MonteCarloTreeSearch_ShouldNotAssumeOpponentHelpsRootPlayer()
+        {
+            var rootPlayer = new TestPlayer("root");
+            var opponentPlayer = new TestPlayer("opponent");
+            var rootState = TrapTestState.CreateRoot(rootPlayer, opponentPlayer);
+
+            var topActions = MonteCarloTreeSearch
+                .GetTopActions(rootState, maxIterations: 200, timeBudget: 10000)
+                .ToList();
+
+            Assert.That(topActions, Is.Not.Empty);
+            Assert.That(((TestAction)topActions[0].Action).Name, Is.EqualTo("safe-win"));
+        }
+
+        [Test]
+        public void MonteCarloTreeSearch_ShouldLetOpponentChooseMoveBestForOpponent()
+        {
+            var rootPlayer = new TestPlayer("root");
+            var opponentPlayer = new TestPlayer("opponent");
+            var rootState = OpponentDecisionTestState.CreateRoot(rootPlayer, opponentPlayer);
+
+            var topActions = MonteCarloTreeSearch
+                .GetTopActions(rootState, maxIterations: 200, timeBudget: 10000)
+                .ToList();
+
+            Assert.That(topActions, Is.Not.Empty);
+            Assert.That(((TestAction)topActions[0].Action).Name, Is.EqualTo("root-sets-trap"));
+        }
+
+        [Test]
+        public void MonteCarloTreeSearch_ShouldSpreadInitialParallelSelectionsAcrossRootChildren()
+        {
+            var rootPlayer = new TestPlayer("root");
+            var opponentPlayer = new TestPlayer("opponent");
+            var rootState = ParallelRootState.CreateRoot(rootPlayer, opponentPlayer, 6);
+            var traceEvents = new List<MctsTraceEvent>();
+
+            MonteCarloTreeSearch.Search(
+                rootState,
+                new MctsOptions
+                {
+                    MaxIterations = 8,
+                    TimeBudgetMs = 10000,
+                    Workers = 8,
+                    Seed = 123,
+                    TraceContext = "parallel-root-test",
+                    Trace = traceEvent => traceEvents.Add(traceEvent)
+                });
+
+            var selectedRootCandidates = traceEvents
+                .Where(traceEvent => traceEvent.Type == "root_selection_candidate" && traceEvent.Selected == true)
+                .OrderBy(traceEvent => traceEvent.Iteration)
+                .Take(2)
+                .Select(traceEvent => traceEvent.Action)
+                .ToArray();
+
+            Assert.That(selectedRootCandidates.Length, Is.EqualTo(2));
+            Assert.That(selectedRootCandidates.Distinct().Count(), Is.EqualTo(2));
+        }
+
         private static MonteCarloResult ComputeMetrics(RoundState state, int workers)
         {
             var result = default(MonteCarloResult);
@@ -360,6 +471,393 @@ namespace HaggisTests.Strategies
                 return value.HasValue
                     ? value.Value.ToString("0.###", CultureInfo.InvariantCulture)
                     : string.Empty;
+            }
+        }
+
+        private sealed class TestPlayer : IPlayer
+        {
+            public TestPlayer(string name)
+            {
+                Name = name;
+            }
+
+            public string Name { get; }
+
+            public override string ToString()
+            {
+                return Name;
+            }
+        }
+
+        private sealed class TestAction : IAction
+        {
+            public TestAction(string name)
+            {
+                Name = name;
+            }
+
+            public string Name { get; }
+
+            public override string ToString()
+            {
+                return Name;
+            }
+        }
+
+        private sealed class TestState : IState<TestPlayer, TestAction>, IPlayerSetState<TestPlayer>
+        {
+            private readonly TestPlayer _rootPlayer;
+            private readonly TestPlayer _nextPlayer;
+            private string _winnerName;
+
+            private TestState(TestPlayer currentPlayer, TestPlayer rootPlayer, TestPlayer nextPlayer, string winnerName = null)
+            {
+                CurrentPlayer = currentPlayer;
+                _rootPlayer = rootPlayer;
+                _nextPlayer = nextPlayer;
+                _winnerName = winnerName;
+            }
+
+            public static TestState CreateRoot(TestPlayer rootPlayer, TestPlayer nextPlayer)
+            {
+                return new TestState(rootPlayer, rootPlayer, nextPlayer);
+            }
+
+            public IState<TestPlayer, TestAction> Clone()
+            {
+                return new TestState(CurrentPlayer, _rootPlayer, _nextPlayer, _winnerName);
+            }
+
+            public TestPlayer CurrentPlayer { get; private set; }
+
+            public IReadOnlyList<TestPlayer> Players => new[] { _rootPlayer, _nextPlayer };
+
+            public IList<TestAction> Actions =>
+                _winnerName != null
+                    ? new List<TestAction>()
+                    : new List<TestAction>
+                    {
+                        new TestAction("good-for-root"),
+                        new TestAction("good-for-next")
+                    };
+
+            public void ApplyAction(TestAction action)
+            {
+                if (_winnerName != null)
+                {
+                    return;
+                }
+
+                _winnerName = action.Name == "good-for-root"
+                    ? _rootPlayer.Name
+                    : _nextPlayer.Name;
+                CurrentPlayer = _nextPlayer;
+            }
+
+            public double GetResult(TestPlayer forPlayer)
+            {
+                if (_winnerName == null)
+                {
+                    return 0;
+                }
+
+                return string.Equals(forPlayer.Name, _winnerName, StringComparison.Ordinal)
+                    ? 1d
+                    : 0d;
+            }
+        }
+
+        private sealed class TrapTestState : IState<TestPlayer, TestAction>, IPlayerSetState<TestPlayer>
+        {
+            private readonly TestPlayer _rootPlayer;
+            private readonly TestPlayer _opponentPlayer;
+            private string _phase;
+            private string _winnerName;
+
+            private TrapTestState(
+                TestPlayer currentPlayer,
+                TestPlayer rootPlayer,
+                TestPlayer opponentPlayer,
+                string phase,
+                string winnerName = null)
+            {
+                CurrentPlayer = currentPlayer;
+                _rootPlayer = rootPlayer;
+                _opponentPlayer = opponentPlayer;
+                _phase = phase;
+                _winnerName = winnerName;
+            }
+
+            public static TrapTestState CreateRoot(TestPlayer rootPlayer, TestPlayer opponentPlayer)
+            {
+                return new TrapTestState(rootPlayer, rootPlayer, opponentPlayer, "root");
+            }
+
+            public IState<TestPlayer, TestAction> Clone()
+            {
+                return new TrapTestState(CurrentPlayer, _rootPlayer, _opponentPlayer, _phase, _winnerName);
+            }
+
+            public TestPlayer CurrentPlayer { get; private set; }
+
+            public IReadOnlyList<TestPlayer> Players => new[] { _rootPlayer, _opponentPlayer };
+
+            public IList<TestAction> Actions
+            {
+                get
+                {
+                    if (_winnerName != null)
+                    {
+                        return new List<TestAction>();
+                    }
+
+                    return _phase switch
+                    {
+                        "root" => new List<TestAction>
+                        {
+                            new TestAction("safe-win"),
+                            new TestAction("trap")
+                        },
+                        "trap-opponent" => new List<TestAction>
+                        {
+                            new TestAction("punish-root"),
+                            new TestAction("blunder-for-root")
+                        },
+                        _ => new List<TestAction>()
+                    };
+                }
+            }
+
+            public void ApplyAction(TestAction action)
+            {
+                if (_winnerName != null)
+                {
+                    return;
+                }
+
+                if (_phase == "root")
+                {
+                    if (action.Name == "safe-win")
+                    {
+                        CurrentPlayer = _opponentPlayer;
+                        _phase = "terminal";
+                        _winnerName = _rootPlayer.Name;
+                        return;
+                    }
+
+                    CurrentPlayer = _opponentPlayer;
+                    _phase = "trap-opponent";
+                    return;
+                }
+
+                if (_phase == "trap-opponent")
+                {
+                    CurrentPlayer = _opponentPlayer;
+                    _phase = "terminal";
+                    _winnerName = action.Name == "punish-root" ? _opponentPlayer.Name : _rootPlayer.Name;
+                }
+            }
+
+            public double GetResult(TestPlayer forPlayer)
+            {
+                if (_winnerName == null)
+                {
+                    return 0d;
+                }
+
+                return string.Equals(forPlayer.Name, _winnerName, StringComparison.Ordinal)
+                    ? 1d
+                    : 0d;
+            }
+        }
+
+        private sealed class OpponentDecisionTestState : IState<TestPlayer, TestAction>, IPlayerSetState<TestPlayer>
+        {
+            private readonly TestPlayer _rootPlayer;
+            private readonly TestPlayer _opponentPlayer;
+            private string _phase;
+            private string _winnerName;
+
+            private OpponentDecisionTestState(
+                TestPlayer currentPlayer,
+                TestPlayer rootPlayer,
+                TestPlayer opponentPlayer,
+                string phase,
+                string winnerName = null)
+            {
+                CurrentPlayer = currentPlayer;
+                _rootPlayer = rootPlayer;
+                _opponentPlayer = opponentPlayer;
+                _phase = phase;
+                _winnerName = winnerName;
+            }
+
+            public static OpponentDecisionTestState CreateRoot(TestPlayer rootPlayer, TestPlayer opponentPlayer)
+            {
+                return new OpponentDecisionTestState(rootPlayer, rootPlayer, opponentPlayer, "root");
+            }
+
+            public IState<TestPlayer, TestAction> Clone()
+            {
+                return new OpponentDecisionTestState(CurrentPlayer, _rootPlayer, _opponentPlayer, _phase, _winnerName);
+            }
+
+            public TestPlayer CurrentPlayer { get; private set; }
+
+            public IReadOnlyList<TestPlayer> Players => new[] { _rootPlayer, _opponentPlayer };
+
+            public IList<TestAction> Actions
+            {
+                get
+                {
+                    if (_winnerName != null)
+                    {
+                        return new List<TestAction>();
+                    }
+
+                    switch (_phase)
+                    {
+                        case "root":
+                            return new List<TestAction>
+                            {
+                                new TestAction("root-sets-trap"),
+                                new TestAction("root-blunders")
+                            };
+                        case "opponent":
+                            return new List<TestAction>
+                            {
+                                new TestAction("opponent-helps-root"),
+                                new TestAction("opponent-helps-self")
+                            };
+                        default:
+                            return new List<TestAction>();
+                    }
+                }
+            }
+
+            public void ApplyAction(TestAction action)
+            {
+                if (_winnerName != null)
+                {
+                    return;
+                }
+
+                if (_phase == "root")
+                {
+                    if (action.Name == "root-blunders")
+                    {
+                        _winnerName = _opponentPlayer.Name;
+                        _phase = "terminal";
+                        CurrentPlayer = _opponentPlayer;
+                        return;
+                    }
+
+                    _phase = "opponent";
+                    CurrentPlayer = _opponentPlayer;
+                    return;
+                }
+
+                if (_phase == "opponent")
+                {
+                    _winnerName = action.Name == "opponent-helps-self"
+                        ? _opponentPlayer.Name
+                        : _rootPlayer.Name;
+                    _phase = "terminal";
+                    CurrentPlayer = _opponentPlayer;
+                }
+            }
+
+            public double GetResult(TestPlayer forPlayer)
+            {
+                if (_winnerName == null)
+                {
+                    return 0d;
+                }
+
+                return string.Equals(forPlayer.Name, _winnerName, StringComparison.Ordinal)
+                    ? 1d
+                    : 0d;
+            }
+        }
+
+        private sealed class ParallelRootState : IState<TestPlayer, TestAction>, IPlayerSetState<TestPlayer>
+        {
+            private readonly TestPlayer _rootPlayer;
+            private readonly TestPlayer _opponentPlayer;
+            private readonly int _rootActionCount;
+            private string _winnerName;
+            private bool _terminal;
+
+            private ParallelRootState(
+                TestPlayer currentPlayer,
+                TestPlayer rootPlayer,
+                TestPlayer opponentPlayer,
+                int rootActionCount,
+                bool terminal,
+                string winnerName = null)
+            {
+                CurrentPlayer = currentPlayer;
+                _rootPlayer = rootPlayer;
+                _opponentPlayer = opponentPlayer;
+                _rootActionCount = rootActionCount;
+                _terminal = terminal;
+                _winnerName = winnerName;
+            }
+
+            public static ParallelRootState CreateRoot(TestPlayer rootPlayer, TestPlayer opponentPlayer, int rootActionCount)
+            {
+                return new ParallelRootState(rootPlayer, rootPlayer, opponentPlayer, rootActionCount, terminal: false);
+            }
+
+            public IState<TestPlayer, TestAction> Clone()
+            {
+                return new ParallelRootState(CurrentPlayer, _rootPlayer, _opponentPlayer, _rootActionCount, _terminal, _winnerName);
+            }
+
+            public TestPlayer CurrentPlayer { get; private set; }
+
+            public IReadOnlyList<TestPlayer> Players => new[] { _rootPlayer, _opponentPlayer };
+
+            public IList<TestAction> Actions
+            {
+                get
+                {
+                    if (_terminal)
+                    {
+                        return new List<TestAction>();
+                    }
+
+                    return Enumerable.Range(1, _rootActionCount)
+                        .Select(index => new TestAction("root-" + index))
+                        .ToList();
+                }
+            }
+
+            public void ApplyAction(TestAction action)
+            {
+                if (_terminal)
+                {
+                    return;
+                }
+
+                CurrentPlayer = _opponentPlayer;
+                var winsForRoot = action.Name.EndsWith("1", StringComparison.Ordinal) ||
+                                  action.Name.EndsWith("2", StringComparison.Ordinal) ||
+                                  action.Name.EndsWith("3", StringComparison.Ordinal);
+                _winnerName = winsForRoot ? _rootPlayer.Name : _opponentPlayer.Name;
+                _terminal = true;
+            }
+
+            public double GetResult(TestPlayer forPlayer)
+            {
+                if (_winnerName == null)
+                {
+                    return 0d;
+                }
+
+                return string.Equals(forPlayer.Name, _winnerName, StringComparison.Ordinal)
+                    ? 1d
+                    : 0d;
             }
         }
 

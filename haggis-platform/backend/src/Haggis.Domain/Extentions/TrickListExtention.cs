@@ -7,7 +7,10 @@ namespace Haggis.Domain.Extentions
     public static class TrickListExtention
     {
         public static bool HasContinuation(this List<Trick> tricks, Trick comparedTrick) {
+            return tricks.CountContinuations(comparedTrick) > 0;
+        }
 
+        public static int CountContinuations(this List<Trick> tricks, Trick comparedTrick) {
             var highiestCardOfComparedTrick = comparedTrick.Cards.Last();
 
             var highierTricks = tricks
@@ -17,11 +20,14 @@ namespace Haggis.Domain.Extentions
                 .Where(trick => !trick.Cards.Contains(highiestCardOfComparedTrick))
                 ;
             
-            return highierTricks.Count() > 0;
+            return highierTricks.Count();
         }
         
         public static bool HasContinuationWithWilds(this List<Trick> tricks, Trick comparedTrick) {
+            return tricks.CountContinuationsWithWilds(comparedTrick) > 0;
+        }
 
+        public static int CountContinuationsWithWilds(this List<Trick> tricks, Trick comparedTrick) {
             var highiestCardOfComparedTrick = comparedTrick.Cards.Last();
 
             var highierTricks = tricks
@@ -30,7 +36,7 @@ namespace Haggis.Domain.Extentions
                .Where(trick => !trick.Cards.Contains(highiestCardOfComparedTrick))
                ;
 
-            return highierTricks.Count() > 0;
+            return highierTricks.Count();
         }
     }
 }

@@ -3,6 +3,8 @@ class GameSnapshot {
     required this.version,
     required this.roundNumber,
     required this.currentPlayerId,
+    required this.roundOver,
+    required this.gameOver,
     required this.players,
     required this.trick,
     required this.possibleActions,
@@ -16,6 +18,8 @@ class GameSnapshot {
       version: (json['version'] as num?)?.toInt() ?? 0,
       roundNumber: (data['roundNumber'] as num?)?.toInt() ?? 0,
       currentPlayerId: (data['currentPlayerId'] ?? '').toString(),
+      roundOver: data['roundOver'] == true,
+      gameOver: data['gameOver'] == true,
       players: (data['players'] as List<dynamic>? ?? <dynamic>[])
           .map(
             (dynamic item) => GamePlayer.fromJson(item as Map<String, dynamic>),
@@ -49,6 +53,8 @@ class GameSnapshot {
   final int version;
   final int roundNumber;
   final String currentPlayerId;
+  final bool roundOver;
+  final bool gameOver;
   final List<GamePlayer> players;
   final List<TrickMove> trick;
   final List<PossibleAction> possibleActions;

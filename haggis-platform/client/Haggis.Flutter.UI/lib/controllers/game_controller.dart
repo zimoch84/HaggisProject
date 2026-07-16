@@ -46,6 +46,7 @@ class GameController extends ChangeNotifier {
   bool _hasEstablishedSnapshotBaseline = false;
   bool _processingCommandQueue = false;
   bool _disposed = false;
+  bool _commandInFlight = false;
   int _appliedMovesReplayGeneration = 0;
   int _collectAnimationGeneration = 0;
   List<TrickMove>? _visibleTrickReplay;
@@ -74,10 +75,14 @@ class GameController extends ChangeNotifier {
       (_snapshot?.version ?? 0) > 0 &&
       (_snapshot?.currentPlayerId ?? '').isNotEmpty;
 
-  bool get canPass => (_snapshot?.possibleActions ?? const <PossibleAction>[])
-      .any((PossibleAction action) => action.type.toLowerCase() == 'pass');
+  bool get canPass =>
+      (_snapshot?.possibleActions ?? const <PossibleAction>[]).any(
+        (PossibleAction action) => action.type.toLowerCase() == 'pass',
+      ) &&
+      !_commandInFlight;
 
-  bool get canPlaySelectedCards => matchingPlayableActions.isNotEmpty;
+  bool get canPlaySelectedCards =>
+      matchingPlayableActions.isNotEmpty && !_commandInFlight;
 
   PossibleActionViewModel? get selectedPlayableAction {
     final matches = matchingPlayableActions;
@@ -85,7 +90,7 @@ class GameController extends ChangeNotifier {
   }
 
   List<PossibleActionViewModel> get matchingPlayableActions {
-    return _findMatchingPlayableActionsForSelection(
+    return findMatchingPlayableActions(
       _selectedCards,
       wildAssignments: _wildAssignments,
     );
@@ -95,10 +100,20 @@ class GameController extends ChangeNotifier {
     List<String> cards, {
     Map<String, String>? wildAssignments,
   }) {
-    return _findMatchingPlayableActionsForSelection(
+    return findMatchingPlayableActions(
       cards,
       wildAssignments: wildAssignments ?? _wildAssignments,
     ).isNotEmpty;
+  }
+
+  List<PossibleActionViewModel> findMatchingPlayableActions(
+    List<String> cards, {
+    Map<String, String>? wildAssignments,
+  }) {
+    return _findMatchingPlayableActionsForSelection(
+      cards,
+      wildAssignments: wildAssignments ?? _wildAssignments,
+    );
   }
 
   GameViewModel get viewModel {
@@ -255,6 +270,11 @@ class GameController extends ChangeNotifier {
   }
 
   void playAction(PossibleActionViewModel action) {
+    if (_commandInFlight) {
+      return;
+    }
+
+    _commandInFlight = true;
     if (action.type.toLowerCase() == 'pass') {
       _client.sendPass(playerId);
     } else {
@@ -309,7 +329,7 @@ class GameController extends ChangeNotifier {
   }
 
   bool isCardPlayable(String card) {
-    return isCurrentPlayersTurn && canSelectCard(card);
+    return isCurrentPlayersTurn && !_commandInFlight && canSelectCard(card);
   }
 
   bool isCardSelected(String card) => _selectedCards.contains(card);
@@ -326,13 +346,32 @@ class GameController extends ChangeNotifier {
   }
 
   List<String> getWildReplacementOptions(String wildCard) {
-    if (!isWildCard(wildCard) || !_selectedCards.contains(wildCard)) {
+    return getWildReplacementOptionsForCards(wildCard, _selectedCards);
+  }
+
+  List<String> getWildReplacementOptionsForCards(
+    String wildCard,
+    List<String> cards, {
+    Map<String, String>? wildAssignments,
+  }) {
+    if (!isWildCard(wildCard) || !cards.contains(wildCard)) {
+      return const <String>[];
+    }
+
+    final effectiveWildAssignments = wildAssignments ?? _wildAssignments;
+    final matches = _findCandidatePlayableActionsForSelection(cards);
+    if (matches.isEmpty) {
       return const <String>[];
     }
 
     final options = <String>{};
-    for (final PossibleActionViewModel action
-        in _matchingPlayableActionsIgnoringWild(wildCard)) {
+    for (final PossibleActionViewModel action in matches.where(
+      (PossibleActionViewModel action) => _matchesWildAssignments(
+        action,
+        wildAssignments: effectiveWildAssignments,
+        ignoredWildCard: wildCard,
+      ),
+    )) {
       final assignment = _extractWildAssignment(action.displayAction, wildCard);
       if (assignment != null && assignment.isNotEmpty) {
         options.add(assignment);
@@ -390,6 +429,17 @@ class GameController extends ChangeNotifier {
     super.dispose();
   }
 
+  @visibleForTesting
+  void applySnapshotForTesting(GameSnapshot snapshot) {
+    _snapshot = snapshot;
+    _status = 'Testing snapshot applied.';
+    _syncSelectedCardWithSnapshot();
+  }
+
+  void applyStateMessageForTesting(Map<String, dynamic> json) {
+    _applyStateMessage(json);
+  }
+
   void _onMessage(Map<String, dynamic> json) {
     final type = (json['type'] ?? '').toString();
 
@@ -407,12 +457,14 @@ class GameController extends ChangeNotifier {
     }
 
     if (type == 'CommandApplied') {
+      _commandInFlight = false;
       _pendingCommandMessages.add(json);
       unawaited(_processCommandQueue());
       return;
     }
 
     if (type == 'GameSnapshot') {
+      _commandInFlight = false;
       _pendingCommandMessages.clear();
       _cancelAppliedMovesReplay();
       _applyStateMessage(json);
@@ -420,6 +472,7 @@ class GameController extends ChangeNotifier {
     }
 
     if ((json['error'] ?? '').toString().isNotEmpty) {
+      _commandInFlight = false;
       _status = json['error'].toString();
       notifyListeners();
     }
@@ -754,11 +807,27 @@ class GameController extends ChangeNotifier {
       return null;
     }
 
-    if (currentSnapshot.roundNumber <= previousSnapshot.roundNumber) {
+    final previousRound = currentSnapshot.previousRound;
+    if (previousRound == null) {
       return null;
     }
 
-    final previousRound = currentSnapshot.previousRound;
+    final roundAdvanced =
+        currentSnapshot.roundNumber > previousSnapshot.roundNumber;
+    final gameFinishedOnCurrentRound =
+        currentSnapshot.gameOver &&
+        previousRound.roundNumber == previousSnapshot.roundNumber;
+    if (!roundAdvanced && !gameFinishedOnCurrentRound) {
+      return null;
+    }
+
+    if (_completedRounds.any(
+      (RoundOverViewModel round) =>
+          round.roundNumber == previousRound.roundNumber,
+    )) {
+      return null;
+    }
+
     final playerScores =
         previousRound?.playerScores ?? const <PreviousRoundPlayerScore>[];
     final currentPlayersById = <String, GamePlayer>{
@@ -789,10 +858,11 @@ class GameController extends ChangeNotifier {
 
     return RoundOverViewModel(
       gameId: room.gameId,
-      roundNumber: previousSnapshot.roundNumber,
+      roundNumber: previousRound.roundNumber,
       nextRoundNumber: currentSnapshot.roundNumber,
-      status:
-          'Round ${previousSnapshot.roundNumber} finished. Round ${currentSnapshot.roundNumber} started.',
+      status: currentSnapshot.gameOver
+          ? 'Round ${previousRound.roundNumber} finished. Game over.'
+          : 'Round ${previousRound.roundNumber} finished. Round ${currentSnapshot.roundNumber} started.',
       winnerPlayerId: previousRound?.winnerPlayerName ?? '',
       players: players,
       haggisCards: List<String>.unmodifiable(
@@ -927,29 +997,6 @@ class GameController extends ChangeNotifier {
     return false;
   }
 
-  List<PossibleActionViewModel> _matchingPlayableActionsIgnoringWild(
-    String ignoredWildCard,
-  ) {
-    final matches = _findMatchingPlayableActionsForSelection(
-      _selectedCards,
-      wildAssignments: _wildAssignments,
-    );
-
-    if (matches.isEmpty) {
-      return const <PossibleActionViewModel>[];
-    }
-
-    return matches
-        .where(
-          (PossibleActionViewModel action) => _matchesWildAssignments(
-            action,
-            wildAssignments: _wildAssignments,
-            ignoredWildCard: ignoredWildCard,
-          ),
-        )
-        .toList(growable: false);
-  }
-
   List<PossibleActionViewModel> _findMatchingPlayableActionsForSelection(
     List<String> cards, {
     required Map<String, String> wildAssignments,
@@ -958,8 +1005,31 @@ class GameController extends ChangeNotifier {
       return const <PossibleActionViewModel>[];
     }
 
+    final matches = <PossibleActionViewModel>[];
+    for (final actionViewModel in _findCandidatePlayableActionsForSelection(
+      cards,
+    )) {
+      if (_matchesWildAssignments(
+        actionViewModel,
+        wildAssignments: wildAssignments,
+      )) {
+        matches.add(actionViewModel);
+      }
+    }
+
+    return matches;
+  }
+
+  List<PossibleActionViewModel> _findCandidatePlayableActionsForSelection(
+    List<String> cards,
+  ) {
+    if (cards.isEmpty || !isCurrentPlayersTurn) {
+      return const <PossibleActionViewModel>[];
+    }
+
     final selected = List<String>.from(cards)..sort();
     final matches = <PossibleActionViewModel>[];
+    final seenDisplayActions = <String>{};
 
     for (final PossibleAction action
         in _snapshot?.possibleActions ?? const <PossibleAction>[]) {
@@ -979,10 +1049,7 @@ class GameController extends ChangeNotifier {
         accentColor: _resolveActionColor(action),
       );
 
-      if (_matchesWildAssignments(
-        actionViewModel,
-        wildAssignments: wildAssignments,
-      )) {
+      if (seenDisplayActions.add(actionViewModel.displayAction)) {
         matches.add(actionViewModel);
       }
     }

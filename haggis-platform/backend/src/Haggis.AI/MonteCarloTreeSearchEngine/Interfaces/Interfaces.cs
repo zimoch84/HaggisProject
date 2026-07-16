@@ -19,6 +19,11 @@ namespace MonteCarlo
         double GetResult(TPlayer forPlayer);
     }
 
+    public interface IPlayerSetState<TPlayer>
+    {
+        IReadOnlyList<TPlayer> Players { get; }
+    }
+
     public interface IMctsNode<TAction> where TAction : IAction
     {
         TAction Action { get; }

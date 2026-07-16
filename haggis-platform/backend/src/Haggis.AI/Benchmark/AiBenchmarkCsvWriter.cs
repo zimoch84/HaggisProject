@@ -11,7 +11,7 @@ namespace Haggis.AI.Benchmark
         {
             var lines = new List<string>
             {
-                "seed,rotation,winner,winnerStrategy,rounds,moves,gameElapsedMs,p1Score,p2Score,p3Score,mctsCompletedRollouts,mctsSearchMs,mctsSearchMsPerIteration,mctsSchedulerMs,mctsSchedulerMsPerIteration,mctsCloneStateMs,mctsCloneStateMsPerIteration,mctsMoveGenerationMs,mctsMoveGenerationMsPerIteration,mctsMoveGenerationTreeMs,mctsMoveGenerationTreeMsPerIteration,mctsMoveGenerationRolloutMs,mctsMoveGenerationRolloutMsPerIteration,mctsMoveGenerationHandIndexMs,mctsMoveGenerationHandIndexMsPerIteration,mctsMoveGenerationSameCardsMs,mctsMoveGenerationSameCardsMsPerIteration,mctsMoveGenerationSameCardsWithWildsMs,mctsMoveGenerationSameCardsWithWildsMsPerIteration,mctsMoveGenerationSequencesMs,mctsMoveGenerationSequencesMsPerIteration,mctsMoveGenerationStairsMs,mctsMoveGenerationStairsMsPerIteration,mctsMoveGenerationBombsMs,mctsMoveGenerationBombsMsPerIteration,mctsMoveGenerationContinuationFilterMs,mctsMoveGenerationContinuationFilterMsPerIteration,mctsMoveGenerationTrickSelectionMs,mctsMoveGenerationTrickSelectionMsPerIteration,mctsMoveGenerationActionWrappingMs,mctsMoveGenerationActionWrappingMsPerIteration,mctsMoveGenerationActionSelectionMs,mctsMoveGenerationActionSelectionMsPerIteration,mctsMoveGenerationPassAppendMs,mctsMoveGenerationPassAppendMsPerIteration,mctsSelectionMs,mctsSelectionMsPerIteration,mctsExpansionMs,mctsExpansionMsPerIteration,mctsRolloutMs,mctsRolloutMsPerIteration,mctsBackpropagationMs,mctsBackpropagationMsPerIteration"
+                "seed,rotation,winner,winnerStrategy,rounds,moves,gameElapsedMs,p1Score,p2Score,p3Score,p1HeuristicWeights,p2HeuristicWeights,p3HeuristicWeights,mctsCompletedRollouts,mctsSearchMs,mctsSearchMsPerIteration,mctsSchedulerMs,mctsSchedulerMsPerIteration,mctsCloneStateMs,mctsCloneStateMsPerIteration,mctsMoveGenerationMs,mctsMoveGenerationMsPerIteration,mctsMoveGenerationTreeMs,mctsMoveGenerationTreeMsPerIteration,mctsMoveGenerationRolloutMs,mctsMoveGenerationRolloutMsPerIteration,mctsMoveGenerationHandIndexMs,mctsMoveGenerationHandIndexMsPerIteration,mctsMoveGenerationSameCardsMs,mctsMoveGenerationSameCardsMsPerIteration,mctsMoveGenerationSameCardsWithWildsMs,mctsMoveGenerationSameCardsWithWildsMsPerIteration,mctsMoveGenerationSequencesMs,mctsMoveGenerationSequencesMsPerIteration,mctsMoveGenerationStairsMs,mctsMoveGenerationStairsMsPerIteration,mctsMoveGenerationBombsMs,mctsMoveGenerationBombsMsPerIteration,mctsMoveGenerationContinuationFilterMs,mctsMoveGenerationContinuationFilterMsPerIteration,mctsMoveGenerationTrickSelectionMs,mctsMoveGenerationTrickSelectionMsPerIteration,mctsMoveGenerationActionWrappingMs,mctsMoveGenerationActionWrappingMsPerIteration,mctsMoveGenerationActionSelectionMs,mctsMoveGenerationActionSelectionMsPerIteration,mctsMoveGenerationPassAppendMs,mctsMoveGenerationPassAppendMsPerIteration,mctsSelectionMs,mctsSelectionMsPerIteration,mctsExpansionMs,mctsExpansionMsPerIteration,mctsRolloutMs,mctsRolloutMsPerIteration,mctsBackpropagationMs,mctsBackpropagationMsPerIteration"
             };
 
             foreach (var result in results)
@@ -27,6 +27,9 @@ namespace Haggis.AI.Benchmark
                     Score(result, "p1"),
                     Score(result, "p2"),
                     Score(result, "p3"),
+                    Escape(HeuristicWeights(result, "p1")),
+                    Escape(HeuristicWeights(result, "p2")),
+                    Escape(HeuristicWeights(result, "p3")),
                     TimingInt(result, timing => timing.CompletedRollouts),
                     Timing(result, timing => timing.SearchMs),
                     Timing(result, timing => timing.SearchMsPerIteration),
@@ -84,6 +87,11 @@ namespace Haggis.AI.Benchmark
         private static int? Score(AiBenchmarkGameResult result, string playerName)
         {
             return result.Scores.TryGetValue(playerName, out var score) ? score : (int?)null;
+        }
+
+        private static string HeuristicWeights(AiBenchmarkGameResult result, string playerName)
+        {
+            return result.HeuristicWeightsByPlayer.TryGetValue(playerName, out var weights) ? weights : string.Empty;
         }
 
         private static string Timing(AiBenchmarkGameResult result, System.Func<MonteCarlo.MctsTimingResult, double> selector)

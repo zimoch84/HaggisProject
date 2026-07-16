@@ -1,0 +1,32 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "dart.flutterSdkPath": "Q:\\Program Files\\Flutter",
+    "dart.flutterHotReloadOnSave": "all"
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Flutter Android 1",
+        "type": "dart",
+        "request": "launch",
+        "program": "lib/main.dart",
+        "flutterMode": "debug",
+        "deviceId": "emulator-5554"
+      },
+      {
+        "name": "Flutter Android 2",
+        "type": "dart",
+        "request": "launch",
+        "program": "lib/main.dart",
+        "flutterMode": "debug",
+        "deviceId": "emulator-5556"
+      }
+    ]
+  }
+}

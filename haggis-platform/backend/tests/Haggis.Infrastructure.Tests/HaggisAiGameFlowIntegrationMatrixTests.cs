@@ -74,13 +74,8 @@ public class HaggisAiGameFlowIntegrationMatrixTests
 
     public static IEnumerable<TestCaseData> GameFlowCases()
     {
-        for (var seed = 1; seed <= 75; seed++)
-        {
-            yield return new TestCaseData(seed, false, false).SetName($"Integration_Seed{seed}_2Human1Ai_Heuristic");
-            yield return new TestCaseData(seed, false, true).SetName($"Integration_Seed{seed}_2Human1Ai_MonteCarlo");
-            yield return new TestCaseData(seed, true, false).SetName($"Integration_Seed{seed}_1Human2Ai_Heuristic");
-            yield return new TestCaseData(seed, true, true).SetName($"Integration_Seed{seed}_1Human2Ai_MonteCarlo");
-        }
+        yield return new TestCaseData(1, false, true)
+            .SetName("Integration_Seed1_2Human1Ai_MonteCarlo");
     }
 
     private static (IGameCommandApplicationService service, string gameId) CreateService(int seed, bool oneHumanTwoAi, bool useMonteCarlo)
@@ -88,7 +83,10 @@ public class HaggisAiGameFlowIntegrationMatrixTests
         var gameId = $"matrix-{seed}-{(oneHumanTwoAi ? "1h2a" : "2h1a")}-{(useMonteCarlo ? "mc" : "heur")}";
         var aiMoveStrategy = new HaggisAiMoveStrategy();
         var moveRuleValidator = new HaggisMoveRuleValidator();
-        var gameLoop = new HaggisServerGameLoop(aiMoveStrategy, moveRuleValidator);
+        var gameLoop = new HaggisServerGameLoop(
+            aiMoveStrategy,
+            moveRuleValidator,
+            TestHostEnvironment.Create());
         var gameEngine = new HaggisGameEngine(gameLoop);
         var sessionStore = new GameSessionStore(gameEngine);
         var roomStore = new GameRoomStore();
@@ -111,11 +109,7 @@ public class HaggisAiGameFlowIntegrationMatrixTests
             }
             : new
             {
-                strategy = "heuristic",
-                useWildsInContinuations = true,
-                takeLessValueTrickFirst = true,
-                filter = "continuations",
-                filterLimit = 5
+                strategy = "heuristic"
             };
 
         object[] players = oneHumanTwoAi

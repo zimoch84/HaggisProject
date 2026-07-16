@@ -16,8 +16,8 @@ enum AiDifficulty {
   easy(1, 'Easy', 'Random moves'),
   normal(2, 'Normal', 'Heuristic'),
   medium(3, 'Medium', 'Monte Carlo'),
-  hard(4, 'Hard', 'Monte Carlo hard'),
-  expert(5, 'Expert', 'Monte Carlo expert');
+  hard(4, 'Hard', 'Monte Carlo 2000/2000'),
+  expert(5, 'Expert', 'Monte Carlo 2000/2000 + heuristic 5/3');
 
   const AiDifficulty(this.value, this.label, this.description);
 

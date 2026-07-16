@@ -177,7 +177,8 @@ public class GameWebSocketHubTests
     {
         var gameLoop = new HaggisServerGameLoop(
             new HaggisAiMoveStrategy(),
-            new HaggisMoveRuleValidator());
+            new HaggisMoveRuleValidator(),
+            TestHostEnvironment.Create());
         var engine = new HaggisGameEngine(gameLoop);
         var store = new GameSessionStore(engine);
         var roomStore = new GameRoomStore();

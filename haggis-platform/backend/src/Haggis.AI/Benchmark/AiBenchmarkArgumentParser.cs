@@ -39,8 +39,12 @@ namespace Haggis.AI.Benchmark
                 "--seed-start=1",
                 "--game-over-score=250",
                 "--ai1=normal",
+                "--ai1-weights=ContinuationFollowUpWeight=0.5;BombOpeningWeight=0",
                 "--ai2=montecarlo:800:100:4",
+                "--ai2=montecarlo:800:100:4:5:3",
+                "--ai2-weights=ContinuationFollowUpWeight=1.25",
                 "--ai3=normal",
+                "--ai3-weights=ContinuationFollowUpWeight=1",
                 "--rotate=true",
                 "--csv=path",
                 "--log=path",
@@ -69,6 +73,15 @@ namespace Haggis.AI.Benchmark
                     break;
                 case "ai2":
                     options.Ai2Strategy = value;
+                    break;
+                case "ai1-weights":
+                    options.Ai1HeuristicOptions = HeuristicOptionsSerializer.Parse(value);
+                    break;
+                case "ai2-weights":
+                    options.Ai2HeuristicOptions = HeuristicOptionsSerializer.Parse(value);
+                    break;
+                case "ai3-weights":
+                    options.Ai3HeuristicOptions = HeuristicOptionsSerializer.Parse(value);
                     break;
                 case "ai3":
                     options.Ai3Strategy = value;

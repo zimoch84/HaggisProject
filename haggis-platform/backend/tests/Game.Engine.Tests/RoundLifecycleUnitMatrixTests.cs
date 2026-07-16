@@ -63,7 +63,7 @@ public class RoundLifecycleUnitMatrixTests
 
         var aiStrategy = useMonteCarloAi
             ? (IPlayStrategy)new MonteCarloStrategy(20, 1)
-            : new HeuristicPlayStrategy();
+            : HeuristicPlayStrategy.Create();
 
         return new List<IHaggisPlayer>
         {

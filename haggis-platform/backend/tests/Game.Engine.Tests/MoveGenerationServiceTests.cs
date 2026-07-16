@@ -33,11 +33,11 @@ namespace HaggisTests
         }
 
         [Test]
-        public void GetPossibleActionsForCurrentPlayer_ShouldReturnPlayableActionsAndPass_OnFreshTrick()
+        public void GetPossibleActionsForCurrentPlayer_ShouldReturnPlayableActionsWithoutPass_OnFreshTrick()
         {
             var actions = Service.GetPossibleActionsForCurrentPlayer(GameState);
 
-            Assert.That(actions.Contains(Pass(Piotr)), Is.True);
+            Assert.That(actions.Any(action => action.IsPass), Is.False);
             Assert.That(actions.Contains(FromTrick("2Y_SINGLE", Piotr)), Is.True);
             Assert.That(actions.Contains(FromTrick("3Y_SINGLE", Piotr)), Is.True);
         }

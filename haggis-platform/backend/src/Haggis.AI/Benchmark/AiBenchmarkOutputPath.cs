@@ -22,7 +22,7 @@ namespace Haggis.AI.Benchmark
             }
 
             var strategyLabel = SanitizeFileNamePart(options?.StrategyLabel ?? "unknown");
-            var suffix = $"{timestamp:yyyyMMdd_HHmmss}_{strategyLabel}";
+            var suffix = strategyLabel;
             var suffixedFileName = $"{fileName}_{suffix}{extension}";
 
             return string.IsNullOrWhiteSpace(directory)

@@ -105,8 +105,16 @@ Future<void> showWildAssignmentPopup({
   required BuildContext context,
   required GameController controller,
   required String wildCard,
+  List<String>? cards,
+  Map<String, String>? wildAssignments,
 }) async {
-  final options = controller.getWildReplacementOptions(wildCard);
+  final options = cards == null
+      ? controller.getWildReplacementOptions(wildCard)
+      : controller.getWildReplacementOptionsForCards(
+          wildCard,
+          cards,
+          wildAssignments: wildAssignments,
+        );
   if (options.length <= 1) {
     return;
   }

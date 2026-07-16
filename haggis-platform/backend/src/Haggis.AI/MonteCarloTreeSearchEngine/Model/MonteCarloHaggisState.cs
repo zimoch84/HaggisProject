@@ -6,27 +6,46 @@ using System.Linq;
 
 namespace MonteCarlo
 {
-    public sealed class MonteCarloHaggisState : IState<MonteCarloHaggisPlayer, MonteCarloHaggisAction>
+    public sealed class MonteCarloHaggisState : IState<MonteCarloHaggisPlayer, MonteCarloHaggisAction>, IPlayerSetState<MonteCarloHaggisPlayer>
     {
         public RoundState DomainState { get; }
         private IMonteCarloActionSelectionStrategy ActionSelectionStrategy { get; }
-        private MonteCarloMoveGenerationService MoveGenerationService { get; }
+        private IMonteCarloRolloutSelectionStrategy RolloutSelectionStrategy { get; }
+        private MonteCarloMoveGenerationService TreeMoveGenerationService { get; }
+        private MonteCarloMoveGenerationService RolloutMoveGenerationService { get; }
         private MctsTimingCollector Timing { get; }
 
         public MonteCarloHaggisState(
             RoundState domainState,
             IMonteCarloActionSelectionStrategy actionSelectionStrategy = null,
+            IMonteCarloRolloutSelectionStrategy rolloutSelectionStrategy = null,
             MctsTimingCollector timing = null)
         {
             DomainState = domainState;
             ActionSelectionStrategy = actionSelectionStrategy;
+            RolloutSelectionStrategy = rolloutSelectionStrategy;
             Timing = timing;
-            MoveGenerationService = new MonteCarloMoveGenerationService(ActionSelectionStrategy, null, timing);
+            TreeMoveGenerationService = new MonteCarloMoveGenerationService(ActionSelectionStrategy, null, timing);
+            RolloutMoveGenerationService = new MonteCarloMoveGenerationService(null, null, timing);
         }
 
         public MonteCarloHaggisPlayer CurrentPlayer => new MonteCarloHaggisPlayer(DomainState.CurrentPlayer);
 
-        public IList<MonteCarloHaggisAction> Actions => MoveGenerationService.GetPossibleActionsForCurrentPlayer(DomainState);
+        public IReadOnlyList<MonteCarloHaggisPlayer> Players =>
+            DomainState.Players.Select(player => new MonteCarloHaggisPlayer(player)).ToList();
+
+        public IList<MonteCarloHaggisAction> Actions => TreeMoveGenerationService.GetPossibleActionsForCurrentPlayer(DomainState);
+
+        public IList<MonteCarloHaggisAction> GetRolloutActions()
+        {
+            var generatedActions = RolloutMoveGenerationService.GetPossibleActionsForCurrentPlayer(DomainState);
+            if (RolloutSelectionStrategy == null)
+            {
+                return generatedActions;
+            }
+
+            return RolloutSelectionStrategy.Select(DomainState, generatedActions);
+        }
 
         public void ApplyAction(MonteCarloHaggisAction action)
         {
@@ -35,7 +54,7 @@ namespace MonteCarlo
 
         public IState<MonteCarloHaggisPlayer, MonteCarloHaggisAction> Clone()
         {
-            return new MonteCarloHaggisState(DomainState.Clone(), ActionSelectionStrategy, Timing);
+            return new MonteCarloHaggisState(DomainState.Clone(), ActionSelectionStrategy, RolloutSelectionStrategy, Timing);
         }
 
         public double GetResult(MonteCarloHaggisPlayer forPlayer)

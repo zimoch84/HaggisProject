@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
+using Haggis.Domain.Extentions;
 using Haggis.Infrastructure.Services.Engine.Loop;
 using Haggis.AI.Interfaces;
 using Haggis.AI.Model;
@@ -9,31 +12,39 @@ using Haggis.Domain.Enums;
 using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
 using Haggis.Infrastructure.Services.Models;
+using MonteCarlo;
 
 namespace Haggis.Infrastructure.Services.Engine.Haggis;
 
 public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, HaggisAction, GameCommand>
 {
+    private static readonly object HeuristicDiagnosticsSync = new();
     private static readonly JsonElement EmptyPayload = JsonDocument.Parse("{}").RootElement.Clone();
     private const int MinSupportedPlayers = 2;
     private const int MaxSupportedPlayers = 3;
     private const int MonteCarloMediumSimulations = 300;
     private const long MonteCarloMediumTimeBudgetMs = 25L;
-    private const int MonteCarloHardSimulations = 800;
-    private const long MonteCarloHardTimeBudgetMs = 100L;
-    private const int MonteCarloExpertSimulations = 1500;
-    private const long MonteCarloExpertTimeBudgetMs = 200L;
+    private const int MonteCarloHardSimulations = 2000;
+    private const long MonteCarloHardTimeBudgetMs = 2000L;
+    private const int MonteCarloExpertSimulations = 2000;
+    private const long MonteCarloExpertTimeBudgetMs = 2000L;
     private readonly ConcurrentDictionary<string, HaggisGame> _games = new();
+    private readonly ConcurrentDictionary<string, string> _heuristicLogPaths = new();
+    private readonly ConcurrentDictionary<string, string> _heuristicCsvLogPaths = new();
+    private readonly ConcurrentDictionary<string, object> _heuristicLogLocks = new();
+    private readonly string _heuristicLogDirectory;
 
     private IAiMoveStrategy<RoundState, HaggisAction> AiMoveStrategy { get; }
     private IMoveRuleValidator<RoundState, HaggisAction, GameCommand> MoveRuleValidator { get; }
 
     public HaggisServerGameLoop(
         IAiMoveStrategy<RoundState, HaggisAction> aiMoveStrategy,
-        IMoveRuleValidator<RoundState, HaggisAction, GameCommand> moveRuleValidator)
+        IMoveRuleValidator<RoundState, HaggisAction, GameCommand> moveRuleValidator,
+        IHostEnvironment hostEnvironment)
     {
         AiMoveStrategy = aiMoveStrategy;
         MoveRuleValidator = moveRuleValidator;
+        _heuristicLogDirectory = ResolveHeuristicLogDirectory(hostEnvironment.ContentRootPath);
     }
 
     public bool TryExecute(string gameId, GameCommand command, out RoundState? state, out HaggisAction? appliedMove)
@@ -187,13 +198,18 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         }
 
         _games[gameId] = game;
+        InitializeHeuristicLogging(gameId, game, command.Payload);
         return game.NewRound();
     }
 
     protected override IReadOnlyList<HaggisAction> GetLegalMoves(RoundState state) =>
         state.PossibleActions.ToList();
 
-    protected override bool TryResolveMoveFromCommand(RoundState state, GameCommand command, out HaggisAction move)
+    protected override bool TryResolveMoveFromCommand(
+        RoundState state,
+        GameCommand command,
+        IReadOnlyList<HaggisAction> legalMoves,
+        out HaggisAction move)
     {
         move = default!;
 
@@ -215,7 +231,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
             return false;
         }
 
-        if (TryResolvePlayByActionDescription(state, command.Payload, out move))
+        if (TryResolvePlayByActionDescription(legalMoves, command.Payload, out move))
         {
             return true;
         }
@@ -239,15 +255,132 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
 
     protected override bool ShouldUseAiMove(RoundState state, GameCommand command) => state.CurrentPlayer is AIPlayer;
 
-    protected override HaggisAction ResolveAiMove(RoundState state, IReadOnlyList<HaggisAction> legalMoves) =>
-        AiMoveStrategy.ChooseMove(state, legalMoves);
+    protected override HaggisAction ResolveAiMove(string gameId, RoundState state, IReadOnlyList<HaggisAction> legalMoves)
+    {
+        if (state.CurrentPlayer is not AIPlayer aiPlayer)
+        {
+            return AiMoveStrategy.ChooseMove(state, legalMoves);
+        }
+
+        if (!_heuristicLogPaths.TryGetValue(gameId, out var logPath))
+        {
+            return AiMoveStrategy.ChooseMove(state, legalMoves);
+        }
+
+        var playerHand = state.CurrentPlayer.Hand.ToLetters();
+        var strategyName = DescribeStrategy(aiPlayer.PlayStrategy);
+        var diagnosticLines = new List<string>
+        {
+            $"MOVE round={state.RoundNumber} move={state.MoveIteration + 1} player={state.CurrentPlayer.Name} strategy={strategyName} Hand={playerHand}"
+        };
+
+        if (aiPlayer.PlayStrategy is MonteCarloStrategy monteCarloStrategy)
+        {
+            return ResolveMonteCarloMoveWithDiagnostics(
+                gameId,
+                state,
+                legalMoves,
+                logPath,
+                playerHand,
+                diagnosticLines,
+                monteCarloStrategy);
+        }
+
+        if (aiPlayer.PlayStrategy is not HeuristicPlayStrategy)
+        {
+            var action = AiMoveStrategy.ChooseMove(state, legalMoves);
+            diagnosticLines.Add($"  selected-action: {action.Desc}");
+            AppendHeuristicLogLines(gameId, logPath, diagnosticLines);
+            return action;
+        }
+
+        lock (HeuristicDiagnosticsSync)
+        {
+            var previousStartingDiagnosticsSink = StartingTrickStrategy.DiagnosticsSink;
+            var previousContinuationDiagnosticsSink = ContinuationTrickStrategy.DiagnosticsSink;
+
+            StartingTrickStrategy.DiagnosticsSink = message =>
+                diagnosticLines.Add($"  heuristic: player={state.CurrentPlayer.Name} {message}");
+            ContinuationTrickStrategy.DiagnosticsSink = message =>
+                diagnosticLines.Add($"  heuristic: player={state.CurrentPlayer.Name} {message}");
+
+            try
+            {
+                var action = AiMoveStrategy.ChooseMove(state, legalMoves);
+                diagnosticLines.Add($"  selected-action: {action.Desc}");
+                AppendHeuristicLogLines(gameId, logPath, diagnosticLines);
+                AppendHeuristicCsvRows(
+                    gameId,
+                    state.RoundNumber,
+                    state.MoveIteration + 1,
+                    state.CurrentPlayer.Name,
+                    playerHand,
+                    diagnosticLines);
+                return action;
+            }
+            finally
+            {
+                StartingTrickStrategy.DiagnosticsSink = previousStartingDiagnosticsSink;
+                ContinuationTrickStrategy.DiagnosticsSink = previousContinuationDiagnosticsSink;
+            }
+        }
+    }
+
+    private HaggisAction ResolveMonteCarloMoveWithDiagnostics(
+        string gameId,
+        RoundState state,
+        IReadOnlyList<HaggisAction> legalMoves,
+        string logPath,
+        string playerHand,
+        List<string> diagnosticLines,
+        MonteCarloStrategy monteCarloStrategy)
+    {
+        MonteCarloResult? computedResult = null;
+        var previousCaptureTiming = monteCarloStrategy.CaptureTiming;
+
+        void OnComputed(MonteCarloResult result)
+        {
+            computedResult = result;
+        }
+
+        monteCarloStrategy.OnComputed += OnComputed;
+        monteCarloStrategy.CaptureTiming = true;
+
+        try
+        {
+            AppendMonteCarloHeuristicDiagnostics(diagnosticLines, state, legalMoves, monteCarloStrategy);
+            var action = AiMoveStrategy.ChooseMove(state, legalMoves);
+            if (computedResult != null)
+            {
+                AppendMonteCarloDiagnostics(diagnosticLines, computedResult);
+            }
+
+            diagnosticLines.Add($"  selected-action: {action.Desc}");
+            AppendHeuristicLogLines(gameId, logPath, diagnosticLines);
+            return action;
+        }
+        finally
+        {
+            monteCarloStrategy.OnComputed -= OnComputed;
+            monteCarloStrategy.CaptureTiming = previousCaptureTiming;
+        }
+    }
 
     protected override MoveValidationResult ValidateMove(
         RoundState state,
         GameCommand command,
         HaggisAction move,
-        IReadOnlyList<HaggisAction> legalMoves) =>
-        MoveRuleValidator.Validate(state, command, move, legalMoves);
+        IReadOnlyList<HaggisAction> legalMoves)
+    {
+        var validation = MoveRuleValidator.Validate(state, command, move, legalMoves);
+        if (!validation.IsValid)
+        {
+            return validation;
+        }
+
+        LogHumanMoveIfConfigured(state, move);
+        return validation;
+    }
 
     protected override void ApplyMove(RoundState state, HaggisAction move) => state.ApplyAction(move);
 
@@ -326,7 +459,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         var difficulty = TryReadInt(aiElement, "difficulty");
         if (difficulty.HasValue)
         {
-            return ResolveDifficultyStrategy(difficulty.Value);
+            return ResolveDifficultyStrategy(difficulty.Value, ResolveMonteCarloHeuristicOptions(aiElement));
         }
 
         var strategyName = TryReadString(aiElement, "strategy");
@@ -337,58 +470,69 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
 
         if (string.Equals(strategyName, "heuristic", StringComparison.OrdinalIgnoreCase))
         {
-            var useWildsInContinuations = TryReadBoolean(aiElement, "useWildsInContinuations") ??
-                                          TryReadBoolean(aiElement, "heuristicUseWildsInContinuations") ??
-                                          false;
-            var takeLessValueTrickFirst = TryReadBoolean(aiElement, "takeLessValueTrickFirst") ?? true;
-
-            var filter = ResolveStartingTrickFilterStrategy(aiElement, useWildsInContinuations);
-            return new HeuristicPlayStrategy(
-                new StartingTrickStrategy(filter),
-                new ContinuationTrickStrategy(useWildsInContinuations, takeLessValueTrickFirst));
+            var filter = ResolveStartingTrickFilterStrategy(aiElement);
+            return HeuristicPlayStrategy.Create(startingTrickFilterStrategy: filter);
         }
 
         var simulations = TryReadInt(aiElement, "simulations") ?? MonteCarloMediumSimulations;
         var timeBudgetMs = TryReadLong(aiElement, "timeBudgetMs") ?? MonteCarloMediumTimeBudgetMs;
-        return new MonteCarloStrategy(simulations, timeBudgetMs);
+        var heuristicOptions = ResolveMonteCarloHeuristicOptions(aiElement);
+        return new MonteCarloStrategy(simulations, timeBudgetMs, null, null, heuristicOptions);
     }
 
-    private static IPlayStrategy ResolveDifficultyStrategy(int difficulty)
+    private static IPlayStrategy ResolveDifficultyStrategy(int difficulty, MonteCarloHeuristicOptions heuristicOptions = null)
     {
         return difficulty switch
         {
             1 => new RandomPlayStrategy(),
-            2 => new HeuristicPlayStrategy(
-                new StartingTrickStrategy(new FilterNoneStrategy()),
-                new ContinuationTrickStrategy(false, true)),
-            3 => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs),
-            4 => new MonteCarloStrategy(MonteCarloHardSimulations, MonteCarloHardTimeBudgetMs),
-            5 => new MonteCarloStrategy(MonteCarloExpertSimulations, MonteCarloExpertTimeBudgetMs),
-            _ => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs)
+            2 => HeuristicPlayStrategy.Create(),
+            3 => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs, null, null, heuristicOptions),
+            4 => new MonteCarloStrategy(MonteCarloHardSimulations, MonteCarloHardTimeBudgetMs, null, null, heuristicOptions),
+            5 => new MonteCarloStrategy(
+                MonteCarloExpertSimulations,
+                MonteCarloExpertTimeBudgetMs,
+                null,
+                null,
+                heuristicOptions ?? new MonteCarloHeuristicOptions
+                {
+                    Enabled = true,
+                    TreeTopN = 5,
+                    RolloutTopN = 3,
+                    HeuristicOptions = new HeuristicOptions()
+                }),
+            _ => new MonteCarloStrategy(MonteCarloMediumSimulations, MonteCarloMediumTimeBudgetMs, null, null, heuristicOptions)
         };
     }
 
-    private static IStartingTrickFilterStrategy ResolveStartingTrickFilterStrategy(JsonElement aiElement, bool useWildsInContinuations)
+    private static IStartingTrickFilterStrategy ResolveStartingTrickFilterStrategy(JsonElement aiElement)
     {
         var filterName = TryReadString(aiElement, "filter");
         var filterLimit = Math.Max(1, TryReadInt(aiElement, "filterLimit") ?? 5);
 
-        if (string.Equals(filterName, "continuations", StringComparison.OrdinalIgnoreCase))
-        {
-            return new FilterContinuations(filterLimit, useWildsInContinuations);
-        }
-
-        if (string.Equals(filterName, "least", StringComparison.OrdinalIgnoreCase))
-        {
-            return new FilterXLeastValuebleStrategy(filterLimit);
-        }
-
-        if (string.Equals(filterName, "most", StringComparison.OrdinalIgnoreCase))
-        {
-            return new FilterXMostValuebleStrategy(filterLimit);
-        }
-
         return new FilterNoneStrategy();
+    }
+
+    private static MonteCarloHeuristicOptions ResolveMonteCarloHeuristicOptions(JsonElement aiElement)
+    {
+        if (!TryGetObject(aiElement, "heuristic", out var heuristicElement) &&
+            !TryGetObject(aiElement, "heuristics", out heuristicElement) &&
+            !TryGetObject(aiElement, "heuristicOptions", out heuristicElement))
+        {
+            return null;
+        }
+
+        var heuristicOptions = JsonSerializer.Deserialize<HeuristicOptions>(heuristicElement.GetRawText()) ?? new HeuristicOptions();
+        var treeTopN = TryReadInt(heuristicElement, "treeTopN") ?? 0;
+        var rolloutTopN = TryReadInt(heuristicElement, "rolloutTopN") ?? 0;
+        var enabled = TryReadBool(heuristicElement, "enabled") ?? (treeTopN > 0 || rolloutTopN > 0);
+
+        return new MonteCarloHeuristicOptions
+        {
+            Enabled = enabled,
+            TreeTopN = treeTopN,
+            RolloutTopN = rolloutTopN,
+            HeuristicOptions = heuristicOptions
+        };
     }
 
     private static string? TryReadString(JsonElement source, string propertyName)
@@ -415,6 +559,18 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         }
 
         return value;
+    }
+
+    private static bool? TryReadBool(JsonElement source, string propertyName)
+    {
+        if (source.ValueKind != JsonValueKind.Object ||
+            !source.TryGetProperty(propertyName, out var propertyElement) ||
+            propertyElement.ValueKind != JsonValueKind.True && propertyElement.ValueKind != JsonValueKind.False)
+        {
+            return null;
+        }
+
+        return propertyElement.GetBoolean();
     }
 
     private static long? TryReadLong(JsonElement source, string propertyName)
@@ -463,7 +619,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
     }
 
     private static bool TryResolvePlayByActionDescription(
-        RoundState state,
+        IReadOnlyList<HaggisAction> legalMoves,
         JsonElement payload,
         out HaggisAction move)
     {
@@ -476,7 +632,7 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
         }
 
         var actionValue = actionElement.GetString();
-        var matchingAction = state.PossibleActions.FirstOrDefault(x =>
+        var matchingAction = legalMoves.FirstOrDefault(x =>
             !x.IsPass && x.Desc.Equals(actionValue, StringComparison.Ordinal));
         if (matchingAction is null)
         {
@@ -617,5 +773,637 @@ public sealed class HaggisServerGameLoop : GameLoopEngineBase<RoundState, Haggis
                 rank = default;
                 return false;
         }
+    }
+
+    private void InitializeHeuristicLogging(string gameId, HaggisGame game, JsonElement payload)
+    {
+        var heuristicOptionSuffix = BuildHeuristicOptionSuffix(payload);
+        if (string.IsNullOrWhiteSpace(heuristicOptionSuffix))
+        {
+            _heuristicLogPaths.TryRemove(gameId, out _);
+            _heuristicCsvLogPaths.TryRemove(gameId, out _);
+            _heuristicLogLocks.TryRemove(gameId, out _);
+            return;
+        }
+
+        Directory.CreateDirectory(_heuristicLogDirectory);
+
+        var fileName = $"game_seed_{game.BaseSeed}_heuristicoption{heuristicOptionSuffix}.txt";
+        var filePath = Path.Combine(_heuristicLogDirectory, fileName);
+        var csvFileName = $"game_seed_{game.BaseSeed}_heuristicoption{heuristicOptionSuffix}.csv";
+        var csvFilePath = Path.Combine(_heuristicLogDirectory, csvFileName);
+        _heuristicLogPaths[gameId] = filePath;
+        _heuristicCsvLogPaths[gameId] = csvFilePath;
+        _heuristicLogLocks.GetOrAdd(gameId, _ => new object());
+
+        var headerLines = new[]
+        {
+            $"GAME gameId={gameId} seed={game.BaseSeed}",
+            $"HEURISTIC_OPTIONS {heuristicOptionSuffix.TrimStart('_')}",
+        }.Concat(BuildHeuristicStrategyHeaderLines(payload))
+         .Concat(new[] { string.Empty })
+         .ToArray();
+
+        File.WriteAllLines(filePath, headerLines, Encoding.UTF8);
+        File.WriteAllLines(
+            csvFilePath,
+            new[] { "round,move_number,player,player_hand,candidate,selected_action,weight,breakdown" },
+            Encoding.UTF8);
+    }
+
+    private static IReadOnlyList<string> BuildHeuristicStrategyHeaderLines(JsonElement payload)
+    {
+        var lines = new List<string>();
+        if (payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("players", out var playersElement) ||
+            playersElement.ValueKind != JsonValueKind.Array)
+        {
+            return lines;
+        }
+
+        foreach (var playerElement in playersElement.EnumerateArray())
+        {
+            if (playerElement.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var playerId = TryReadString(playerElement, "id")
+                ?? TryReadString(playerElement, "playerId")
+                ?? TryReadString(playerElement, "name");
+            if (string.IsNullOrWhiteSpace(playerId) ||
+                !string.Equals(TryReadString(playerElement, "type") ?? TryReadString(playerElement, "kind"), "ai", StringComparison.OrdinalIgnoreCase) ||
+                !TryGetObject(playerElement, "ai", out var aiElement))
+            {
+                continue;
+            }
+
+            var difficulty = TryReadInt(aiElement, "difficulty");
+            var strategyName = TryReadString(aiElement, "strategy");
+            var monteCarloHeuristicOptions = ResolveMonteCarloHeuristicOptions(aiElement);
+            var effectiveHeuristicOptions = ResolveEffectiveHeuristicOptions(
+                difficulty,
+                strategyName,
+                monteCarloHeuristicOptions);
+
+            if (effectiveHeuristicOptions == null)
+            {
+                continue;
+            }
+
+            lines.Add(
+                $"HEURISTIC_STRATEGY player={playerId} difficulty={difficulty?.ToString() ?? "-"} strategy={strategyName ?? "default"} enabled={monteCarloHeuristicOptions?.Enabled.ToString() ?? "true"} treeTopN={monteCarloHeuristicOptions?.TreeTopN.ToString() ?? "-"} rolloutTopN={monteCarloHeuristicOptions?.RolloutTopN.ToString() ?? "-"}");
+
+            foreach (var weightLine in FormatHeuristicOptions(effectiveHeuristicOptions))
+            {
+                lines.Add($"  {weightLine}");
+            }
+        }
+
+        return lines;
+    }
+
+    private static HeuristicOptions? ResolveEffectiveHeuristicOptions(
+        int? difficulty,
+        string? strategyName,
+        MonteCarloHeuristicOptions? monteCarloHeuristicOptions)
+    {
+        if (difficulty == 2)
+        {
+            return new HeuristicOptions();
+        }
+
+        if (difficulty == 5)
+        {
+            return monteCarloHeuristicOptions?.HeuristicOptions ?? new HeuristicOptions();
+        }
+
+        if (string.Equals(strategyName, "heuristic", StringComparison.OrdinalIgnoreCase))
+        {
+            return new HeuristicOptions();
+        }
+
+        if (monteCarloHeuristicOptions?.Enabled == true)
+        {
+            return monteCarloHeuristicOptions.HeuristicOptions ?? new HeuristicOptions();
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<string> FormatHeuristicOptions(HeuristicOptions options)
+    {
+        return new List<string>
+        {
+            FormatHeuristicOption(nameof(options.PreferSinglesNotBreakingNonWildCombinationsWeight), options.PreferSinglesNotBreakingNonWildCombinationsWeight),
+            FormatHeuristicOption(nameof(options.ContinuationCountWeight), options.ContinuationCountWeight),
+            FormatHeuristicOption(nameof(options.PreferNonBreakableOpeningWeight), options.PreferNonBreakableOpeningWeight),
+            FormatHeuristicOption(nameof(options.PreferLowerStartWeight), options.PreferLowerStartWeight),
+            FormatHeuristicOption(nameof(options.PreferShorterStartWeight), options.PreferShorterStartWeight),
+            FormatHeuristicOption(nameof(options.WildCardOpeningWeight), options.WildCardOpeningWeight),
+            FormatHeuristicOption(nameof(options.BombOpeningWeight), options.BombOpeningWeight),
+            FormatHeuristicOption(nameof(options.HigherRelatedCombinationOpeningWeight), options.HigherRelatedCombinationOpeningWeight),
+            FormatHeuristicOption(nameof(options.WildCardContinuationWeight), options.WildCardContinuationWeight),
+            FormatHeuristicOption(nameof(options.BombContinuationWeight), options.BombContinuationWeight),
+            FormatHeuristicOption(nameof(options.HigherRelatedCombinationContinuationWeight), options.HigherRelatedCombinationContinuationWeight),
+            FormatHeuristicOption(nameof(options.PreferUsingWildAsHigherCardInContinuationWeight), options.PreferUsingWildAsHigherCardInContinuationWeight),
+            FormatHeuristicOption(nameof(options.LowerValueContinuationWeight), options.LowerValueContinuationWeight),
+            FormatHeuristicOption(nameof(options.ContinuationFollowUpWeight), options.ContinuationFollowUpWeight),
+            FormatHeuristicOption(nameof(options.PlayableBombInEndgameWeight), options.PlayableBombInEndgameWeight)
+        };
+    }
+
+    private static string FormatHeuristicOption(string name, float value)
+    {
+        return $"{name}={value.ToString("0.###", CultureInfo.InvariantCulture)}";
+    }
+
+    private void AppendHeuristicLogLines(string gameId, string logPath, IReadOnlyList<string> lines)
+    {
+        if (lines.Count == 0)
+        {
+            return;
+        }
+
+        var sync = _heuristicLogLocks.GetOrAdd(gameId, _ => new object());
+        var content = string.Join(Environment.NewLine, lines) + Environment.NewLine;
+        lock (sync)
+        {
+            File.AppendAllText(logPath, content, Encoding.UTF8);
+        }
+    }
+
+    private void AppendHeuristicCsvRows(
+        string gameId,
+        int roundNumber,
+        long moveNumber,
+        string playerName,
+        string playerHand,
+        IReadOnlyList<string> diagnosticLines)
+    {
+        if (!_heuristicCsvLogPaths.TryGetValue(gameId, out var csvLogPath))
+        {
+            return;
+        }
+
+        var candidateRows = ParseHeuristicCandidateRows(
+            roundNumber,
+            moveNumber,
+            playerName,
+            playerHand,
+            diagnosticLines);
+        if (candidateRows.Count == 0)
+        {
+            return;
+        }
+
+        var sync = _heuristicLogLocks.GetOrAdd(gameId, _ => new object());
+        var content = string.Join(Environment.NewLine, candidateRows.Select(BuildCsvLine)) + Environment.NewLine;
+        lock (sync)
+        {
+            File.AppendAllText(csvLogPath, content, Encoding.UTF8);
+        }
+    }
+
+    private void LogHumanMoveIfConfigured(RoundState state, HaggisAction move)
+    {
+        if (state.CurrentPlayer is AIPlayer)
+        {
+            return;
+        }
+
+        var gameId = FindGameIdForState(state);
+        if (string.IsNullOrWhiteSpace(gameId) ||
+            !_heuristicLogPaths.TryGetValue(gameId, out var logPath))
+        {
+            return;
+        }
+
+        var playerHand = state.CurrentPlayer.Hand.ToLetters();
+        var diagnosticLines = new List<string>
+        {
+            $"MOVE round={state.RoundNumber} move={state.MoveIteration + 1} player={state.CurrentPlayer.Name} Hand={playerHand}",
+            $"  selected-action: {move.Desc}"
+        };
+
+        AppendHeuristicLogLines(gameId, logPath, diagnosticLines);
+        AppendHumanMoveCsvRow(
+            gameId,
+            state.RoundNumber,
+            state.MoveIteration + 1,
+            state.CurrentPlayer.Name,
+            playerHand,
+            move.Desc);
+    }
+
+    private string? FindGameIdForState(RoundState state)
+    {
+        foreach (var gameId in _heuristicLogPaths.Keys)
+        {
+            if (TryGetState(gameId, out var currentState) &&
+                ReferenceEquals(currentState, state))
+            {
+                return gameId;
+            }
+        }
+
+        return null;
+    }
+
+    private void AppendHumanMoveCsvRow(
+        string gameId,
+        int roundNumber,
+        long moveNumber,
+        string playerName,
+        string playerHand,
+        string selectedAction)
+    {
+        if (!_heuristicCsvLogPaths.TryGetValue(gameId, out var csvLogPath))
+        {
+            return;
+        }
+
+        var row = string.Join(",",
+            EscapeCsv(roundNumber.ToString()),
+            EscapeCsv(moveNumber.ToString()),
+            EscapeCsv(playerName),
+            EscapeCsv(playerHand),
+            EscapeCsv(selectedAction),
+            EscapeCsv("true"),
+            string.Empty,
+            string.Empty);
+
+        var sync = _heuristicLogLocks.GetOrAdd(gameId, _ => new object());
+        lock (sync)
+        {
+            File.AppendAllText(csvLogPath, row + Environment.NewLine, Encoding.UTF8);
+        }
+    }
+
+    private static List<HeuristicCandidateLogRow> ParseHeuristicCandidateRows(
+        int roundNumber,
+        long moveNumber,
+        string playerName,
+        string playerHand,
+        IReadOnlyList<string> diagnosticLines)
+    {
+        var rows = new List<HeuristicCandidateLogRow>();
+        string? selectedAction = null;
+
+        foreach (var line in diagnosticLines)
+        {
+            var trimmedLine = line.Trim();
+            if (trimmedLine.StartsWith("selected-action:", StringComparison.Ordinal))
+            {
+                selectedAction = trimmedLine.Substring("selected-action:".Length).Trim();
+                continue;
+            }
+
+            var candidateMarkerIndex = trimmedLine.IndexOf("candidate:", StringComparison.Ordinal);
+            if (candidateMarkerIndex < 0)
+            {
+                continue;
+            }
+
+            var weightMarkerIndex = trimmedLine.IndexOf(", weight:", StringComparison.Ordinal);
+            var breakdownMarkerIndex = trimmedLine.IndexOf(", breakdown:", StringComparison.Ordinal);
+            if (weightMarkerIndex < 0 || breakdownMarkerIndex < 0 || breakdownMarkerIndex <= weightMarkerIndex)
+            {
+                continue;
+            }
+
+            var candidate = trimmedLine.Substring(
+                candidateMarkerIndex + "candidate:".Length,
+                weightMarkerIndex - (candidateMarkerIndex + "candidate:".Length)).Trim();
+            var weightText = trimmedLine.Substring(
+                weightMarkerIndex + ", weight:".Length,
+                breakdownMarkerIndex - (weightMarkerIndex + ", weight:".Length)).Trim();
+            var breakdown = trimmedLine.Substring(breakdownMarkerIndex + ", breakdown:".Length).Trim();
+
+            if (!int.TryParse(weightText, out var weight))
+            {
+                continue;
+            }
+
+            rows.Add(new HeuristicCandidateLogRow(
+                roundNumber,
+                moveNumber,
+                playerName,
+                playerHand,
+                candidate,
+                false,
+                weight,
+                breakdown));
+        }
+
+        if (!string.IsNullOrWhiteSpace(selectedAction))
+        {
+            var selectedRow = rows.FirstOrDefault(row =>
+                row.Candidate.Equals(selectedAction, StringComparison.Ordinal));
+            if (selectedRow != null)
+            {
+                selectedRow.SelectedAction = true;
+            }
+        }
+
+        return rows;
+    }
+
+    private static string BuildCsvLine(HeuristicCandidateLogRow row)
+    {
+        return string.Join(",",
+            EscapeCsv(row.RoundNumber.ToString()),
+            EscapeCsv(row.MoveNumber.ToString()),
+            EscapeCsv(row.Player),
+            EscapeCsv(row.PlayerHand),
+            EscapeCsv(row.Candidate),
+            EscapeCsv(row.SelectedAction ? "true" : "false"),
+            EscapeCsv(row.Weight.ToString()),
+            EscapeCsv(row.Breakdown));
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        var escaped = value.Replace("\"", "\"\"");
+        return value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0
+            ? $"\"{escaped}\""
+            : escaped;
+    }
+
+    private static string ResolveHeuristicLogDirectory(string contentRootPath)
+    {
+        var backendRootPath = Path.GetFullPath(Path.Combine(contentRootPath, "..", ".."));
+        return Directory.Exists(backendRootPath)
+            ? backendRootPath
+            : contentRootPath;
+    }
+
+    private static string BuildHeuristicOptionSuffix(JsonElement payload)
+    {
+        if (payload.ValueKind != JsonValueKind.Object ||
+            !payload.TryGetProperty("players", out var playersElement) ||
+            playersElement.ValueKind != JsonValueKind.Array)
+        {
+            return string.Empty;
+        }
+
+        var parts = new List<string>();
+        foreach (var playerElement in playersElement.EnumerateArray())
+        {
+            var playerOption = BuildHeuristicPlayerOption(playerElement);
+            if (!string.IsNullOrWhiteSpace(playerOption))
+            {
+                parts.Add(playerOption);
+            }
+        }
+
+        return parts.Count == 0
+            ? string.Empty
+            : "_" + string.Join("__", parts.OrderBy(part => part, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static string BuildHeuristicPlayerOption(JsonElement playerElement)
+    {
+        if (playerElement.ValueKind != JsonValueKind.Object)
+        {
+            return string.Empty;
+        }
+
+        var playerId = TryReadString(playerElement, "id")
+            ?? TryReadString(playerElement, "playerId")
+            ?? TryReadString(playerElement, "name");
+        if (string.IsNullOrWhiteSpace(playerId) ||
+            !string.Equals(TryReadString(playerElement, "type") ?? TryReadString(playerElement, "kind"), "ai", StringComparison.OrdinalIgnoreCase) ||
+            !TryGetObject(playerElement, "ai", out var aiElement))
+        {
+            return string.Empty;
+        }
+
+        var parts = new List<string>
+        {
+            $"player-{SanitizeForFileName(playerId)}"
+        };
+
+        var difficulty = TryReadInt(aiElement, "difficulty");
+        if (difficulty == 2)
+        {
+            parts.Add("difficulty-2");
+            return string.Join("_", parts);
+        }
+
+        if (difficulty == 4)
+        {
+            parts.Add("difficulty-4");
+            return string.Join("_", parts);
+        }
+
+        if (difficulty == 5)
+        {
+            parts.Add("difficulty-5");
+            return string.Join("_", parts);
+        }
+
+        var strategyName = TryReadString(aiElement, "strategy");
+        if (!string.Equals(strategyName, "heuristic", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        parts.Add("strategy-heuristic");
+
+        var filter = TryReadString(aiElement, "filter");
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            parts.Add($"filter-{SanitizeForFileName(filter)}");
+        }
+
+        var filterLimit = TryReadInt(aiElement, "filterLimit");
+        if (filterLimit.HasValue)
+        {
+            parts.Add($"filterLimit-{filterLimit.Value}");
+        }
+
+        return string.Join("_", parts);
+    }
+
+    private static string SanitizeForFileName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "unknown";
+        }
+
+        var builder = new StringBuilder(value.Length);
+        foreach (var character in value.Trim())
+        {
+            builder.Append(char.IsLetterOrDigit(character) || character is '-' or '_'
+                ? character
+                : '-');
+        }
+
+        return builder.ToString().Trim('-');
+    }
+
+    private sealed class HeuristicCandidateLogRow
+    {
+        public HeuristicCandidateLogRow(
+            int roundNumber,
+            long moveNumber,
+            string player,
+            string playerHand,
+            string candidate,
+            bool selectedAction,
+            int weight,
+            string breakdown)
+        {
+            RoundNumber = roundNumber;
+            MoveNumber = moveNumber;
+            Player = player;
+            PlayerHand = playerHand;
+            Candidate = candidate;
+            SelectedAction = selectedAction;
+            Weight = weight;
+            Breakdown = breakdown;
+        }
+
+        public int RoundNumber { get; }
+        public long MoveNumber { get; }
+        public string Player { get; }
+        public string PlayerHand { get; }
+        public string Candidate { get; }
+        public bool SelectedAction { get; set; }
+        public int Weight { get; }
+        public string Breakdown { get; }
+    }
+
+    private static string DescribeStrategy(IPlayStrategy? strategy)
+    {
+        if (strategy is MonteCarloStrategy monteCarloStrategy)
+        {
+            return monteCarloStrategy.UsesHeuristic
+                ? $"MonteCarloStrategy+Heuristic(treeTopN={monteCarloStrategy.HeuristicTreeTopN ?? 0},rolloutTopN={monteCarloStrategy.HeuristicRolloutTopN ?? 0})"
+                : "MonteCarloStrategy";
+        }
+
+        return strategy?.GetType().Name ?? "UnknownStrategy";
+    }
+
+    private static void AppendMonteCarloDiagnostics(List<string> diagnosticLines, MonteCarloResult result)
+    {
+        diagnosticLines.Add(
+            $"  mcts: player={result.Player?.Name} iterations={result.Iterations} budgetMs={result.BudgetMs} elapsedMs={result.ElapsedMs} workers={result.Workers} legalActions={result.LegalActionsCount} rootChildren={result.RootChildrenCount} treeNodes={result.TreeNodeCount} treeDepth={result.TreeMaxDepth} scheduledRollouts={result.ScheduledRollouts} completedRollouts={result.CompletedRollouts}");
+
+        if (result.Timing != null)
+        {
+            diagnosticLines.Add($"    timing: {FormatTiming(result.Timing)}");
+        }
+
+        var actions = result.Actions ?? new List<MonteCarloActionInfo>();
+        for (var index = 0; index < actions.Count; index++)
+        {
+            var action = actions[index];
+            var winRate = (action.WinRate * 100).ToString("0.0", CultureInfo.InvariantCulture);
+            var wins = action.NumWins.ToString("0.###", CultureInfo.InvariantCulture);
+            diagnosticLines.Add(
+                $"    {index + 1}. action={action.Action?.Desc} runs={action.NumRuns} wins={wins} winRate={winRate}%");
+        }
+    }
+
+    private static void AppendMonteCarloHeuristicDiagnostics(
+        List<string> diagnosticLines,
+        RoundState state,
+        IReadOnlyList<HaggisAction> legalMoves,
+        MonteCarloStrategy monteCarloStrategy)
+    {
+        if (!monteCarloStrategy.UsesHeuristic || (monteCarloStrategy.HeuristicTreeTopN ?? 0) <= 0)
+        {
+            return;
+        }
+
+        var actions = legalMoves?.ToList() ?? new List<HaggisAction>();
+        if (actions.Count == 0)
+        {
+            return;
+        }
+
+        var ranker = HeuristicActionRanker.CreateDefault(
+            monteCarloStrategy.DiagnosticHeuristicOptions ?? new HeuristicOptions());
+        var rankedActions = state.CurrentTrickPlay?.LastAction == null
+            ? ranker.RankOpeningActions(state, actions)
+            : ranker.RankContinuationActions(state, actions);
+        if (rankedActions.Count == 0)
+        {
+            return;
+        }
+
+        var treeTopN = monteCarloStrategy.HeuristicTreeTopN ?? 0;
+        diagnosticLines.Add(
+            $"  heuristic-tree: player={state.CurrentPlayer.Name} topN={treeTopN} rankedActions={rankedActions.Count}");
+
+        for (var index = 0; index < rankedActions.Count; index++)
+        {
+            var rankedAction = rankedActions[index];
+            var breakdown = rankedAction.Breakdown == null || rankedAction.Breakdown.Count == 0
+                ? string.Empty
+                : string.Join(", ", rankedAction.Breakdown.Select(item => $"{item.StrategyName}={item.Weight}"));
+            var selectedForTree = index < treeTopN ? "yes" : "no";
+            diagnosticLines.Add(
+                $"    heuristic-tree: player={state.CurrentPlayer.Name} rank={index + 1} selected-for-tree={selectedForTree} candidate: {rankedAction.Action?.Desc}, weight: {rankedAction.Weight}, breakdown: {breakdown}");
+        }
+    }
+
+    private static string FormatTiming(MctsTimingResult timing)
+    {
+        return string.Join(", ", new[]
+        {
+            $"completedRollouts={timing.CompletedRollouts}",
+            $"searchMs={timing.SearchMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"searchMsPerIteration={timing.SearchMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"schedulerMs={timing.SchedulerMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"schedulerMsPerIteration={timing.SchedulerMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"cloneStateMs={timing.CloneStateMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"cloneStateMsPerIteration={timing.CloneStateMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationMs={timing.MoveGenerationMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationMsPerIteration={timing.MoveGenerationMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationTreeMs={timing.MoveGenerationTreeMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationTreeMsPerIteration={timing.MoveGenerationTreeMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationRolloutMs={timing.MoveGenerationRolloutMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationRolloutMsPerIteration={timing.MoveGenerationRolloutMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationHandIndexMs={timing.MoveGenerationHandIndexMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationHandIndexMsPerIteration={timing.MoveGenerationHandIndexMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationSameCardsMs={timing.MoveGenerationSameCardsMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationSameCardsMsPerIteration={timing.MoveGenerationSameCardsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationSameCardsWithWildsMs={timing.MoveGenerationSameCardsWithWildsMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationSameCardsWithWildsMsPerIteration={timing.MoveGenerationSameCardsWithWildsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationSequencesMs={timing.MoveGenerationSequencesMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationSequencesMsPerIteration={timing.MoveGenerationSequencesMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationStairsMs={timing.MoveGenerationStairsMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationStairsMsPerIteration={timing.MoveGenerationStairsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationBombsMs={timing.MoveGenerationBombsMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationBombsMsPerIteration={timing.MoveGenerationBombsMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationContinuationFilterMs={timing.MoveGenerationContinuationFilterMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationContinuationFilterMsPerIteration={timing.MoveGenerationContinuationFilterMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationTrickSelectionMs={timing.MoveGenerationTrickSelectionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationTrickSelectionMsPerIteration={timing.MoveGenerationTrickSelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationActionWrappingMs={timing.MoveGenerationActionWrappingMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationActionWrappingMsPerIteration={timing.MoveGenerationActionWrappingMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationActionSelectionMs={timing.MoveGenerationActionSelectionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationActionSelectionMsPerIteration={timing.MoveGenerationActionSelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationPassAppendMs={timing.MoveGenerationPassAppendMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"moveGenerationPassAppendMsPerIteration={timing.MoveGenerationPassAppendMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"selectionMs={timing.SelectionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"selectionMsPerIteration={timing.SelectionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"expansionMs={timing.ExpansionMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"expansionMsPerIteration={timing.ExpansionMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"rolloutMs={timing.RolloutMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"rolloutMsPerIteration={timing.RolloutMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}",
+            $"backpropagationMs={timing.BackpropagationMs.ToString("0.000", CultureInfo.InvariantCulture)}",
+            $"backpropagationMsPerIteration={timing.BackpropagationMsPerIteration.ToString("0.000000", CultureInfo.InvariantCulture)}"
+        });
     }
 }

@@ -9,13 +9,16 @@ namespace Haggis.AI.Strategies
     {
         private IList<IPlayStrategy> TrickStrategies { get; }
 
-        public HeuristicPlayStrategy(
+        public static HeuristicPlayStrategy Create(
             IStartingTrickFilterStrategy startingTrickFilterStrategy = null,
-            ContinuationTrickStrategy continuationTrickStrategy = null)
-            : this(
-                new StartingTrickStrategy(startingTrickFilterStrategy ?? new FilterNoneStrategy()),
-                continuationTrickStrategy ?? new ContinuationTrickStrategy(false, true))
+            ContinuationTrickStrategy continuationTrickStrategy = null,
+            HeuristicOptions heuristicOptions = null)
         {
+            return new HeuristicPlayStrategy(
+                new StartingTrickStrategy(
+                    startingTrickFilterStrategy ?? new FilterNoneStrategy(),
+                    heuristicOptions: heuristicOptions),
+                continuationTrickStrategy ?? new ContinuationTrickStrategy(heuristicOptions: heuristicOptions));
         }
 
         public HeuristicPlayStrategy(

@@ -38,6 +38,12 @@ Widget buildGamePageView({
   );
   final sortedHand = sortCardLabels(handSplit.remainingHand, handSortMode);
   final playableCards = resolvePlayableCards(controller, viewModel);
+  final selectedMatches = controller.matchingPlayableActions;
+  final readyPreviewLabel = selectedMatches.length == 1
+      ? 'Ready (selected): ${selectedMatches.first.displayAction}'
+      : controller.selectedCards.isNotEmpty
+      ? 'Selected: ${controller.selectedCards.join(' ')}'
+      : null;
   return Scaffold(
     extendBodyBehindAppBar: true,
     body: Stack(
@@ -87,6 +93,11 @@ Widget buildGamePageView({
                           child: TableSection(
                             viewModel: viewModel,
                             controller: controller,
+                            onCreateGroup: onCreateGroup,
+                            readyPreviewLabel: readyPreviewLabel,
+                            hasSavedGroup: handSplit.groupedHand.isNotEmpty,
+                            onClearGroup: onClearGroup,
+                            onGroupRainbowBomb: onGroupRainbowBomb,
                             onPlayPressed: onPlaySelected,
                           ),
                         ),
@@ -103,9 +114,6 @@ Widget buildGamePageView({
                           onCardTap: onCardTap,
                           handSortMode: handSortMode,
                           onSortChanged: onSortChanged,
-                          onCreateGroup: onCreateGroup,
-                          onClearGroup: onClearGroup,
-                          onGroupRainbowBomb: onGroupRainbowBomb,
                           onGroupColorBomb: onGroupColorBomb,
                           showCardHitZones: showCardHitZones,
                           cardScale: handCardScale,
@@ -140,6 +148,11 @@ Widget buildGamePageView({
                         child: TableSection(
                           viewModel: viewModel,
                           controller: controller,
+                          onCreateGroup: onCreateGroup,
+                          readyPreviewLabel: readyPreviewLabel,
+                          hasSavedGroup: handSplit.groupedHand.isNotEmpty,
+                          onClearGroup: onClearGroup,
+                          onGroupRainbowBomb: onGroupRainbowBomb,
                           onPlayPressed: onPlaySelected,
                         ),
                       ),
@@ -156,9 +169,6 @@ Widget buildGamePageView({
                         onCardTap: onCardTap,
                         handSortMode: handSortMode,
                         onSortChanged: onSortChanged,
-                        onCreateGroup: onCreateGroup,
-                        onClearGroup: onClearGroup,
-                        onGroupRainbowBomb: onGroupRainbowBomb,
                         onGroupColorBomb: onGroupColorBomb,
                         showCardHitZones: showCardHitZones,
                         cardScale: handCardScale,

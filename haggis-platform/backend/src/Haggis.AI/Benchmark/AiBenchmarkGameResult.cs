@@ -18,6 +18,7 @@ namespace Haggis.AI.Benchmark
         public List<string> LogLines { get; set; } = new List<string>();
         public Dictionary<string, int> Scores { get; set; } = new Dictionary<string, int>();
         public Dictionary<string, string> StrategiesByPlayer { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, string> HeuristicWeightsByPlayer { get; set; } = new Dictionary<string, string>();
         public MctsTimingResult Timing { get; set; }
         public int MonteCarloDecisionCount { get; set; }
         public double AverageTreeNodeCount { get; set; }
