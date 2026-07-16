@@ -24,7 +24,12 @@ public sealed class RemoteGameWebSocketClient : IAsyncDisposable
             Payload = new RemotePlayerPayloadDto { PlayerId = playerId }
         }, cancellationToken);
 
-    public Task SendCreateAsync(string playerId, int? seed, int? playerCount, CancellationToken cancellationToken)
+    public Task SendCreateAsync(
+        string playerId,
+        int? seed,
+        int? playerCount,
+        IReadOnlyList<RemoteCreateGamePlayerDto>? players,
+        CancellationToken cancellationToken)
     {
         return SendAsync(new RemoteCreateGameRequestDto
         {
@@ -34,7 +39,8 @@ public sealed class RemoteGameWebSocketClient : IAsyncDisposable
                 Payload = new RemoteCreateGamePayloadDto
                 {
                     Seed = seed,
-                    PlayerCount = playerCount
+                    PlayerCount = playerCount,
+                    Players = players?.ToList()
                 }
             }
         }, cancellationToken);

@@ -1,4 +1,4 @@
-enum AppScreen { connect, lobby, game }
+enum AppScreen { connect, modeSelect, singlePlayerSetup, lobby, game }
 
 class AppFlowViewModel {
   const AppFlowViewModel({

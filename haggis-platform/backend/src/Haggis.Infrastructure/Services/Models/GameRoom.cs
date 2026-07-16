@@ -7,5 +7,6 @@ public sealed class GameRoom
     public string GameType { get; init; } = string.Empty;
     public string RoomName { get; init; } = string.Empty;
     public DateTimeOffset CreatedAt { get; init; }
+    public bool IsPublic { get; init; } = true;
     public List<string> Players { get; init; } = new();
 }

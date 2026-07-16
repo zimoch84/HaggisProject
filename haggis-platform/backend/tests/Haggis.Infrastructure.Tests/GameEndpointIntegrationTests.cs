@@ -48,14 +48,14 @@ public class GameEndpointIntegrationTests
         using var doc = JsonDocument.Parse(payload);
         var root = doc.RootElement;
 
-        Assert.That(root.TryGetProperty("Type", out var type), Is.True);
-        Assert.That(root.TryGetProperty("OrderPointer", out var orderPointer), Is.True);
-        Assert.That(root.TryGetProperty("GameId", out var gameId), Is.True);
-        Assert.That(root.TryGetProperty("Error", out var error), Is.True);
-        Assert.That(root.TryGetProperty("Command", out var command), Is.True);
-        Assert.That(root.TryGetProperty("State", out var state), Is.True);
-        Assert.That(root.TryGetProperty("CreatedAt", out var createdAt), Is.True);
-        Assert.That(root.TryGetProperty("CurrentPlayerId", out var currentPlayerId), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(root, "Type", out var type), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(root, "OrderPointer", out var orderPointer), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(root, "GameId", out var gameId), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(root, "Error", out var error), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(root, "Command", out var command), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(root, "State", out var state), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(root, "CreatedAt", out var createdAt), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(root, "CurrentPlayerId", out var currentPlayerId), Is.True);
 
         Assert.That(type.GetString(), Is.EqualTo("CommandApplied"));
         Assert.That(orderPointer.GetInt64(), Is.EqualTo(1));
@@ -66,9 +66,9 @@ public class GameEndpointIntegrationTests
         Assert.That(currentPlayer, Is.Not.Null.And.Not.Empty);
         Assert.That(new[] { "alice", "bob", "carol" }, Contains.Item(currentPlayer));
 
-        Assert.That(command.TryGetProperty("Type", out var commandType), Is.True);
-        Assert.That(command.TryGetProperty("PlayerId", out var playerId), Is.True);
-        Assert.That(command.TryGetProperty("Payload", out var commandPayload), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(command, "Type", out var commandType), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(command, "PlayerId", out var playerId), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(command, "Payload", out var commandPayload), Is.True);
 
         Assert.That(commandType.GetString(), Is.EqualTo("Initialize"));
         Assert.That(playerId.GetString(), Is.EqualTo("alice"));
@@ -77,9 +77,9 @@ public class GameEndpointIntegrationTests
         Assert.That(players.GetArrayLength(), Is.EqualTo(3));
         Assert.That(seed.GetInt32(), Is.EqualTo(123));
 
-        Assert.That(state.TryGetProperty("Version", out var version), Is.True);
-        Assert.That(state.TryGetProperty("Data", out var data), Is.True);
-        Assert.That(state.TryGetProperty("UpdatedAt", out var updatedAt), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(state, "Version", out var version), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(state, "Data", out var data), Is.True);
+        Assert.That(TryGetPropertyIgnoreCase(state, "UpdatedAt", out var updatedAt), Is.True);
 
         Assert.That(version.GetInt64(), Is.EqualTo(1));
         Assert.That(data.ValueKind, Is.EqualTo(JsonValueKind.Object));
@@ -149,7 +149,9 @@ public class GameEndpointIntegrationTests
 
         var payload = await ReceiveTextAsync(socket, cancellationToken);
         using var doc = JsonDocument.Parse(payload);
-        var data = doc.RootElement.GetProperty("State").GetProperty("Data");
+        var data = GetRequiredPropertyIgnoreCase(
+            GetRequiredPropertyIgnoreCase(doc.RootElement, "State"),
+            "Data");
 
         Assert.That(data.GetProperty("winScore").GetInt32(), Is.EqualTo(180));
         Assert.That(data.GetProperty("roundOver").GetBoolean(), Is.False);
@@ -201,7 +203,9 @@ public class GameEndpointIntegrationTests
         AssertAppliedEvent(initializeMessageB, expectedOrderPointer: 1, expectedGameId: "game-9", expectedVersion: 1, expectedPlayerId: "alice", expectedCommandType: "Initialize");
 
         using var initializedDoc = JsonDocument.Parse(initializeMessageA);
-        var initializedStateData = initializedDoc.RootElement.GetProperty("State").GetProperty("Data");
+        var initializedStateData = GetRequiredPropertyIgnoreCase(
+            GetRequiredPropertyIgnoreCase(initializedDoc.RootElement, "State"),
+            "Data");
         var currentPlayerId = initializedStateData.GetProperty("currentPlayerId").GetString();
         Assert.That(currentPlayerId, Is.Not.Null.And.Not.Empty);
 
@@ -274,7 +278,9 @@ public class GameEndpointIntegrationTests
 
         var first = await ReceiveTextAsync(socket, cancellationToken);
         using var firstDoc = JsonDocument.Parse(first);
-        var firstStateData = firstDoc.RootElement.GetProperty("State").GetProperty("Data");
+        var firstStateData = GetRequiredPropertyIgnoreCase(
+            GetRequiredPropertyIgnoreCase(firstDoc.RootElement, "State"),
+            "Data");
         var currentPlayerId = firstStateData.GetProperty("currentPlayerId").GetString();
         Assert.That(currentPlayerId, Is.Not.Null.And.Not.Empty);
 
@@ -319,12 +325,13 @@ public class GameEndpointIntegrationTests
 
         using var doc = JsonDocument.Parse(message);
         var root = doc.RootElement;
-        var state = root.GetProperty("State");
+        var state = GetRequiredPropertyIgnoreCase(root, "State");
 
-        Assert.That(root.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(1));
-        Assert.That(state.GetProperty("Version").GetInt64(), Is.EqualTo(6));
-        Assert.That(state.GetProperty("Data").GetProperty("round").GetInt32(), Is.EqualTo(2));
-        Assert.That(state.GetProperty("Data").GetProperty("phase").GetString(), Is.EqualTo("trick"));
+        Assert.That(GetRequiredPropertyIgnoreCase(root, "OrderPointer").GetInt64(), Is.EqualTo(1));
+        Assert.That(GetRequiredPropertyIgnoreCase(state, "Version").GetInt64(), Is.EqualTo(6));
+        var stateData = GetRequiredPropertyIgnoreCase(state, "Data");
+        Assert.That(GetRequiredPropertyIgnoreCase(stateData, "round").GetInt32(), Is.EqualTo(2));
+        Assert.That(GetRequiredPropertyIgnoreCase(stateData, "phase").GetString(), Is.EqualTo("trick"));
 
         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
     }
@@ -360,7 +367,9 @@ public class GameEndpointIntegrationTests
 
         var initializedPayload = await ReceiveTextAsync(socket, CancellationToken.None);
         using var initializedDoc = JsonDocument.Parse(initializedPayload);
-        var initializedStateData = initializedDoc.RootElement.GetProperty("State").GetProperty("Data");
+        var initializedStateData = GetRequiredPropertyIgnoreCase(
+            GetRequiredPropertyIgnoreCase(initializedDoc.RootElement, "State"),
+            "Data");
 
         Assert.That(initializedStateData.GetProperty("game").GetString(), Is.EqualTo("haggis"));
         Assert.That(initializedStateData.GetProperty("winScore").GetInt32(), Is.EqualTo(250));
@@ -412,10 +421,11 @@ public class GameEndpointIntegrationTests
         using var playedDoc = JsonDocument.Parse(playedPayload);
         var playedRoot = playedDoc.RootElement;
 
-        Assert.That(playedRoot.GetProperty("Type").GetString(), Is.EqualTo("CommandApplied"));
-        Assert.That(playedRoot.GetProperty("OrderPointer").GetInt64(), Is.EqualTo(2));
-        Assert.That(playedRoot.GetProperty("State").GetProperty("Version").GetInt64(), Is.EqualTo(2));
-        var playedData = playedRoot.GetProperty("State").GetProperty("Data");
+        Assert.That(GetRequiredPropertyIgnoreCase(playedRoot, "Type").GetString(), Is.EqualTo("CommandApplied"));
+        Assert.That(GetRequiredPropertyIgnoreCase(playedRoot, "OrderPointer").GetInt64(), Is.EqualTo(2));
+        var playedState = GetRequiredPropertyIgnoreCase(playedRoot, "State");
+        Assert.That(GetRequiredPropertyIgnoreCase(playedState, "Version").GetInt64(), Is.EqualTo(2));
+        var playedData = GetRequiredPropertyIgnoreCase(playedState, "Data");
         Assert.That(playedData.GetProperty("game").GetString(), Is.EqualTo("haggis"));
         Assert.That(playedData.GetProperty("roundNumber").GetInt32(), Is.EqualTo(1));
         Assert.That(playedData.GetProperty("moveIteration").GetInt64(), Is.EqualTo(1));

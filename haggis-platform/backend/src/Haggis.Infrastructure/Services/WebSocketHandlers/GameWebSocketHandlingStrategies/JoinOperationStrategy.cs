@@ -19,11 +19,25 @@ internal sealed class JoinOperationStrategy : IGameOperationStrategy<GameWebSock
         GameRoom? joinedRoom;
         if (!_handler.RoomStore.TryJoinRoom(context.GameId, playerId, out joinedRoom) || joinedRoom is null)
         {
-            joinedRoom = _handler.RoomStore.GetOrCreateRoom(context.GameId, playerId, "haggis");
+            var isSinglePlayerRoom = IsSinglePlayerRoom(context.GameId);
+            var roomName = isSinglePlayerRoom
+                ? $"Single Player: {playerId} {context.GameId}"
+                : null;
+            joinedRoom = _handler.RoomStore.GetOrCreateRoom(
+                context.GameId,
+                playerId,
+                "haggis",
+                roomName,
+                isPublic: !isSinglePlayerRoom);
         }
 
         _handler.ConnectionManager.BindPlayer(context.GameId, context.ClientId, playerId);
 
         await _handler.BroadcastRoomJoinedAsync(context.GameId, playerId, joinedRoom, cancellationToken);
+    }
+
+    private static bool IsSinglePlayerRoom(string gameId)
+    {
+        return gameId.Trim().StartsWith("single-", StringComparison.OrdinalIgnoreCase);
     }
 }

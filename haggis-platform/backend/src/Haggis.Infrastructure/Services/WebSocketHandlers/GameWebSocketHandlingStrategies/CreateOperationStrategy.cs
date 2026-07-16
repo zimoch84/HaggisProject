@@ -18,7 +18,16 @@ internal sealed class CreateOperationStrategy : IGameOperationStrategy<GameWebSo
 
         if (!_handler.RoomStore.TryGetRoom(context.GameId, out var room) || room is null)
         {
-            room = _handler.RoomStore.GetOrCreateRoom(context.GameId, playerId, "haggis");
+            var isSinglePlayerRoom = IsSinglePlayerRoom(context.GameId);
+            var roomName = isSinglePlayerRoom
+                ? $"Single Player: {playerId} {context.GameId}"
+                : null;
+            room = _handler.RoomStore.GetOrCreateRoom(
+                context.GameId,
+                playerId,
+                "haggis",
+                roomName,
+                isPublic: !isSinglePlayerRoom);
         }
 
         if (room.Players.Count > 0 &&
@@ -62,5 +71,10 @@ internal sealed class CreateOperationStrategy : IGameOperationStrategy<GameWebSo
 
         var eventMessage = outgoing with { MessageKind = "event" };
         await _handler.BroadcastExceptAsync(context.GameId, context.Socket, "create", eventMessage, cancellationToken);
+    }
+
+    private static bool IsSinglePlayerRoom(string gameId)
+    {
+        return gameId.Trim().StartsWith("single-", StringComparison.OrdinalIgnoreCase);
     }
 }

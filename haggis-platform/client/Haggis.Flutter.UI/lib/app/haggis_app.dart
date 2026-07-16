@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../controllers/app_flow_controller.dart';
 import '../models/lobby_models.dart';
+import '../models/single_player_models.dart';
 import '../view_models/app_flow_view_model.dart';
 import '../view_models/connect_view_model.dart';
 import '../pages/connect_page.dart';
 import '../pages/game_page.dart';
 import '../pages/lobby_page.dart';
+import '../pages/mode_select_page.dart';
+import '../pages/single_player_setup_page.dart';
 import 'app_build_info.dart';
 import 'app_settings.dart';
 import 'player_preferences.dart';
@@ -121,7 +124,20 @@ class _HaggisHomePageState extends State<HaggisHomePage> {
             isConnecting: _connecting,
             error: _connectError,
           ),
-          onConnect: _connectToLobby,
+          onConnect: _enterModeSelect,
+        );
+      case AppScreen.modeSelect:
+        return ModeSelectPage(
+          playerId: flow.playerId,
+          onSinglePlayer: _appFlowController.openSinglePlayerSetup,
+          onMultiPlayer: _appFlowController.connectToLobby,
+          onDisconnect: _appFlowController.disconnectLobby,
+        );
+      case AppScreen.singlePlayerSetup:
+        return SinglePlayerSetupPage(
+          playerId: flow.playerId,
+          onStart: _openSinglePlayerGame,
+          onBack: _appFlowController.backToModeSelect,
         );
       case AppScreen.lobby:
         final controller = _appFlowController.lobbyController;
@@ -145,7 +161,7 @@ class _HaggisHomePageState extends State<HaggisHomePage> {
     }
   }
 
-  Future<void> _connectToLobby(String playerId) async {
+  Future<void> _enterModeSelect(String playerId) async {
     setState(() {
       _connecting = true;
       _connectError = null;
@@ -153,7 +169,7 @@ class _HaggisHomePageState extends State<HaggisHomePage> {
 
     try {
       _appFlowController.updatePlayerId(playerId);
-      await _appFlowController.connectToLobby();
+      await _appFlowController.enterModeSelect();
     } catch (error) {
       setState(() {
         _connectError = error.toString();
@@ -191,6 +207,12 @@ class _HaggisHomePageState extends State<HaggisHomePage> {
 
   Future<void> _openGame(LobbyRoom room) async {
     await _appFlowController.openGame(room);
+  }
+
+  Future<void> _openSinglePlayerGame(
+    List<SinglePlayerAiConfig> aiPlayers,
+  ) async {
+    await _appFlowController.openSinglePlayerGame(aiPlayers);
   }
 
   void _refresh() {

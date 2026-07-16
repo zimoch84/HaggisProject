@@ -209,12 +209,14 @@ public class GameWebSocketAiCompositionIntegrationTests
                 }
                 using var doc = JsonDocument.Parse(message);
                 var root = doc.RootElement;
-                if (!root.TryGetProperty("Type", out var typeElement) || typeElement.GetString() != "CommandApplied")
+                if (!TryGetPropertyIgnoreCase(root, "Type", out var typeElement) || typeElement.GetString() != "CommandApplied")
                 {
                     continue;
                 }
 
-                var state = root.GetProperty("State").GetProperty("Data").Clone();
+                var state = GetRequiredPropertyIgnoreCase(
+                    GetRequiredPropertyIgnoreCase(root, "State"),
+                    "Data").Clone();
                 firstState ??= state;
                 break;
             }
@@ -272,5 +274,33 @@ public class GameWebSocketAiCompositionIntegrationTests
                 return Encoding.UTF8.GetString(ms.ToArray());
             }
         }
+    }
+
+    private static JsonElement GetRequiredPropertyIgnoreCase(JsonElement element, string propertyName)
+    {
+        if (TryGetPropertyIgnoreCase(element, propertyName, out var value))
+        {
+            return value;
+        }
+
+        throw new KeyNotFoundException($"Missing property '{propertyName}'.");
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+        }
+
+        value = default;
+        return false;
     }
 }

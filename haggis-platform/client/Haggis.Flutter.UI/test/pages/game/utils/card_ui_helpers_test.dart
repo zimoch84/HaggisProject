@@ -18,5 +18,17 @@ void main() {
     test('still parses plain card lists without trick type prefix', () {
       expect(extractCardLabels('3R|4R|5R'), <String>['3R', '4R', '5R']);
     });
+
+    test('parses single card trick payload', () {
+      expect(extractCardLabels('SINGLE[2B]'), <String>['2B']);
+    });
+  });
+
+  group('isPassMoveDescription', () {
+    test('recognizes pass payloads', () {
+      expect(isPassMoveDescription('PASS'), isTrue);
+      expect(isPassMoveDescription('pass[]'), isTrue);
+      expect(isPassMoveDescription('SINGLE[2B]'), isFalse);
+    });
   });
 }

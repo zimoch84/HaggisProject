@@ -164,6 +164,7 @@ public sealed class GameScreen : PanelScreenBase
         {
             $"Game: {_state.GameId}",
             $"Player: {_state.PlayerId}",
+            $"Mode: {(_state.SinglePlayer ? "Single Player" : "MultiPlayer")}",
             $"Status: {_state.Status}",
             $"Room players: {(_state.RoomPlayers.Count == 0 ? "(none)" : string.Join(", ", _state.RoomPlayers))}"
         };
@@ -246,7 +247,7 @@ public sealed class GameScreen : PanelScreenBase
                 lines.Insert(1, "Waiting for host to start.");
             }
 
-            if (_state.RoomPlayers.Count < 2)
+            if (!_state.SinglePlayer && _state.RoomPlayers.Count < 2)
             {
                 lines.Add(string.Empty);
                 lines.Add("Need at least 2 players.");

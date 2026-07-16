@@ -227,6 +227,41 @@ public class RealtimeOperationIntegrationTests
     }
 
     [Test]
+    public async Task GameOperation_SinglePlayerRoom_IsNamedAndHiddenFromPublicLobby()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var cancellationToken = timeoutCts.Token;
+        const string gameId = "single-alice-123";
+
+        var gameClient = factory.Server.CreateWebSocketClient();
+        using var gameSocket = await gameClient.ConnectAsync(new Uri($"ws://localhost/ws/games/{gameId}"), cancellationToken);
+
+        await SendJsonAsync(gameSocket, new { operation = "join", payload = new { playerId = "alice" } }, cancellationToken);
+        var joined = await ReceiveByTypeAsync(gameSocket, "RoomJoined", cancellationToken);
+        var joinedRoom = GetRequiredPropertyIgnoreCase(joined, "room");
+
+        Assert.That(GetRequiredPropertyIgnoreCase(joinedRoom, "roomName").GetString(), Is.EqualTo($"Single Player: alice {gameId}"));
+
+        var globalClient = factory.Server.CreateWebSocketClient();
+        using var globalSocket = await globalClient.ConnectAsync(new Uri("ws://localhost/ws/global/chat"), cancellationToken);
+
+        var bootstrapPayload = await ReceiveTextAsync(globalSocket, cancellationToken);
+        using var bootstrapDoc = JsonDocument.Parse(bootstrapPayload);
+        var channels = GetRequiredPropertyIgnoreCase(bootstrapDoc.RootElement, "channels");
+        Assert.That(channels.EnumerateArray().Any(x =>
+            TryGetPropertyIgnoreCase(x, "roomId", out var roomId) &&
+            roomId.GetString() == gameId), Is.False);
+
+        await SendJsonAsync(globalSocket, new { operation = "listroom" }, cancellationToken);
+        var listPayload = await ReceiveTextAsync(globalSocket, cancellationToken);
+
+        using var listDoc = JsonDocument.Parse(listPayload);
+        var rooms = GetRequiredPropertyIgnoreCase(GetRequiredPropertyIgnoreCase(listDoc.RootElement, "data"), "rooms");
+        Assert.That(rooms.EnumerateArray().Any(x => GetRequiredPropertyIgnoreCase(x, "roomId").GetString() == gameId), Is.False);
+    }
+
+    [Test]
     public async Task GameOperation_Create_WhenNonHost_ReturnsOperationRejected_AndDoesNotJoinRoom()
     {
         await using var factory = new WebApplicationFactory<Program>();

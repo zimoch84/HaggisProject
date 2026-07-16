@@ -4,4 +4,5 @@ public sealed record RemoteGameOptions(
     string PlayerId,
     string GameId,
     string ServerBaseUrl,
-    int? Seed);
+    int? Seed,
+    bool SinglePlayer = false);

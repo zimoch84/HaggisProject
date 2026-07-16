@@ -24,10 +24,11 @@ double computeHandSectionHeight({
       verticalTravel +
       bottomPadding +
       safetyMargin;
+  final safeAvailableHeight = availableHeight.clamp(240.0, double.infinity);
   final viewportCap = isLandscape
-      ? (availableHeight * 0.48) - 12.0
-      : (availableHeight * 0.38) - 8.0;
-  final hardCap = isLandscape ? 300.0 : 260.0;
+      ? (safeAvailableHeight * 0.44) - 12.0
+      : (safeAvailableHeight * 0.38) - 8.0;
+  final hardCap = isLandscape ? 240.0 : 260.0;
   final maxAllowed = viewportCap.clamp(148.0, hardCap);
   return computed.clamp(148.0, maxAllowed);
 }

@@ -102,6 +102,11 @@ List<String> extractCardLabels(String raw) {
   return matches.map((Match match) => match.group(0)!).toList(growable: false);
 }
 
+bool isPassMoveDescription(String raw) {
+  final normalized = raw.trim().toUpperCase();
+  return normalized == 'PASS' || normalized == 'PASS[]';
+}
+
 Color cardAccent(String suitToken) {
   switch (suitToken.toUpperCase()) {
     case 'B':

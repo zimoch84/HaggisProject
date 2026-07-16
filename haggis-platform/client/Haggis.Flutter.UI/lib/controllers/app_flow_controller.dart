@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/app_settings.dart';
 import '../app/player_preferences.dart';
 import '../models/lobby_models.dart';
+import '../models/single_player_models.dart';
 import '../view_models/app_flow_view_model.dart';
 import 'game_controller.dart';
 import 'lobby_controller.dart';
@@ -47,9 +48,15 @@ class AppFlowController extends ChangeNotifier {
     }
 
     _config.playerId = savedPlayerId;
+    _screen = AppScreen.modeSelect;
     notifyListeners();
-    await connectToLobby();
     return true;
+  }
+
+  Future<void> enterModeSelect() async {
+    await _playerPreferences.savePlayerId(_config.playerId);
+    _screen = AppScreen.modeSelect;
+    notifyListeners();
   }
 
   Future<void> connectToLobby() async {
@@ -67,11 +74,43 @@ class AppFlowController extends ChangeNotifier {
     }
   }
 
-  Future<void> openGame(LobbyRoom room) async {
+  void openSinglePlayerSetup() {
+    _screen = AppScreen.singlePlayerSetup;
+    notifyListeners();
+  }
+
+  void backToModeSelect() {
+    _screen = AppScreen.modeSelect;
+    notifyListeners();
+  }
+
+  Future<void> openSinglePlayerGame(
+    List<SinglePlayerAiConfig> aiPlayers,
+  ) async {
+    final gameId = _buildSinglePlayerGameId();
+    final room = LobbyRoom(
+      roomId: gameId,
+      gameId: gameId,
+      roomName: 'Single Player',
+      players: <String>[
+        _config.playerId,
+        ...aiPlayers.map((SinglePlayerAiConfig config) => config.name),
+      ],
+    );
+    await openGame(room, singlePlayer: true, aiPlayers: aiPlayers);
+  }
+
+  Future<void> openGame(
+    LobbyRoom room, {
+    bool singlePlayer = false,
+    List<SinglePlayerAiConfig> aiPlayers = const <SinglePlayerAiConfig>[],
+  }) async {
     final controller = GameController(
       serverBaseUrl: _config.serverBaseUrl,
       playerId: _config.playerId,
       room: room,
+      singlePlayer: singlePlayer,
+      singlePlayerAiPlayers: aiPlayers,
     );
     try {
       await controller.connect();
@@ -88,7 +127,7 @@ class AppFlowController extends ChangeNotifier {
   void leaveGame() {
     _gameController?.dispose();
     _gameController = null;
-    _screen = AppScreen.lobby;
+    _screen = AppScreen.modeSelect;
     notifyListeners();
   }
 
@@ -99,6 +138,16 @@ class AppFlowController extends ChangeNotifier {
     _lobbyController = null;
     _screen = AppScreen.connect;
     notifyListeners();
+  }
+
+  String _buildSinglePlayerGameId() {
+    final safePlayerId = _config.playerId
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    final suffix = DateTime.now().millisecondsSinceEpoch;
+    return 'single-${safePlayerId.isEmpty ? 'player' : safePlayerId}-$suffix';
   }
 
   @override

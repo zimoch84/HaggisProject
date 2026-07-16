@@ -32,6 +32,7 @@ public sealed class GameController
         _screen = screen;
         _gameState.PlayerId = options.PlayerId;
         _gameState.GameId = options.GameId;
+        _gameState.SinglePlayer = options.SinglePlayer;
     }
 
     public async Task<RemoteGameLoopResult> RunAsync(CancellationToken cancellationToken)
@@ -108,14 +109,20 @@ public sealed class GameController
                             continue;
                         }
 
-                        if (_roomPlayers.Count < 2)
+                        if (!_options.SinglePlayer && _roomPlayers.Count < 2)
                         {
                             _status = "Need at least 2 players to start the game.";
                             Render();
                             continue;
                         }
 
-                        await _client.SendCreateAsync(_options.PlayerId, _options.Seed, GetRequestedPlayerCount(), cancellationToken);
+                        var players = _options.SinglePlayer ? BuildSinglePlayerRoster() : null;
+                        await _client.SendCreateAsync(
+                            _options.PlayerId,
+                            _options.Seed,
+                            GetRequestedPlayerCount(),
+                            players,
+                            cancellationToken);
                         await RequestSnapshotAsync(cancellationToken);
                         _status = "Start command sent.";
                         Render();
@@ -262,6 +269,11 @@ public sealed class GameController
 
     private int? GetRequestedPlayerCount()
     {
+        if (_options.SinglePlayer)
+        {
+            return 3;
+        }
+
         return _roomPlayers.Count is 2 or 3
             ? _roomPlayers.Count
             : null;
@@ -295,7 +307,8 @@ public sealed class GameController
             return DateTimeOffset.UtcNow - _lastSnapshotRequestAt >= SnapshotRetryInterval;
         }
 
-        if (_roomPlayers.Count > 0 &&
+        if (!_options.SinglePlayer &&
+            _roomPlayers.Count > 0 &&
             (_state.Data?.Players?.Count ?? 0) != _roomPlayers.Count &&
             !_snapshotRequestedAfterRoomUpdate &&
             DateTimeOffset.UtcNow - _lastSnapshotRequestAt >= SnapshotRetryInterval)
@@ -335,6 +348,7 @@ public sealed class GameController
         _gameState.Snapshot = _state;
         _gameState.Status = _status;
         _gameState.RoomPlayers = _roomPlayers;
+        _gameState.SinglePlayer = _options.SinglePlayer;
     }
 
     private void TryBuildRoundSummary(RemoteGameSnapshotDto? previousState, RemoteGameSnapshotDto? currentState)
@@ -504,5 +518,25 @@ public sealed class GameController
     {
         return _roomPlayers.Count > 0 &&
                string.Equals(_roomPlayers[0], _options.PlayerId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private List<RemoteCreateGamePlayerDto> BuildSinglePlayerRoster()
+    {
+        return new List<RemoteCreateGamePlayerDto>
+        {
+            new() { Id = _options.PlayerId },
+            new()
+            {
+                Id = "AI-1",
+                Type = "ai",
+                Ai = new RemoteCreateGameAiOptionsDto()
+            },
+            new()
+            {
+                Id = "AI-2",
+                Type = "ai",
+                Ai = new RemoteCreateGameAiOptionsDto()
+            }
+        };
     }
 }
