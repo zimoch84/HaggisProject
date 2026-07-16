@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../infrastructure/logging/app_logger.dart';
 import '../infrastructure/remote/remote_game_websocket_client.dart';
+import '../local_game/local_game_engine.dart';
 import '../models/game_models.dart';
 import '../models/lobby_models.dart';
 import '../models/single_player_models.dart';
@@ -31,7 +32,8 @@ class GameController extends ChangeNotifier {
   final bool singlePlayer;
   final List<SinglePlayerAiConfig> singlePlayerAiPlayers;
 
-  late final RemoteGameWebSocketClient _client;
+  RemoteGameWebSocketClient? _client;
+  LocalGameEngine? _localEngine;
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
   final RoundOverController roundOverController = RoundOverController();
@@ -213,6 +215,19 @@ class GameController extends ChangeNotifier {
   }
 
   Future<void> connect() async {
+    if (singlePlayer) {
+      AppLogger.info('GameCtrl', 'Starting local game ${room.gameId}.');
+      _localEngine = LocalGameEngine(
+        humanId: playerId,
+        aiPlayers: singlePlayerAiPlayers,
+        seed: _forcedStartSeed,
+      );
+      _acceptLocalSnapshot(
+        _localEngine!.start(),
+        status: 'Local game started.',
+      );
+      return;
+    }
     AppLogger.info(
       'GameCtrl',
       'Connecting to game room ${room.gameId} via $serverBaseUrl as $playerId.',
@@ -221,8 +236,8 @@ class GameController extends ChangeNotifier {
       serverBaseUrl: serverBaseUrl,
       gameId: room.gameId,
     );
-    await _client.connect();
-    _subscription = _client.messages.listen(
+    await _client!.connect();
+    _subscription = _client!.messages.listen(
       _onMessage,
       onError: (Object error, StackTrace _) {
         _status = 'Game socket error: $error';
@@ -241,15 +256,18 @@ class GameController extends ChangeNotifier {
 
   void joinGame() {
     AppLogger.info('GameCtrl', 'Joining game ${room.gameId} as $playerId.');
-    _client.join(playerId);
+    _client!.join(playerId);
   }
 
   void requestSnapshot() {
     AppLogger.info('GameCtrl', 'Requesting snapshot for ${room.gameId}.');
-    _client.requestSnapshot(playerId);
+    _client!.requestSnapshot(playerId);
   }
 
   void startGame() {
+    if (singlePlayer) {
+      return;
+    }
     if (!canStartGame) {
       return;
     }
@@ -259,7 +277,7 @@ class GameController extends ChangeNotifier {
       'GameCtrl',
       'Sending create game for ${room.gameId}. seed=$_forcedStartSeed players=${singlePlayer ? _buildSinglePlayerRoster() : room.players.length}',
     );
-    _client.createGame(
+    _client!.createGame(
       playerId,
       singlePlayer ? 3 : room.players.length,
       seed: _forcedStartSeed,
@@ -289,10 +307,18 @@ class GameController extends ChangeNotifier {
 
     _commandInFlight = true;
     AppLogger.info('GameCtrl', 'Sending action ${action.displayAction}.');
+    if (singlePlayer) {
+      _status = 'Playing: ${action.displayAction}';
+      _selectedCards.clear();
+      _wildAssignments.clear();
+      notifyListeners();
+      unawaited(_playLocal(action));
+      return;
+    }
     if (action.type.toLowerCase() == 'pass') {
-      _client.sendPass(playerId);
+      _client!.sendPass(playerId);
     } else {
-      _client.sendPlay(playerId, action.displayAction);
+      _client!.sendPlay(playerId, action.displayAction);
     }
     _status = 'Sent: ${action.displayAction}';
     _selectedCards.clear();
@@ -427,6 +453,54 @@ class GameController extends ChangeNotifier {
     playAction(action);
   }
 
+  Future<void> _playLocal(PossibleActionViewModel action) async {
+    try {
+      final engine = _localEngine;
+      if (engine == null || _disposed) return;
+      final next = action.type.toLowerCase() == 'pass'
+          ? await engine.pass()
+          : await engine.play(action.displayAction);
+      if (_disposed) return;
+      _acceptLocalSnapshot(next, status: 'Local move applied.');
+    } catch (error) {
+      if (_disposed) return;
+      _commandInFlight = false;
+      _status = 'Local game error: $error';
+      AppLogger.error('GameCtrl', 'Local move failed.', error);
+      notifyListeners();
+    }
+  }
+
+  void _acceptLocalSnapshot(GameSnapshot next, {required String status}) {
+    final previous = _snapshot;
+    _snapshot = next;
+    final collectingTrick = _buildCollectingTrickForTransition(previous, next);
+    final replayStarted = _startAppliedMovesReplay(
+      previous,
+      next,
+      collectingTrick,
+    );
+    _commandInFlight = false;
+    _autoStartRequested = false;
+    _syncSelectedCardWithSnapshot();
+    _status = status;
+    _updateDerivedRoundState(
+      previous,
+      next,
+      establishBaselineOnly: !_hasEstablishedSnapshotBaseline,
+      deferRoundOverPopup: replayStarted || collectingTrick != null,
+    );
+    if (!replayStarted) {
+      if (collectingTrick != null) {
+        _startCollectAnimation(collectingTrick);
+      } else {
+        _publishDeferredRoundOver();
+      }
+    }
+    _hasEstablishedSnapshotBaseline = true;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _disposed = true;
@@ -437,7 +511,7 @@ class GameController extends ChangeNotifier {
     _collectingTrick = null;
     _deferredRoundOver = null;
     _subscription?.cancel();
-    _client.dispose();
+    _client?.dispose();
     roundOverController.dispose();
     scoreHistoryController.dispose();
     super.dispose();
@@ -879,9 +953,7 @@ class GameController extends ChangeNotifier {
           : 'Round ${previousRound.roundNumber} finished. Round ${currentSnapshot.roundNumber} started.',
       winnerPlayerId: previousRound.winnerPlayerName,
       players: players,
-      haggisCards: List<String>.unmodifiable(
-        previousRound.haggisCards,
-      ),
+      haggisCards: List<String>.unmodifiable(previousRound.haggisCards),
       lastSequenceLines: List<String>.unmodifiable(sequence),
     );
   }

@@ -27,10 +27,7 @@ void main() {
           isWebOverride: false,
           targetPlatformOverride: TargetPlatform.android,
         ),
-        const <String>[
-          'http://192.168.0.17:6666',
-          'http://10.0.2.2:6666',
-        ],
+        const <String>['http://192.168.0.17:6666', 'http://10.0.2.2:6666'],
       );
     });
 
@@ -83,14 +80,11 @@ void main() {
 
       expect(probedUrls, const <String>['http://192.168.0.17:6666']);
       expect(createdLobbyUrls, const <String>['http://192.168.0.17:6666']);
-      expect(
-        controller.viewModel.serverBaseUrl,
-        'http://192.168.0.17:6666',
-      );
+      expect(controller.viewModel.serverBaseUrl, 'http://192.168.0.17:6666');
       expect(controller.lobbyController, isNotNull);
     });
 
-    test('falls back to emulator address when LAN probe fails', () async {
+    test('single player starts without probing a backend', () async {
       final probedUrls = <String>[];
       final createdGameUrls = <String>[];
       final controller = AppFlowController(
@@ -102,42 +96,35 @@ void main() {
             throw Exception('LAN unavailable');
           }
         },
-        gameControllerFactory: ({
-          required String serverBaseUrl,
-          required String playerId,
-          required LobbyRoom room,
-          bool singlePlayer = false,
-          List<SinglePlayerAiConfig> singlePlayerAiPlayers =
-              const <SinglePlayerAiConfig>[],
-        }) {
-          createdGameUrls.add(serverBaseUrl);
-          return _FakeGameController(
-            serverBaseUrl: serverBaseUrl,
-            playerId: playerId,
-            room: room,
-            singlePlayer: singlePlayer,
-            singlePlayerAiPlayers: singlePlayerAiPlayers,
-          );
-        },
+        gameControllerFactory:
+            ({
+              required String serverBaseUrl,
+              required String playerId,
+              required LobbyRoom room,
+              bool singlePlayer = false,
+              List<SinglePlayerAiConfig> singlePlayerAiPlayers =
+                  const <SinglePlayerAiConfig>[],
+            }) {
+              createdGameUrls.add(serverBaseUrl);
+              return _FakeGameController(
+                serverBaseUrl: serverBaseUrl,
+                playerId: playerId,
+                room: room,
+                singlePlayer: singlePlayer,
+                singlePlayerAiPlayers: singlePlayerAiPlayers,
+              );
+            },
       );
 
       controller.updatePlayerId('p1');
-      await controller.openSinglePlayerGame(
-        const <SinglePlayerAiConfig>[
-          SinglePlayerAiConfig(name: 'AI-1', difficulty: AiDifficulty.normal),
-          SinglePlayerAiConfig(name: 'AI-2', difficulty: AiDifficulty.hard),
-        ],
-      );
+      await controller.openSinglePlayerGame(const <SinglePlayerAiConfig>[
+        SinglePlayerAiConfig(name: 'AI-1', difficulty: AiDifficulty.normal),
+        SinglePlayerAiConfig(name: 'AI-2', difficulty: AiDifficulty.hard),
+      ]);
 
-      expect(
-        probedUrls,
-        const <String>[
-          'http://192.168.0.17:6666',
-          'http://10.0.2.2:6666',
-        ],
-      );
-      expect(createdGameUrls, const <String>['http://10.0.2.2:6666']);
-      expect(controller.viewModel.serverBaseUrl, 'http://10.0.2.2:6666');
+      expect(probedUrls, isEmpty);
+      expect(createdGameUrls, const <String>['http://192.168.0.17:6666']);
+      expect(controller.viewModel.serverBaseUrl, 'http://192.168.0.17:6666');
       expect(controller.gameController, isNotNull);
     });
 

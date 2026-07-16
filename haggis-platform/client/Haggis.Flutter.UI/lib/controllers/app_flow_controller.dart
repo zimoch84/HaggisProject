@@ -105,10 +105,17 @@ class AppFlowController extends ChangeNotifier {
       _lobbyController?.dispose();
       _lobbyController = controller;
       _screen = AppScreen.lobby;
-      AppLogger.info('AppFlow', 'Lobby connection established via $serverBaseUrl.');
+      AppLogger.info(
+        'AppFlow',
+        'Lobby connection established via $serverBaseUrl.',
+      );
       notifyListeners();
     } catch (error) {
-      AppLogger.error('AppFlow', 'Lobby connection failed via $serverBaseUrl.', error);
+      AppLogger.error(
+        'AppFlow',
+        'Lobby connection failed via $serverBaseUrl.',
+        error,
+      );
       controller.dispose();
       rethrow;
     }
@@ -145,7 +152,9 @@ class AppFlowController extends ChangeNotifier {
     bool singlePlayer = false,
     List<SinglePlayerAiConfig> aiPlayers = const <SinglePlayerAiConfig>[],
   }) async {
-    final serverBaseUrl = _lobbyController != null
+    final serverBaseUrl = singlePlayer
+        ? _config.serverBaseUrl
+        : _lobbyController != null
         ? _config.serverBaseUrl
         : await _resolveActiveServerBaseUrl();
     AppLogger.info(
@@ -174,7 +183,10 @@ class AppFlowController extends ChangeNotifier {
     _gameController?.dispose();
     _gameController = controller;
     _screen = AppScreen.game;
-    AppLogger.info('AppFlow', 'Game connection established for ${room.gameId}.');
+    AppLogger.info(
+      'AppFlow',
+      'Game connection established for ${room.gameId}.',
+    );
     notifyListeners();
   }
 
@@ -229,7 +241,10 @@ class AppFlowController extends ChangeNotifier {
         return candidate;
       } catch (error) {
         lastError = error;
-        AppLogger.warn('AppFlow', 'Backend candidate $candidate failed: $error');
+        AppLogger.warn(
+          'AppFlow',
+          'Backend candidate $candidate failed: $error',
+        );
       }
     }
 
