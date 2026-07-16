@@ -3,6 +3,8 @@ import 'dart:isolate';
 
 import '../models/game_models.dart';
 import '../models/single_player_models.dart';
+import 'ai/heuristic_action_ranker.dart';
+import 'ai/heuristic_models.dart';
 
 /// Client-side Haggis session. This file deliberately has no Flutter or
 /// networking imports, so AI work can be moved to an isolate.
@@ -63,7 +65,7 @@ class LocalGameEngine {
     final last = _lastNonPass?.action.trick;
     final actions =
         _generateTricks(_currentPlayer.hand)
-            .where((trick) => last == null || trick.compareTo(last) > 0)
+            .where((trick) => last == null || trick.beats(last))
             .map((trick) => _Action(_currentPlayer.id, trick))
             .toList()
           ..sort((a, b) => a.trick!.compareTo(b.trick!));
@@ -83,6 +85,18 @@ class LocalGameEngine {
         'actions': actions.map((action) => action.toMap()).toList(),
         'handCount': _currentPlayer.hand.length,
         'opening': _trick.isEmpty,
+        'hand': _currentPlayer.hand
+            .map((card) => card.toHeuristicMap())
+            .toList(),
+        'discard': _players
+            .expand((player) => player.discard)
+            .map((card) => card.toHeuristicMap())
+            .toList(),
+        'currentTrickCards': _trick
+            .where((move) => !move.action.isPass)
+            .expand((move) => move.action.trick!.cards)
+            .map((card) => card.toHeuristicMap())
+            .toList(),
       };
       final selected = difficulty.value >= AiDifficulty.medium.value
           ? await Isolate.run(() => _chooseAiAction(input))
@@ -104,7 +118,9 @@ class LocalGameEngine {
       return actions[random.next(actions.length)]['description']! as String;
     }
     if (difficulty == 2) {
-      return _chooseHeuristicAction(actions, input);
+      return const HeuristicActionRanker().choose(
+        HeuristicContext.fromInput(input),
+      );
     }
     final playable = actions.where((a) => a['pass'] != true).toList();
     if (playable.isEmpty) return 'Pass';
@@ -131,7 +147,8 @@ class LocalGameEngine {
     return playable.first['description']! as String;
   }
 
-  static String _chooseHeuristicAction(
+  @Deprecated('Retained temporarily for fixture comparison during the port.')
+  static String legacyChooseHeuristicAction(
     List<Map<Object?, Object?>> actions,
     Map<String, Object?> input,
   ) {
@@ -397,7 +414,7 @@ class LocalGameEngine {
       ..addAll(_seating.map((id) => _Player(id)));
     for (var i = 0; i < _players.length; i++) {
       _players[i].hand.addAll(dealer.hands[i]);
-      _players[i].hand.sort(_Card.compare);
+      _players[i].hand.sort(_Card.compareBySuitAndRank);
     }
     var starter = 0;
     for (var i = 1; i < _seating.length; i++) {
@@ -503,6 +520,119 @@ class LocalGameEngine {
         13: 5,
       }[card.rank] ??
       0;
+}
+
+/// Deterministic entry point used by parity fixtures and tuning tools.
+String chooseLocalHeuristicOpening(List<String> handLabels) {
+  final context = _localHeuristicOpeningContext(handLabels);
+  return const HeuristicActionRanker().choose(context);
+}
+
+List<HeuristicRankedAction> rankLocalHeuristicOpening(
+  List<String> handLabels,
+) => const HeuristicActionRanker().rank(
+  _localHeuristicOpeningContext(handLabels),
+);
+
+HeuristicContext _localHeuristicOpeningContext(List<String> handLabels) {
+  final hand = handLabels.map(_parseCardLabel).toList();
+  final actions =
+      _generateTricks(hand).map((trick) => _Action('AI', trick)).toList()
+        ..sort((left, right) => left.trick!.compareTo(right.trick!));
+  final input = <String, Object?>{
+    'actions': actions.map((action) => action.toMap()).toList(),
+    'handCount': hand.length,
+    'opening': true,
+    'hand': hand.map((card) => card.toHeuristicMap()).toList(),
+    'discard': const <Object?>[],
+    'currentTrickCards': const <Object?>[],
+  };
+  return HeuristicContext.fromInput(input);
+}
+
+/// Deterministic continuation entry point used by C# parity fixtures.
+String chooseLocalHeuristicContinuation(
+  List<String> handLabels,
+  String leadDescription,
+) {
+  final context = _localHeuristicContinuationContext(
+    handLabels,
+    leadDescription,
+  );
+  return const HeuristicActionRanker().choose(context);
+}
+
+List<HeuristicRankedAction> rankLocalHeuristicContinuation(
+  List<String> handLabels,
+  String leadDescription,
+) => const HeuristicActionRanker().rank(
+  _localHeuristicContinuationContext(handLabels, leadDescription),
+);
+
+HeuristicContext _localHeuristicContinuationContext(
+  List<String> handLabels,
+  String leadDescription,
+) {
+  final hand = handLabels.map(_parseCardLabel).toList();
+  final lead = _parseTrickDescription(leadDescription);
+  final actions =
+      _generateTricks(hand)
+          .where((trick) => trick.beats(lead))
+          .map((trick) => _Action('AI', trick))
+          .toList()
+        ..sort((left, right) => left.trick!.compareTo(right.trick!));
+  actions.add(_Action.pass('AI'));
+  final input = <String, Object?>{
+    'actions': actions.map((action) => action.toMap()).toList(),
+    'handCount': hand.length,
+    'opening': false,
+    'hand': hand.map((card) => card.toHeuristicMap()).toList(),
+    'discard': const <Object?>[],
+    'currentTrickCards': lead.cards
+        .map((card) => card.toHeuristicMap())
+        .toList(),
+  };
+  return HeuristicContext.fromInput(input);
+}
+
+_Card _parseCardLabel(String label) {
+  final normalized = label.trim().toUpperCase();
+  final wildReplacement = RegExp(
+    r'^([JQK])\[([2-9]|10|J|Q|K)([RBGYO]?)\]$',
+  ).firstMatch(normalized);
+  if (wildReplacement != null) {
+    final base = const <String, int>{
+      'J': 11,
+      'Q': 12,
+      'K': 13,
+    }[wildReplacement.group(1)]!;
+    final replacementLabel = wildReplacement.group(2)!;
+    final replacement =
+        const <String, int>{'J': 11, 'Q': 12, 'K': 13}[replacementLabel] ??
+        int.parse(replacementLabel);
+    return _Card(
+      replacement,
+      '',
+      baseRank: base,
+      replacementSuit: wildReplacement.group(3)!,
+    );
+  }
+  if (normalized == 'J') return const _Card.wild(11);
+  if (normalized == 'Q') return const _Card.wild(12);
+  if (normalized == 'K') return const _Card.wild(13);
+  final suit = normalized.substring(normalized.length - 1);
+  final rank = int.parse(normalized.substring(0, normalized.length - 1));
+  return _Card(rank, suit);
+}
+
+_Trick _parseTrickDescription(String description) {
+  final separator = description.indexOf('[');
+  final type = description.substring(0, separator);
+  final payload = description.substring(separator + 1, description.length - 1);
+  final cards = payload.isEmpty
+      ? <_Card>[]
+      : payload.split('|').map(_parseCardLabel).toList();
+  return _Trick(type, cards, bomb: type == 'BOMB');
 }
 
 List<_Trick> _generateTricks(List<_Card> hand) {
@@ -691,15 +821,30 @@ class _Card {
   String get identity =>
       isWild ? _rankLabel(baseRank!) : '${_rankLabel(rank)}$suit';
   String get label => isWild && replacementSuit != null
-      ? '${_rankLabel(baseRank!)}[${_rankLabel(rank)}$replacementSuit]'
+      ? '${_rankLabel(baseRank!)}[${_rankLabel(rank)}${rank >= 11 ? '' : replacementSuit}]'
       : identity;
   _Card asRank(int value, String targetSuit) =>
       _Card(value, '', baseRank: baseRank, replacementSuit: targetSuit);
   static int compare(_Card a, _Card b) {
-    final rank = a.rank.compareTo(b.rank);
-    return rank != 0 ? rank : a.suit.compareTo(b.suit);
+    return a.rank.compareTo(b.rank);
   }
+
+  static int compareBySuitAndRank(_Card a, _Card b) {
+    final rank = a.rank.compareTo(b.rank);
+    return rank != 0 ? rank : _suitValue(a.suit).compareTo(_suitValue(b.suit));
+  }
+
+  Map<String, Object?> toHeuristicMap() => <String, Object?>{
+    'rank': rank,
+    'baseRank': baseRank ?? rank,
+    'suit': _suitValue(suit),
+    'effectiveSuit': _suitValue(replacementSuit ?? suit),
+    'label': label,
+  };
 }
+
+int _suitValue(String suit) =>
+    const <String, int>{'R': 1, 'B': 2, 'G': 3, 'Y': 4, 'O': 5}[suit] ?? 0;
 
 String _rankLabel(int rank) =>
     const <int, String>{11: 'J', 12: 'Q', 13: 'K'}[rank] ?? '$rank';
@@ -730,6 +875,12 @@ class _Trick {
 
   String get description =>
       '$type[${cards.map((card) => card.label).join('|')}]';
+  bool beats(_Trick other) {
+    if (bomb) return !other.bomb || compareTo(other) > 0;
+    if (other.bomb || type != other.type) return false;
+    return cards.first.rank > other.cards.first.rank;
+  }
+
   int compareTo(_Trick other) {
     if (bomb != other.bomb) return bomb ? 1 : -1;
     if (bomb) return _bombRank.compareTo(other._bombRank);
@@ -745,6 +896,7 @@ class _Trick {
   }
 
   int get _typeValue {
+    if (type == 'BOMB') return 1000;
     if (type == 'SINGLE') return 10;
     if (type == 'PAIR') return 20;
     if (type == 'TRIPLE') return 30;
@@ -779,6 +931,11 @@ class _Action {
     'bomb': trick?.isBomb ?? false,
     'type': trick?.type ?? 'PASS',
     'class': trick?.trickClass ?? 'else',
+    'typeValue': trick?._typeValue ?? 0,
+    'bombRank': trick?._bombRank ?? 0,
+    'cardData':
+        trick?.cards.map((card) => card.toHeuristicMap()).toList() ??
+        const <Map<String, Object?>>[],
     'wilds': trick?.cards.where((card) => card.isWild).length ?? 0,
     'identities':
         trick?.cards
