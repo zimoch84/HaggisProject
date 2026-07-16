@@ -41,7 +41,8 @@ namespace Haggis.AI.Model
             var aiPlayer = new AIPlayer(clonedBase.Name, clonedBase.Hand, clonedBase.Discard, PlayStrategy)
             {
                 Score = clonedBase.Score,
-                GUID = clonedBase.GUID
+                GUID = clonedBase.GUID,
+                OpponentRemainingCardsOnFinish = clonedBase.OpponentRemainingCardsOnFinish
             };
             return aiPlayer;
         }

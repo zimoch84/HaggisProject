@@ -1,159 +1,297 @@
-﻿using Haggis.Domain.Enums;
+using Haggis.Domain.Enums;
 using Haggis.Domain.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using static Haggis.Domain.Enums.TrickType;
 
-
 namespace Haggis.Domain.Extentions
 {
     public static class CardListExtention
     {
+        private static readonly HashSet<TrickType> SameCardTypes = new HashSet<TrickType> { SINGLE, PAIR, TRIPLE, QUAD, FIVED, SIXED };
+        private static readonly HashSet<TrickType> SequenceTypes = new HashSet<TrickType> { SEQ3, SEQ4, SEQ5, SEQ6, SEQ7 };
+        private static readonly HashSet<TrickType> StairTypes = new HashSet<TrickType>
+        {
+            PAIRSEQ2, PAIRSEQ3, PAIRSEQ4, PAIRSEQ5, PAIRSEQ6, PAIRSEQ7,
+            TRIPLESTAIR2, TRIPLESTAIR3, TRIPLESTAIR4, TRIPLESTAIR5,
+            QUADSTAIR2, QUADSTAIR3, QUADSTAIR4,
+            FIVEDSTAIR2, FIVEDSTAIR3
+        };
+        private static readonly Suit[] AllSuits = Enum.GetValues(typeof(Suit)).Cast<Suit>().ToArray();
+        private static readonly IReadOnlyList<Suit>[] SuitCombinations2 = BuildSuitCombinations(2);
+        private static readonly IReadOnlyList<Suit>[] SuitCombinations3 = BuildSuitCombinations(3);
+        private static readonly IReadOnlyList<Suit>[] SuitCombinations4 = BuildSuitCombinations(4);
+        private static readonly IReadOnlyList<Suit>[] SuitCombinations5 = BuildSuitCombinations(5);
+        private const int MinRankValue = (int)Rank.TWO;
+        private const int MaxRankValue = (int)Rank.KING;
+
         public static List<Trick> FindCardSequences(this List<Card> cards, TrickType sequenceType)
         {
-            var tricks = new List<Trick>();
-            var sequenceLength = (int)((int)sequenceType - 2) / 10;
-            var nonWildCards = cards.Where(card => !card.IsWild).ToList();
-            nonWildCards.Sort();
-            var wildCards = cards.Where(card => card.IsWild).ToList();
-
-            foreach (Suit suit in Enum.GetValues(typeof(Suit)))
-            {
-                var singleSuit = nonWildCards
-                    .Where(card => card.Suit == suit)
-                    .OrderBy(card => card.Rank)
-                    .ToList();
-
-                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - sequenceLength + 1; startRank++)
-                {
-                    var sequence = BuildSequenceWithWilds(
-                        singleSuit,
-                        wildCards,
-                        (Rank)startRank,
-                        sequenceLength,
-                        suit);
-
-                    if (sequence.Count == sequenceLength &&
-                        sequence.Any(card => !card.IsWild) &&
-                        sequence.IsSequence() &&
-                        !IsBomb(sequence))
-                    {
-                        tricks.Add(new Trick(sequenceType, sequence));
-                    }
-                }
-            }
-
-            return tricks;
+            return HandIndex.Build(cards).FindCardSequences(sequenceType);
         }
 
-        private static List<Card> BuildSequenceWithWilds(
-            List<Card> suitedCards,
-            List<Card> wildCards,
-            Rank firstRank,
-            int sequenceLength,
-            Suit suit)
+        public static List<Trick> FindCardSequences(this HandIndex handIndex, TrickType sequenceType)
         {
-            var sequence = new List<Card>();
-            var availableWilds = new Queue<Card>(wildCards.OrderBy(card => card.BaseRank));
-
-            for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
+            if (!SequenceTypes.Contains(sequenceType))
             {
-                var rank = (Rank)rankValue;
-                var matchingCard = suitedCards.FirstOrDefault(card => card.Rank == rank);
-                if (matchingCard != null)
+                return new List<Trick>();
+            }
+
+            var sequenceLength = ((int)sequenceType - 2) / 10;
+            return FindCardSequencesByLength(handIndex, sequenceType, sequenceLength);
+        }
+
+        public static List<Trick> FindAllCardSequences(this HandIndex handIndex)
+        {
+            var tricks = new List<Trick>();
+
+            foreach (var suit in AllSuits)
+            {
+                var suitMask = handIndex.GetNonWildSuitMask(suit);
+                if (suitMask == 0)
                 {
-                    sequence.Add(matchingCard);
                     continue;
                 }
 
-                if (availableWilds.Count == 0)
+                for (var startRank = MinRankValue; startRank <= MaxRankValue - 2; startRank++)
                 {
-                    return new List<Card>();
-                }
-
-                sequence.Add(availableWilds.Dequeue().WildAs(new Card(rank, suit)));
-            }
-
-            return sequence;
-        }
-
-        public static List<Trick> FindTheSameCards(this List<Card> cards, TrickType trickType)
-        {
-            var tricks = new List<Trick>();
-            var sameCardTypes = new List<TrickType>() { SINGLE, PAIR, TRIPLE, QUAD, FIVED, SIXED };
-            if (!sameCardTypes.Contains(trickType))
-                return tricks;
-
-            var numberOfTheSameCards = (int)trickType / 10;
-            var groupedCards = cards.GroupBy(card => card.Rank);
-
-            foreach (var rankArray in groupedCards)
-            {
-                var singleRank = rankArray.ToArray();
-                if (singleRank.Count() >= numberOfTheSameCards)
-                {
-                    var combinations = GetKCombinationsByRankAndSuit(singleRank.ToList(), numberOfTheSameCards);
-                    foreach (var combination in combinations)
+                    ushort windowMask = 0;
+                    for (var endRank = startRank; endRank <= MaxRankValue && endRank - startRank < 7; endRank++)
                     {
-                        tricks.Add(new Trick(trickType, combination.ToList()));
-                    }
-                }
-            }
-            return tricks;
-        }
-
-        public static List<Trick> FindTheSameCardsWithWildCards(this List<Card> cards, TrickType wildTrickType)
-        {
-            List<Trick> wildTricks = new List<Trick>();
-
-            if (wildTrickType == TrickType.SINGLE)
-                return wildTricks;
-
-            var wildCards = cards.Where(c => c.IsWild).ToList();
-            if (wildCards.Count == 0)
-                return wildTricks;
-
-            var requiredCardCount = (int)wildTrickType / 10;
-            var nonWildCards = cards.Where(c => !c.IsWild).ToList();
-            var groupedCards = nonWildCards.GroupBy(card => card.Rank);
-
-            foreach (var rankGroup in groupedCards)
-            {
-                var sameRankCards = rankGroup.ToList();
-                var maxNonWildCards = Math.Min(sameRankCards.Count, requiredCardCount - 1);
-
-                for (var nonWildCardCount = 1; nonWildCardCount <= maxNonWildCards; nonWildCardCount++)
-                {
-                    var requiredWildCards = requiredCardCount - nonWildCardCount;
-                    if (requiredWildCards <= 0 || requiredWildCards > wildCards.Count)
-                        continue;
-
-                    var baseTricks = sameRankCards
-                        .GetKCombinationsByRankAndSuit(nonWildCardCount)
-                        .Select(combination => combination.ToList());
-                    var wildCombinations = wildCards.GetKCombinationsByRank(requiredWildCards);
-
-                    foreach (var baseTrick in baseTricks)
-                    {
-                        foreach (var wildCombination in wildCombinations)
+                        windowMask |= GetRankBit((Rank)endRank);
+                        var sequenceLength = endRank - startRank + 1;
+                        if (sequenceLength < 3)
                         {
-                            var wildcardReplacements = wildCombination
-                                .Select(wild => wild.WildAs(baseTrick.Last()))
-                                .ToList();
-                            var trickCards = new List<Card>(baseTrick);
-                            trickCards.AddRange(wildcardReplacements);
+                            continue;
+                        }
 
-                            wildTricks.Add(new Trick(wildTrickType, trickCards));
+                        var presentCount = CountBits(suitMask & windowMask);
+                        if (sequenceLength - presentCount > handIndex.WildCardCount)
+                        {
+                            break;
+                        }
+
+                        if (presentCount == 0)
+                        {
+                            continue;
+                        }
+
+                        if (!TryBuildSequenceWithWilds(
+                            handIndex,
+                            suit,
+                            (Rank)startRank,
+                            sequenceLength,
+                            out var sequence))
+                        {
+                            break;
+                        }
+
+                        if (sequence.IsSequence() &&
+                            !IsBomb(sequence))
+                        {
+                            var trickType = (TrickType)(sequenceLength * 10 + 2);
+                            tricks.Add(Trick.FromGeneratedCards(trickType, sequence));
                         }
                     }
                 }
             }
 
-            return wildTricks
-                .GroupBy(trick => trick.ToString())
-                .Select(group => group.First())
-                .ToList();
+            return tricks;
+        }
+
+        private static List<Trick> FindCardSequencesByLength(HandIndex handIndex, TrickType trickType, int sequenceLength)
+        {
+            var tricks = new List<Trick>();
+
+            foreach (var suit in AllSuits)
+            {
+                var suitMask = handIndex.GetNonWildSuitMask(suit);
+                if (suitMask == 0)
+                {
+                    continue;
+                }
+
+                var windowMask = CreateRankWindowMask(Rank.TWO, sequenceLength);
+                for (var startRank = MinRankValue; startRank <= MaxRankValue - sequenceLength + 1; startRank++)
+                {
+                    var presentCount = CountBits(suitMask & windowMask);
+                    if (sequenceLength - presentCount <= handIndex.WildCardCount &&
+                        presentCount > 0 &&
+                        TryBuildSequenceWithWilds(
+                        handIndex,
+                        suit,
+                        (Rank)startRank,
+                        sequenceLength,
+                        out var sequence) &&
+                        sequence.IsSequence() &&
+                        !IsBomb(sequence))
+                    {
+                        tricks.Add(Trick.FromGeneratedCards(trickType, sequence));
+                    }
+
+                    windowMask = (ushort)(windowMask << 1);
+                }
+            }
+
+            return tricks;
+        }
+
+        private static bool TryBuildSequenceWithWilds(
+            HandIndex handIndex,
+            Suit suit,
+            Rank firstRank,
+            int sequenceLength,
+            out List<Card> sequence)
+        {
+            sequence = null;
+
+            var nonWildCount = handIndex.GetNonWildCountInRange(suit, firstRank, sequenceLength);
+            var missingCards = sequenceLength - nonWildCount;
+
+            if (missingCards > handIndex.WildCards.Count)
+            {
+                return false;
+            }
+
+            sequence = new List<Card>(sequenceLength);
+            var wildIndex = 0;
+
+            for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
+            {
+                var rank = (Rank)rankValue;
+                if (handIndex.TryGetNonWildCard(suit, rank, out var matchingCard))
+                {
+                    sequence.Add(matchingCard);
+                    continue;
+                }
+
+                sequence.Add(handIndex.WildCards[wildIndex++].WildAs(new Card(rank, suit)));
+            }
+
+            return true;
+        }
+
+        public static List<Trick> FindTheSameCards(this List<Card> cards, TrickType trickType)
+        {
+            return HandIndex.Build(cards).FindTheSameCards(trickType);
+        }
+
+        public static List<Trick> FindTheSameCards(this HandIndex handIndex, TrickType trickType)
+        {
+            var tricks = new List<Trick>();
+            if (!SameCardTypes.Contains(trickType))
+            {
+                return tricks;
+            }
+
+            var numberOfTheSameCards = (int)trickType / 10;
+
+            if (numberOfTheSameCards == 1)
+            {
+                for (var rankValue = MinRankValue; rankValue <= MaxRankValue; rankValue++)
+                {
+                    var rank = (Rank)rankValue;
+                    if (handIndex.GetAllCount(rank) == 0)
+                    {
+                        continue;
+                    }
+
+                    foreach (var card in handIndex.GetAllCardsByRank(rank))
+                    {
+                        tricks.Add(Trick.FromGeneratedCards(trickType, new List<Card>(1) { card }));
+                    }
+                }
+
+                return tricks;
+            }
+
+            for (var rankValue = MinRankValue; rankValue <= MaxRankValue; rankValue++)
+            {
+                var rank = (Rank)rankValue;
+                if (handIndex.GetNonWildCount(rank) < numberOfTheSameCards)
+                {
+                    continue;
+                }
+
+                foreach (var combination in handIndex.GetSameRankCombinations(rank, numberOfTheSameCards))
+                {
+                    tricks.Add(Trick.FromGeneratedCards(trickType, new List<Card>(combination)));
+                }
+            }
+
+            return tricks;
+        }
+
+        public static List<Trick> FindTheSameCardsWithWildCards(this List<Card> cards, TrickType wildTrickType)
+        {
+            return HandIndex.Build(cards).FindTheSameCardsWithWildCards(wildTrickType);
+        }
+
+        public static List<Trick> FindTheSameCardsWithWildCards(this HandIndex handIndex, TrickType wildTrickType)
+        {
+            var wildTricks = new List<Trick>();
+            var seenTricks = new HashSet<int>();
+
+            if (wildTrickType == TrickType.SINGLE)
+            {
+                return wildTricks;
+            }
+
+            var wildCards = handIndex.WildCards;
+            if (handIndex.WildCardCount == 0)
+            {
+                return wildTricks;
+            }
+
+            var requiredCardCount = (int)wildTrickType / 10;
+
+            for (var rankValue = MinRankValue; rankValue <= MaxRankValue; rankValue++)
+            {
+                var rank = (Rank)rankValue;
+                var sameRankCards = handIndex.GetNonWildCardsByRank(rank);
+                var maxNonWildCards = Math.Min(sameRankCards.Count, requiredCardCount - 1);
+                if (maxNonWildCards <= 0)
+                {
+                    continue;
+                }
+
+                for (var nonWildCardCount = 1; nonWildCardCount <= maxNonWildCards; nonWildCardCount++)
+                {
+                    var requiredWildCards = requiredCardCount - nonWildCardCount;
+                    if (requiredWildCards <= 0 || requiredWildCards > handIndex.WildCardCount)
+                    {
+                        continue;
+                    }
+
+                    foreach (var baseCombination in handIndex.GetSameRankCombinations(rank, nonWildCardCount))
+                    {
+                        foreach (var wildCombination in GetKCombinationsByRank(wildCards, requiredWildCards))
+                        {
+                            Card lastBaseCard = null;
+                            var trickCards = new List<Card>(requiredCardCount);
+
+                            foreach (var baseCard in baseCombination)
+                            {
+                                trickCards.Add(baseCard);
+                                lastBaseCard = baseCard;
+                            }
+
+                            foreach (var wild in wildCombination)
+                            {
+                                trickCards.Add(wild.WildAs(lastBaseCard));
+                            }
+
+                            if (seenTricks.Add(BuildTrickKey(wildTrickType, trickCards)))
+                            {
+                                wildTricks.Add(Trick.FromGeneratedCards(wildTrickType, trickCards));
+                            }
+                        }
+                    }
+                }
+            }
+
+            return wildTricks;
         }
 
         public static bool IsSequence(this List<Card> sequence)
@@ -165,57 +303,117 @@ namespace Haggis.Domain.Extentions
                     return false;
                 }
             }
+
             return true;
         }
 
         public static bool IsBomb(this List<Card> sequence)
         {
-
             return IsWildedBomb(sequence) || IsNotWildedBomb(sequence);
         }
 
         public static bool IsNotWildedBomb(this List<Card> sequence)
         {
-            if (sequence.Count() < 4)
-                return false;
-
-            if (sequence.Exists(card => card.Rank == Rank.THREE) &&
-                sequence.Exists(card => card.Rank == Rank.FIVE) &&
-                sequence.Exists(card => card.Rank == Rank.SEVEN) &&
-                sequence.Exists(card => card.Rank == Rank.NINE) &&
-                (
-                 sequence.GroupBy(card => card.Suit).Count() == 4 || sequence.GroupBy(card => card.Suit).Count() == 1
-                )
-                )
-
+            if (sequence.Count < 4)
             {
-                return true;
+                return false;
             }
-            return false;
+
+            var hasThree = false;
+            var hasFive = false;
+            var hasSeven = false;
+            var hasNine = false;
+            var firstSuit = sequence[0].Suit;
+            var sameSuitCount = 0;
+            var suitMask = 0;
+
+            foreach (var card in sequence)
+            {
+                switch (card.Rank)
+                {
+                    case Rank.THREE:
+                        hasThree = true;
+                        break;
+                    case Rank.FIVE:
+                        hasFive = true;
+                        break;
+                    case Rank.SEVEN:
+                        hasSeven = true;
+                        break;
+                    case Rank.NINE:
+                        hasNine = true;
+                        break;
+                }
+
+                if (card.Suit == firstSuit)
+                {
+                    sameSuitCount++;
+                }
+
+                suitMask |= 1 << (int)card.Suit;
+            }
+
+            var distinctSuitCount = CountBits(suitMask);
+            return hasThree &&
+                   hasFive &&
+                   hasSeven &&
+                   hasNine &&
+                   (sameSuitCount == sequence.Count || distinctSuitCount == 4);
         }
 
         public static bool IsWildedBomb(this List<Card> sequence)
         {
-
-            if (sequence.Count() > 3 || sequence.Count < 2)
+            if (sequence.Count > 3 || sequence.Count < 2)
+            {
                 return false;
-            return sequence.All(card => card.IsWild);
-        }
+            }
 
-        public static IEnumerable<IEnumerable<Card>> GetKCombinationsByRankAndSuit(this List<Card> list, int length)
-        {
-            if (length == 1) return list.Select(t => new Card[] { t });
-            return GetKCombinationsByRankAndSuit(list, length - 1)
-                .SelectMany(t => list.Where(o => o.CompareBySuitAndRank(t.Last()) > 0),
-                    (t1, t2) => t1.Concat(new Card[] { t2 }));
+            return sequence.All(card => card.IsWild);
         }
 
         public static IEnumerable<IEnumerable<Card>> GetKCombinationsByRank(this List<Card> list, int length)
         {
-            if (length == 1) return list.Select(t => new Card[] { t });
-            return GetKCombinationsByRankAndSuit(list, length - 1)
-                .SelectMany(t => list.Where(o => o.CompareBySuitAndRank(t.Last()) > 0),
-                    (t1, t2) => t1.Concat(new Card[] { t2 }));
+            return GetKCombinationsCore(list, length);
+        }
+
+        private static IEnumerable<IEnumerable<Card>> GetKCombinationsCore(List<Card> list, int length)
+        {
+            if (list == null || length < 1 || list.Count < length)
+            {
+                yield break;
+            }
+
+            var buffer = new Card[length];
+            foreach (var combination in GetKCombinationsCore(list, length, 0, buffer))
+            {
+                yield return combination;
+            }
+        }
+
+        private static IEnumerable<IEnumerable<Card>> GetKCombinationsCore(List<Card> list, int length, int depth, Card[] buffer)
+        {
+            if (depth == length)
+            {
+                var result = new Card[length];
+                Array.Copy(buffer, result, length);
+                yield return result;
+                yield break;
+            }
+
+            for (var index = 0; index < list.Count; index++)
+            {
+                var candidate = list[index];
+                if (depth > 0 && candidate.CompareBySuitAndRank(buffer[depth - 1]) <= 0)
+                {
+                    continue;
+                }
+
+                buffer[depth] = candidate;
+                foreach (var result in GetKCombinationsCore(list, length, depth + 1, buffer))
+                {
+                    yield return result;
+                }
+            }
         }
 
         public static void Shuffle(this List<Card> deck)
@@ -232,118 +430,418 @@ namespace Haggis.Domain.Extentions
 
         public static List<Trick> FindAllPossibleBombs(this List<Card> hand)
         {
-            List<Trick> bombs = new List<Trick>();
-            var filteredCards = hand.Where(card => card.Rank == Rank.THREE || card.Rank == Rank.FIVE ||
-                                    card.Rank == Rank.SEVEN || card.Rank == Rank.NINE).ToList();
-            var combinations = filteredCards.GetKCombinationsByRank(4);
-            foreach (var combination in combinations)
-            {
-                if (combination.ToList().IsBomb())
-                    bombs.Add(new Trick(TrickType.BOMB, combination.ToList()));
-            }
-            var wildedCards = hand.Where(card => card.IsWild).ToList();
-            var wildedCombination = wildedCards.GetKCombinationsByRank(2);
-            foreach (var combination in wildedCombination)
-            {
-                if (combination.ToList().IsBomb())
-                    bombs.Add(new Trick(TrickType.BOMB, combination.ToList()));
-            }
-
-            wildedCombination = wildedCards.GetKCombinationsByRank(3);
-            foreach (var combination in wildedCombination)
-            {
-                if (combination.ToList().IsBomb())
-                    bombs.Add(new Trick(TrickType.BOMB, combination.ToList()));
-            }
-            return bombs;
+            return HandIndex.Build(hand).FindAllPossibleBombs();
         }
 
-        public static bool Contains(this List<Card> cards, string card)
+        public static List<Trick> FindAllPossibleBombs(this HandIndex handIndex)
         {
+            var bombs = new List<Trick>();
 
-            return cards.Contains(card.ToCard());
-        }
+            var threes = handIndex.GetNonWildCardsByRank(Rank.THREE);
+            var fives = handIndex.GetNonWildCardsByRank(Rank.FIVE);
+            var sevens = handIndex.GetNonWildCardsByRank(Rank.SEVEN);
+            var nines = handIndex.GetNonWildCardsByRank(Rank.NINE);
 
-        public static List<Trick> FindPairedSequences(this List<Card> cards, TrickType sequenceType)
-        {
-            if (sequenceType.Class() != TrickClass.SEQUENCE_OF_PAIRS)
-                return null;
-
-            var pairSequenceLength = ((int)sequenceType - 4) / 20;
-            var tricks = new List<Trick>();
-            var suits = Enum.GetValues(typeof(Suit)).Cast<Suit>().ToList();
-
-            for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - pairSequenceLength + 1; startRank++)
+            foreach (var three in threes)
             {
-                for (var firstSuitIndex = 0; firstSuitIndex < suits.Count; firstSuitIndex++)
+                foreach (var five in fives)
                 {
-                    for (var secondSuitIndex = firstSuitIndex + 1; secondSuitIndex < suits.Count; secondSuitIndex++)
+                    foreach (var seven in sevens)
                     {
-                        var availableWilds = new Queue<Card>(
-                            cards.Where(card => card.IsWild).OrderBy(card => card.BaseRank));
-                        var firstSequence = BuildSuitedSequenceWithSharedWilds(
-                            cards,
-                            availableWilds,
-                            (Rank)startRank,
-                            pairSequenceLength,
-                            suits[firstSuitIndex]);
-                        if (firstSequence.Count != pairSequenceLength)
-                            continue;
-
-                        var secondSequence = BuildSuitedSequenceWithSharedWilds(
-                            cards,
-                            availableWilds,
-                            (Rank)startRank,
-                            pairSequenceLength,
-                            suits[secondSuitIndex]);
-                        if (secondSequence.Count != pairSequenceLength)
-                            continue;
-
-                        var pairedSequenceCards = new List<Card>();
-                        pairedSequenceCards.AddRange(firstSequence);
-                        pairedSequenceCards.AddRange(secondSequence);
-                        if (pairedSequenceCards.Any(card => !card.IsWild))
+                        foreach (var nine in nines)
                         {
-                            tricks.Add(new Trick(sequenceType, pairedSequenceCards));
+                            var cards = new List<Card> { three, five, seven, nine };
+                            if (cards.IsBomb())
+                            {
+                                bombs.Add(Trick.FromGeneratedCards(TrickType.BOMB, cards));
+                            }
                         }
                     }
                 }
             }
 
-            return tricks
-                .GroupBy(trick => trick.ToString())
-                .Select(group => group.First())
-                .ToList();
+            var wildCards = handIndex.WildCards;
+            for (var first = 0; first < wildCards.Count - 1; first++)
+            {
+                for (var second = first + 1; second < wildCards.Count; second++)
+                {
+                    bombs.Add(Trick.FromGeneratedCards(TrickType.BOMB, new List<Card> { wildCards[first], wildCards[second] }));
+                }
+            }
+
+            for (var first = 0; first < wildCards.Count - 2; first++)
+            {
+                for (var second = first + 1; second < wildCards.Count - 1; second++)
+                {
+                    for (var third = second + 1; third < wildCards.Count; third++)
+                    {
+                        bombs.Add(Trick.FromGeneratedCards(TrickType.BOMB, new List<Card> { wildCards[first], wildCards[second], wildCards[third] }));
+                    }
+                }
+            }
+
+            return bombs;
         }
 
-        private static List<Card> BuildSuitedSequenceWithSharedWilds(
-            List<Card> cards,
-            Queue<Card> availableWilds,
-            Rank firstRank,
-            int sequenceLength,
-            Suit suit)
+        public static bool Contains(this List<Card> cards, string card)
         {
-            var sequence = new List<Card>();
+            return cards.Contains(card.ToCard());
+        }
 
-            for (var rankValue = (int)firstRank; rankValue < (int)firstRank + sequenceLength; rankValue++)
+        public static List<Trick> FindStairs(this List<Card> cards, TrickType stairType)
+        {
+            return HandIndex.Build(cards).FindStairs(stairType);
+        }
+
+        public static List<Trick> FindPairedSequences(this List<Card> cards, TrickType sequenceType)
+        {
+            return HandIndex.Build(cards).FindStairs(sequenceType);
+        }
+
+        public static List<Trick> FindStairs(this HandIndex handIndex, TrickType stairType)
+        {
+            if (!StairTypes.Contains(stairType))
             {
-                var rank = (Rank)rankValue;
-                var matchingCard = cards.FirstOrDefault(card =>
-                    !card.IsWild && card.Suit == suit && card.Rank == rank);
-                if (matchingCard != null)
+                return new List<Trick>();
+            }
+
+            return FindStairsByType(handIndex, stairType, stairType.StairGroupSize(), stairType.StairLength());
+        }
+
+        public static List<Trick> FindAllStairs(this HandIndex handIndex)
+        {
+            var tricks = new List<Trick>();
+            var seenTricks = new HashSet<int>();
+
+            for (var groupSize = 2; groupSize <= 5; groupSize++)
+            {
+                var maxLength = GetMaxStairLength(groupSize);
+                if (maxLength < 2)
                 {
-                    sequence.Add(matchingCard);
                     continue;
                 }
 
-                if (availableWilds.Count == 0)
-                    return new List<Card>();
+                for (var startRank = (int)Rank.TWO; startRank <= (int)Rank.KING - 1; startRank++)
+                {
+                    var upperLength = Math.Min(maxLength, (int)Rank.KING - startRank + 1);
+                    ushort windowMask = 0;
+                    for (var endRank = startRank; endRank <= MaxRankValue && endRank - startRank < upperLength; endRank++)
+                    {
+                        windowMask |= GetRankBit((Rank)endRank);
+                        var stairLength = endRank - startRank + 1;
+                        if (stairLength < 2)
+                        {
+                            continue;
+                        }
 
-                var wildCard = availableWilds.Dequeue();
-                sequence.Add(wildCard.WildAs(new Card(rank, suit)));
+                        if (!TryGetStairType(groupSize, stairLength, out var stairType))
+                        {
+                            continue;
+                        }
+
+                        var buildSucceededAtCurrentLength = false;
+                        foreach (var selectedSuits in GetSuitCombinations(groupSize))
+                        {
+                            var succeeded = TryBuildStairCards(
+                                handIndex,
+                                selectedSuits,
+                                (Rank)startRank,
+                                stairLength,
+                                windowMask,
+                                out var stairCards,
+                                out var hasNonWildCard);
+
+                            if (succeeded)
+                            {
+                                buildSucceededAtCurrentLength = true;
+                            }
+
+                            if (!succeeded || !hasNonWildCard)
+                            {
+                                continue;
+                            }
+
+                            if (seenTricks.Add(BuildTrickKey(stairType, stairCards)))
+                            {
+                                tricks.Add(Trick.FromGeneratedCards(stairType, stairCards));
+                            }
+                        }
+
+                        if (!buildSucceededAtCurrentLength)
+                        {
+                            break;
+                        }
+                    }
+                }
             }
 
-            return sequence;
+            return tricks;
+        }
+
+        public static List<Trick> FindPairedSequences(this HandIndex handIndex, TrickType sequenceType)
+        {
+            return FindStairs(handIndex, sequenceType);
+        }
+
+        private static List<Trick> FindStairsByType(HandIndex handIndex, TrickType stairType, int groupSize, int stairLength)
+        {
+            var tricks = new List<Trick>();
+            var seenTricks = new HashSet<int>();
+
+            for (var startRank = MinRankValue; startRank <= MaxRankValue - stairLength + 1; startRank++)
+            {
+                var windowMask = CreateRankWindowMask((Rank)startRank, stairLength);
+                foreach (var selectedSuits in GetSuitCombinations(groupSize))
+                {
+                    if (!TryBuildStairCards(
+                        handIndex,
+                        selectedSuits,
+                        (Rank)startRank,
+                        stairLength,
+                        windowMask,
+                        out var stairCards,
+                        out var hasNonWildCard) ||
+                        !hasNonWildCard)
+                    {
+                        continue;
+                    }
+
+                    if (seenTricks.Add(BuildTrickKey(stairType, stairCards)))
+                    {
+                        tricks.Add(Trick.FromGeneratedCards(stairType, stairCards));
+                    }
+                }
+            }
+
+            return tricks;
+        }
+
+        private static bool TryBuildStairCards(
+            HandIndex handIndex,
+            IReadOnlyList<Suit> selectedSuits,
+            Rank firstRank,
+            int stairLength,
+            ushort windowMask,
+            out List<Card> stairCards,
+            out bool hasNonWildCard)
+        {
+            stairCards = null;
+            hasNonWildCard = false;
+
+            if (!TryPrepareStair(handIndex, selectedSuits, stairLength, windowMask, out hasNonWildCard))
+            {
+                return false;
+            }
+
+            var groupSize = selectedSuits.Count;
+            var stairCardsBuffer = new Card[groupSize * stairLength];
+            var wildIndex = 0;
+
+            for (var suitIndex = 0; suitIndex < groupSize; suitIndex++)
+            {
+                var suit = selectedSuits[suitIndex];
+                for (var rankOffset = 0; rankOffset < stairLength; rankOffset++)
+                {
+                    var rank = (Rank)((int)firstRank + rankOffset);
+                    var targetIndex = rankOffset * groupSize + suitIndex;
+                    if (handIndex.TryGetNonWildCard(suit, rank, out var matchingCard))
+                    {
+                        stairCardsBuffer[targetIndex] = matchingCard;
+                        continue;
+                    }
+
+                    stairCardsBuffer[targetIndex] = handIndex.WildCards[wildIndex++].WildAs(new Card(rank, suit));
+                }
+            }
+
+            stairCards = new List<Card>(stairCardsBuffer);
+            return true;
+        }
+
+        private static bool TryPrepareStair(
+            HandIndex handIndex,
+            IReadOnlyList<Suit> selectedSuits,
+            int stairLength,
+            ushort windowMask,
+            out bool hasNonWildCard)
+        {
+            var totalPresentCards = 0;
+            for (var suitIndex = 0; suitIndex < selectedSuits.Count; suitIndex++)
+            {
+                totalPresentCards += CountBits(handIndex.GetNonWildSuitMask(selectedSuits[suitIndex]) & windowMask);
+            }
+
+            hasNonWildCard = totalPresentCards > 0;
+            var totalMissingCards = selectedSuits.Count * stairLength - totalPresentCards;
+            return hasNonWildCard && totalMissingCards <= handIndex.WildCardCount;
+        }
+
+        private static IReadOnlyList<Suit>[] GetSuitCombinations(int length)
+        {
+            switch (length)
+            {
+                case 2:
+                    return SuitCombinations2;
+                case 3:
+                    return SuitCombinations3;
+                case 4:
+                    return SuitCombinations4;
+                case 5:
+                    return SuitCombinations5;
+                default:
+                    return Array.Empty<IReadOnlyList<Suit>>();
+            }
+        }
+
+        private static IReadOnlyList<Suit>[] BuildSuitCombinations(int length)
+        {
+            var combinations = new List<IReadOnlyList<Suit>>();
+            var combination = new Suit[length];
+            BuildSuitCombinations(0, 0, length, combination, combinations);
+            return combinations.ToArray();
+        }
+
+        private static void BuildSuitCombinations(int startIndex, int depth, int length, Suit[] combination, List<IReadOnlyList<Suit>> results)
+        {
+            if (depth == length)
+            {
+                var result = new Suit[length];
+                Array.Copy(combination, result, length);
+                results.Add(result);
+                return;
+            }
+
+            for (var index = startIndex; index <= AllSuits.Length - (length - depth); index++)
+            {
+                combination[depth] = AllSuits[index];
+                BuildSuitCombinations(index + 1, depth + 1, length, combination, results);
+            }
+        }
+
+        private static int GetMaxStairLength(int groupSize)
+        {
+            switch (groupSize)
+            {
+                case 2:
+                    return 7;
+                case 3:
+                    return 5;
+                case 4:
+                    return 4;
+                case 5:
+                    return 3;
+                default:
+                    return 0;
+            }
+        }
+
+        private static bool TryGetStairType(int groupSize, int stairLength, out TrickType stairType)
+        {
+            stairType = default;
+
+            switch (groupSize)
+            {
+                case 2:
+                    switch (stairLength)
+                    {
+                        case 2: stairType = PAIRSEQ2; return true;
+                        case 3: stairType = PAIRSEQ3; return true;
+                        case 4: stairType = PAIRSEQ4; return true;
+                        case 5: stairType = PAIRSEQ5; return true;
+                        case 6: stairType = PAIRSEQ6; return true;
+                        case 7: stairType = PAIRSEQ7; return true;
+                    }
+                    break;
+                case 3:
+                    switch (stairLength)
+                    {
+                        case 2: stairType = TRIPLESTAIR2; return true;
+                        case 3: stairType = TRIPLESTAIR3; return true;
+                        case 4: stairType = TRIPLESTAIR4; return true;
+                        case 5: stairType = TRIPLESTAIR5; return true;
+                    }
+                    break;
+                case 4:
+                    switch (stairLength)
+                    {
+                        case 2: stairType = QUADSTAIR2; return true;
+                        case 3: stairType = QUADSTAIR3; return true;
+                        case 4: stairType = QUADSTAIR4; return true;
+                    }
+                    break;
+                case 5:
+                    switch (stairLength)
+                    {
+                        case 2: stairType = FIVEDSTAIR2; return true;
+                        case 3: stairType = FIVEDSTAIR3; return true;
+                    }
+                    break;
+            }
+
+            return false;
+        }
+
+        private static int BuildTrickKey(TrickType trickType, List<Card> cards)
+        {
+            unchecked
+            {
+                var sum = 0;
+                var xor = 0;
+                var sumSquares = 0;
+
+                foreach (var card in cards)
+                {
+                    var cardKey = BuildCardKey(card);
+                    sum += cardKey;
+                    xor ^= cardKey;
+                    sumSquares += cardKey * cardKey;
+                }
+
+                var hash = 17;
+                hash = hash * 31 + trickType.GetHashCode();
+                hash = hash * 31 + cards.Count;
+                hash = hash * 31 + sum;
+                hash = hash * 31 + xor;
+                hash = hash * 31 + sumSquares;
+                return hash;
+            }
+        }
+
+        private static int BuildCardKey(Card card)
+        {
+            unchecked
+            {
+                var hash = card.GetHashCode();
+                if (card.IsWild)
+                {
+                    hash = hash * 31 + card.Rank.GetHashCode();
+                }
+
+                return hash;
+            }
+        }
+
+        private static int CountBits(int value)
+        {
+            var count = 0;
+            while (value != 0)
+            {
+                count += value & 1;
+                value >>= 1;
+            }
+
+            return count;
+        }
+
+        private static ushort CreateRankWindowMask(Rank firstRank, int length)
+        {
+            var startBit = (int)firstRank - MinRankValue;
+            return (ushort)(((1 << length) - 1) << startBit);
+        }
+
+        private static ushort GetRankBit(Rank rank)
+        {
+            return (ushort)(1 << ((int)rank - MinRankValue));
         }
     }
 }

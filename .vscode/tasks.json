@@ -32,6 +32,36 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "build HaggisTests",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/haggis-platform/backend/tests/Game.Engine.Tests/HaggisTests.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build Haggis.AiBenchmark",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/Haggis.AiBenchmark.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build Haggis.MctsRunAnalyzer",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/haggis-platform/backend/tools/Haggis.MctsRunAnalyzer/Haggis.MctsRunAnalyzer.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "start Android Emulator 1",
       "type": "process",
       "command": "powershell",

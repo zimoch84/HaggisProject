@@ -6,6 +6,7 @@ using MonteCarlo;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -15,9 +16,13 @@ namespace Haggis.AI.Strategies
     {
         private int Simulations { get; }
         private long TimeBudget { get; }
+        private int Workers { get; }
         private IMonteCarloActionSelectionStrategy ActionSelectionStrategy { get; }
 
         public event Action<MonteCarloResult> OnComputed;
+        public event Action<MctsTraceEvent> OnTrace;
+        public string TraceContext { get; set; }
+        public bool CaptureTiming { get; set; }
 
         private static JsonSerializerSettings JsonSettings = new JsonSerializerSettings
         {
@@ -27,26 +32,52 @@ namespace Haggis.AI.Strategies
         public MonteCarloStrategy(
             int simulations,
             long timeBudget,
+            int? workers = null,
             IMonteCarloActionSelectionStrategy actionSelectionStrategy = null)
         {
             Simulations = simulations;
             TimeBudget = timeBudget;
+            Workers = workers ?? Math.Max(1, Environment.ProcessorCount - 1);
             ActionSelectionStrategy = actionSelectionStrategy;
         }
 
         public HaggisAction GetPlayingAction(RoundState gameState)
         {
-            var top = GetTopActions(gameState, Simulations, TimeBudget, ActionSelectionStrategy).ToList();
+            var legalActionsCount = gameState.PossibleActions.Count;
+            var timer = Stopwatch.StartNew();
+            var searchResult = Search(
+                gameState,
+                Simulations,
+                TimeBudget,
+                Workers,
+                unchecked((int)gameState.MoveIteration),
+                TraceContext,
+                OnTrace,
+                ActionSelectionStrategy,
+                CaptureTiming);
+            timer.Stop();
+            var actions = searchResult.TopActions.Select(a => new MonteCarloActionInfo
+            {
+                Action = a.Action,
+                NumRuns = a.NumRuns,
+                NumWins = a.NumWins
+            }).ToList();
 
             var result = new MonteCarloResult
             {
                 Player = gameState.CurrentPlayer,
-                Actions = top.Select(a => new MonteCarloActionInfo
-                {
-                    Action = a.Action,
-                    NumRuns = a.NumRuns,
-                    NumWins = a.NumWins
-                }).ToList()
+                Actions = actions,
+                Iterations = actions.Sum(action => action.NumRuns),
+                BudgetMs = TimeBudget,
+                ElapsedMs = timer.ElapsedMilliseconds,
+                LegalActionsCount = legalActionsCount,
+                RootChildrenCount = actions.Count,
+                Workers = searchResult.Workers,
+                ScheduledRollouts = searchResult.ScheduledRollouts,
+                CompletedRollouts = searchResult.CompletedRollouts,
+                TreeNodeCount = searchResult.TreeNodeCount,
+                TreeMaxDepth = searchResult.TreeMaxDepth,
+                Timing = searchResult.Timing
             };
 
             OnComputed?.Invoke(result);
@@ -65,9 +96,9 @@ namespace Haggis.AI.Strategies
             long timeBudget,
             IMonteCarloActionSelectionStrategy actionSelectionStrategy)
         {
-            var gameStateClone = gameState.Clone();
-            var monteCarloState = new MonteCarloHaggisState(gameStateClone, actionSelectionStrategy);
-            return MonteCarloTreeSearch.GetTopActions(monteCarloState, maxIteration, timeBudget).ToList();
+            return Search(gameState, maxIteration, timeBudget, 1, unchecked((int)gameState.MoveIteration), null, null, actionSelectionStrategy, false)
+                .TopActions
+                .ToList();
         }
 
         public static IEnumerable<IMctsNode<MonteCarloHaggisAction>> GetTopActions(RoundState gameState, int maxIteration)
@@ -75,6 +106,34 @@ namespace Haggis.AI.Strategies
             var gameStateClone = gameState.Clone();
             var monteCarloState = new MonteCarloHaggisState(gameStateClone);
             return MonteCarloTreeSearch.GetTopActions(monteCarloState, maxIteration).ToList();
+        }
+
+        private static MctsSearchResult<MonteCarloHaggisAction> Search(
+            RoundState gameState,
+            int maxIteration,
+            long timeBudget,
+            int workers,
+            int seed,
+            string traceContext,
+            Action<MctsTraceEvent> trace,
+            IMonteCarloActionSelectionStrategy actionSelectionStrategy,
+            bool captureTiming)
+        {
+            var gameStateClone = gameState.Clone();
+            var timing = captureTiming ? new MctsTimingCollector() : null;
+            var monteCarloState = new MonteCarloHaggisState(gameStateClone, actionSelectionStrategy, timing);
+            return MonteCarloTreeSearch.Search<MonteCarloHaggisPlayer, MonteCarloHaggisAction>(
+                monteCarloState,
+                new MctsOptions
+                {
+                    MaxIterations = maxIteration,
+                    TimeBudgetMs = timeBudget,
+                    Workers = workers,
+                    Seed = seed,
+                    TraceContext = traceContext,
+                    Trace = trace,
+                    Timing = timing
+                });
         }
     }
 }

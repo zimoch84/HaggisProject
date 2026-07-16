@@ -17,6 +17,133 @@
       }
     },
     {
+      "name": "Haggis Game Engine Tests (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build HaggisTests",
+      "program": "dotnet",
+      "args": [
+        "test",
+        "${workspaceFolder}/haggis-platform/backend/tests/Game.Engine.Tests/HaggisTests.csproj",
+        "--no-build"
+      ],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Haggis AI Benchmark - normal vs normal",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.AiBenchmark",
+      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
+      "args": [
+        "--games=100",
+        "--players=3",
+        "--seed-start=1",
+        "--game-over-score=250",
+        "--ai1=normal",
+        "--ai2=normal",
+        "--ai3=normal",
+        "--rotate=true",
+        "--max-moves=10000",
+        "--log=outcomes.txt",
+        "--csv=results.csv"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/backend",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Haggis AI Benchmark - normal vs random+normal",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.AiBenchmark",
+      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
+      "args": [
+        "--games=100",
+        "--players=3",
+        "--seed-start=1",
+        "--game-over-score=250",
+        "--ai1=normal",
+        "--ai2=random",
+        "--ai3=normal",
+        "--rotate=true",
+        "--max-moves=10000",
+        "--log=outcomes.txt",
+        "--csv=results.csv"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/backend",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Haggis AI Benchmark - normal vs heuristic-continuations+normal",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.AiBenchmark",
+      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
+      "args": [
+        "--games=100",
+        "--players=3",
+        "--seed-start=1",
+        "--game-over-score=250",
+        "--ai1=normal",
+        "--ai2=heuristic-continuations",
+        "--ai3=normal",
+        "--rotate=true",
+        "--max-moves=10000",
+        "--log=outcomes.txt",
+        "--csv=results.csv"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/backend",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Haggis AI Benchmark - normal vs montecarlo vs random",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.AiBenchmark",
+      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.AiBenchmark/bin/Debug/net8.0/Haggis.AiBenchmark.dll",
+      "args": [
+        "--games=4",
+        "--players=3",
+        "--seed-start=1",
+        "--game-over-score=250",
+        "--ai1=normal",
+        "--ai2=montecarlo:200:200:4",
+        "--ai3=random",
+        "--rotate=true",
+        "--max-moves=10000",
+        "--log=outcomes.txt",
+        "--csv=results.csv"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/backend",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Haggis MCTS Run Analyzer",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Haggis.MctsRunAnalyzer",
+      "program": "${workspaceFolder}/haggis-platform/backend/tools/Haggis.MctsRunAnalyzer/bin/Debug/net8.0/Haggis.MctsRunAnalyzer.dll",
+      "args": [
+        "--seed=1",
+        "--ai1=montecarlo",
+        "--ai2=normal",
+        "--ai3=random",
+        "--iterations=5",
+        "--timebudget=100",
+        "--workers=1",
+        "--output=logs/mcts-run.txt"
+      ],
+      "cwd": "${workspaceFolder}/haggis-platform/backend",
+      "stopAtEntry": false,
+      "console": "integratedTerminal"
+    },
+    {
       "name": "Flutter Android 1",
       "type": "dart",
       "request": "launch",

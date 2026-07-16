@@ -25,7 +25,7 @@ namespace Haggis.Domain.Services
             }
 
             var actions = new List<HaggisAction>();
-            var lastTrick = state.CurrentTrickPlay.NotPassActions.LastOrDefault()?.Trick;
+            var lastTrick = state.CurrentTrickPlay.LastNotPassTrick;
             var possibleTricks = lastTrick == null
                 ? GetPossibleOpeningTricks(state.CurrentPlayer)
                 : GetPossibleContinuationTricks(state.CurrentPlayer, lastTrick);

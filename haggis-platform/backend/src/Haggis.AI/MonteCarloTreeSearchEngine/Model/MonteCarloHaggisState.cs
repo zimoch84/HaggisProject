@@ -1,5 +1,6 @@
 using Haggis.Domain.Interfaces;
 using Haggis.Domain.Model;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -7,17 +8,20 @@ namespace MonteCarlo
 {
     public sealed class MonteCarloHaggisState : IState<MonteCarloHaggisPlayer, MonteCarloHaggisAction>
     {
-        private RoundState DomainState { get; }
+        public RoundState DomainState { get; }
         private IMonteCarloActionSelectionStrategy ActionSelectionStrategy { get; }
         private MonteCarloMoveGenerationService MoveGenerationService { get; }
+        private MctsTimingCollector Timing { get; }
 
         public MonteCarloHaggisState(
             RoundState domainState,
-            IMonteCarloActionSelectionStrategy actionSelectionStrategy = null)
+            IMonteCarloActionSelectionStrategy actionSelectionStrategy = null,
+            MctsTimingCollector timing = null)
         {
             DomainState = domainState;
             ActionSelectionStrategy = actionSelectionStrategy;
-            MoveGenerationService = new MonteCarloMoveGenerationService(ActionSelectionStrategy);
+            Timing = timing;
+            MoveGenerationService = new MonteCarloMoveGenerationService(ActionSelectionStrategy, null, timing);
         }
 
         public MonteCarloHaggisPlayer CurrentPlayer => new MonteCarloHaggisPlayer(DomainState.CurrentPlayer);
@@ -31,14 +35,43 @@ namespace MonteCarlo
 
         public IState<MonteCarloHaggisPlayer, MonteCarloHaggisAction> Clone()
         {
-            return new MonteCarloHaggisState(DomainState.Clone(), ActionSelectionStrategy);
+            return new MonteCarloHaggisState(DomainState.Clone(), ActionSelectionStrategy, Timing);
         }
 
         public double GetResult(MonteCarloHaggisPlayer forPlayer)
         {
-            var forPlayerScore = DomainState.Players.First(p => p.GUID == forPlayer.DomainPlayer.GUID).Score;
-            var hasBetterPlayer = DomainState.Players.Any(p => p.Score > forPlayerScore);
+            if (!DomainState.RoundOver())
+            {
+                return 0;
+            }
+
+            var roundPointsByPlayer = BuildRoundPointsByPlayer();
+            var forPlayerScore = roundPointsByPlayer[forPlayer.DomainPlayer.GUID];
+            var hasBetterPlayer = roundPointsByPlayer.Values.Any(score => score > forPlayerScore);
             return hasBetterPlayer ? 0 : 1;
+        }
+
+        private Dictionary<Guid, int> BuildRoundPointsByPlayer()
+        {
+            var points = DomainState.Players.ToDictionary(
+                player => player.GUID,
+                _ => 0);
+
+            var haggisPoints = DomainState.HaggisCards?.Sum(card => DomainState.ScoringStrategy.GetCardPoints(card)) ?? 0;
+            var firstFinishedGuid = DomainState.FinishingOrder.FirstOrDefault();
+
+            foreach (var player in DomainState.Players)
+            {
+                var tricksPoints = player.Discard.Sum(card => DomainState.ScoringStrategy.GetCardPoints(card));
+                var runOutPoints = player.OpponentRemainingCardsOnFinish < 0
+                    ? 0
+                    : player.OpponentRemainingCardsOnFinish * DomainState.ScoringStrategy.RunOutMultiplier;
+                var bonusHaggisPoints = firstFinishedGuid == player.GUID ? haggisPoints : 0;
+
+                points[player.GUID] = tricksPoints + runOutPoints + bonusHaggisPoints;
+            }
+
+            return points;
         }
     }
 }

@@ -10,5 +10,10 @@ namespace MonteCarlo
         }
 
         public IHaggisPlayer DomainPlayer { get; }
+
+        public override string ToString()
+        {
+            return DomainPlayer?.Name;
+        }
     }
 }

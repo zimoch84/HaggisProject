@@ -1,18 +1,18 @@
-using Haggis.Domain.Model;
 using Haggis.Domain.Interfaces;
+using Haggis.Domain.Model;
 
 namespace MonteCarlo
 {
     public sealed class MonteCarloHaggisAction : HaggisAction, IAction
     {
-        private MonteCarloHaggisAction(Trick trick, IHaggisPlayer player)
-            : base(trick, player)
+        private MonteCarloHaggisAction(Trick trick, IHaggisPlayer player, bool isFinal = false)
+            : base(trick, player, isFinal)
         {
         }
 
-        public new static MonteCarloHaggisAction FromTrick(Trick trick, IHaggisPlayer player)
+        public new static MonteCarloHaggisAction FromTrick(Trick trick, IHaggisPlayer player, bool isFinal = false)
         {
-            return new MonteCarloHaggisAction(trick, player);
+            return new MonteCarloHaggisAction(trick, player, isFinal);
         }
 
         public new static MonteCarloHaggisAction Pass(IHaggisPlayer player)
@@ -24,7 +24,12 @@ namespace MonteCarlo
         {
             return action.IsPass
                 ? Pass(action.Player)
-                : FromTrick(action.Trick, action.Player);
+                : FromTrick(action.Trick, action.Player, action.IsFinal);
+        }
+
+        public MonteCarloHaggisAction AsFinal()
+        {
+            return IsPass ? this : FromTrick(Trick, Player, true);
         }
     }
 }

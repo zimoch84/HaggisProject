@@ -191,8 +191,7 @@ namespace HaggisTests
             var trickPlay = new TrickPlay(3);
 
             Trick finalTrick = "2G_SINGLE".ToTrick();
-            finalTrick.IsFinal = true;
-            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick, Piotr));
+            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick, Piotr, true));
             Assert.That(trickPlay.NumberOfPlayers.Equals(3), Is.True);
 
             trickPlay.AddAction(HaggisAction.FromTrick("4G_SINGLE", Slawek));
@@ -218,8 +217,7 @@ namespace HaggisTests
             var trickPlay = new TrickPlay(3);
 
             Trick finalTrick = "2G_SINGLE".ToTrick();
-            finalTrick.IsFinal = true;
-            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick, Piotr));
+            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick, Piotr, true));
             
             trickPlay.AddAction(HaggisAction.Pass(Slawek));
             Assert.That(trickPlay.IsEndingPass(), Is.False);
@@ -246,8 +244,7 @@ namespace HaggisTests
             var trickPlay = new TrickPlay(3);
 
             Trick finalTrick = "2G_SINGLE".ToTrick();
-            finalTrick.IsFinal = true;
-            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick, Piotr));
+            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick, Piotr, true));
             
             trickPlay.AddAction(HaggisAction.Pass(Slawek));
             Assert.That(trickPlay.IsEndingPass(), Is.False);
@@ -273,13 +270,11 @@ namespace HaggisTests
             var trickPlay = new TrickPlay(3);
 
             Trick finalTrick = "2G_SINGLE".ToTrick();
-            finalTrick.IsFinal = true;
-            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick, Piotr));
+            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick, Piotr, true));
             
 
             Trick finalTrick2 = "4G_SINGLE".ToTrick();
-            finalTrick2.IsFinal = true;
-            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick2, Slawek));
+            trickPlay.AddAction(HaggisAction.FromTrick(finalTrick2, Slawek, true));
 
             Assert.That(trickPlay.Taking() == Slawek, Is.True);
         }
