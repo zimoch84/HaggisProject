@@ -471,6 +471,23 @@ class GameController extends ChangeNotifier {
     }
   }
 
+  Future<void> resumeLocalGameAfterRoundSummary() async {
+    if (!singlePlayer || _disposed) {
+      return;
+    }
+
+    final engine = _localEngine;
+    if (engine == null) {
+      return;
+    }
+
+    final next = await engine.continueAfterRoundSummary();
+    if (_disposed) {
+      return;
+    }
+    _acceptLocalSnapshot(next, status: 'Local game resumed.');
+  }
+
   void _acceptLocalSnapshot(GameSnapshot next, {required String status}) {
     final previous = _snapshot;
     _snapshot = next;

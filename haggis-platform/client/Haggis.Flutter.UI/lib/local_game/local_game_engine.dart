@@ -36,6 +36,7 @@ class LocalGameEngine {
   int _version = 0;
   int _current = 0;
   bool _gameOver = false;
+  bool _awaitingRoundResume = false;
 
   GameSnapshot start() {
     if (_seating.length < 2 || _seating.length > 3) {
@@ -56,12 +57,26 @@ class LocalGameEngine {
     );
     final applied = <_Move>[];
     _apply(action, applied);
-    await _advanceAi(applied);
+    if (!_awaitingRoundResume) {
+      await _advanceAi(applied);
+    }
     _version++;
     return _snapshot(appliedMoves: applied);
   }
 
   Future<GameSnapshot> pass() async => play('Pass');
+
+  Future<GameSnapshot> continueAfterRoundSummary() async {
+    if (_gameOver || !_awaitingRoundResume) {
+      return _snapshot();
+    }
+
+    _awaitingRoundResume = false;
+    final applied = <_Move>[];
+    await _advanceAi(applied);
+    _version++;
+    return _snapshot(appliedMoves: applied);
+  }
 
   _Player get _currentPlayer => _players[_current];
 
@@ -80,7 +95,10 @@ class LocalGameEngine {
 
   Future<void> _advanceAi(List<_Move> applied) async {
     var safety = 0;
-    while (!_gameOver && _currentPlayer.id != humanId && safety++ < 5000) {
+    while (!_gameOver &&
+        !_awaitingRoundResume &&
+        _currentPlayer.id != humanId &&
+        safety++ < 5000) {
       final actions = _legalActions;
       if (actions.isEmpty) break;
       final difficulty = _ai[_currentPlayer.id] ?? AiDifficulty.easy;
@@ -419,7 +437,10 @@ class LocalGameEngine {
       playerScores: scores,
     );
     _gameOver = _totals.values.any((score) => score >= 250);
-    if (!_gameOver) _newRound();
+    if (!_gameOver) {
+      _newRound();
+      _awaitingRoundResume = true;
+    }
   }
 
   void _newRound() {
@@ -735,8 +756,10 @@ List<_Trick> _generateTricks(List<_Card> hand) {
           for (var rank = start; rank < start + length; rank++) {
             for (final suit in suits) {
               final card = natural
-                  .where((candidate) =>
-                      candidate.rank == rank && candidate.suit == suit)
+                  .where(
+                    (candidate) =>
+                        candidate.rank == rank && candidate.suit == suit,
+                  )
                   .firstOrNull;
               if (card == null) {
                 missing.add((rank, suit));
@@ -778,9 +801,9 @@ List<_Trick> _generateTricks(List<_Card> hand) {
 /// Exposes local move generation for controller/AI regression tests.
 List<String> localGeneratedTrickDescriptions(List<String> handLabels) {
   final hand = handLabels.map(_parseCardLabel).toList(growable: false);
-  return _generateTricks(hand)
-      .map((trick) => trick.description)
-      .toList(growable: false);
+  return _generateTricks(
+    hand,
+  ).map((trick) => trick.description).toList(growable: false);
 }
 
 String _sameName(int n) =>

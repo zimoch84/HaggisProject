@@ -187,11 +187,15 @@ void handleRefresh({
       if (!mounted) {
         return;
       }
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (BuildContext context) =>
-              RoundOverPage(viewModel: pendingRound),
-        ),
+      unawaited(
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute<void>(
+                builder: (BuildContext context) =>
+                    RoundOverPage(viewModel: pendingRound),
+              ),
+            )
+            .then((_) => controller.resumeLocalGameAfterRoundSummary()),
       );
     });
   }
