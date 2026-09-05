@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../controllers/game_controller.dart';
@@ -177,16 +179,21 @@ void handleRefresh({
   final pendingRound = controller.roundOverController.consumePendingRound();
   onRebuild();
   if (pendingRound != null) {
-    // The snapshot already contains the next deal when a round ends. Push the
-    // summary synchronously so that the new hand is never painted first.
-    // This listener is normally called from the async game/animation callback,
-    // outside the build phase.
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) =>
-            RoundOverPage(viewModel: pendingRound),
-      ),
-    );
+    // The snapshot already contains the next deal when a round ends. Queue the
+    // route change after the controller notification, but before the next
+    // frame, so the new hand is never painted first and Navigator is not used
+    // while the widget tree is notifying listeners.
+    scheduleMicrotask(() {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) =>
+              RoundOverPage(viewModel: pendingRound),
+        ),
+      );
+    });
   }
 }
 
