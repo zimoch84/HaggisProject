@@ -90,6 +90,7 @@ class TopRibbon extends StatelessWidget {
       builder: (BuildContext context, BoxConstraints constraints) {
         final useSingleLine = constraints.maxWidth >= 720;
         if (useSingleLine) {
+          final ribbonItems = <Widget>[...infoItems, ...playerItems];
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -99,11 +100,20 @@ class TopRibbon extends StatelessWidget {
                 color: Colors.white,
               ),
               Expanded(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [...infoItems, ...playerItems],
+                child: FittedBox(
+                  alignment: Alignment.centerLeft,
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var index = 0; index < ribbonItems.length; index++)
+                        ...[
+                          if (index > 0) const SizedBox(width: 8),
+                          ribbonItems[index],
+                        ],
+                      ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
