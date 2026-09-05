@@ -111,7 +111,6 @@ class TopRibbon extends StatelessWidget {
                           if (index > 0) const SizedBox(width: 8),
                           ribbonItems[index],
                         ],
-                      ],
                     ],
                   ),
                 ),
