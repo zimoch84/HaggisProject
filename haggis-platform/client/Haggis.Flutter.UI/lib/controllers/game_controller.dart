@@ -653,6 +653,15 @@ class GameController extends ChangeNotifier {
     GameSnapshot? currentSnapshot,
     TrickCollectViewModel? collectingTrick,
   ) {
+    // When a local move finishes the round, the engine may already contain
+    // AI moves from the next round. Those moves are only an internal
+    // simulation needed to return control to the human player; replaying them
+    // makes the finished round appear to hang for several seconds.
+    if (_isRoundTransition(previousSnapshot, currentSnapshot)) {
+      _cancelAppliedMovesReplay();
+      return false;
+    }
+
     final appliedMoves = currentSnapshot?.appliedMoves ?? const <TrickMove>[];
     if (appliedMoves.length <= 1) {
       _cancelAppliedMovesReplay();
@@ -713,6 +722,12 @@ class GameController extends ChangeNotifier {
     GameSnapshot? previousSnapshot,
     GameSnapshot? currentSnapshot,
   ) {
+    // The round summary must be shown before anything from the next deal is
+    // painted. A round transition is not a normal trick collection.
+    if (_isRoundTransition(previousSnapshot, currentSnapshot)) {
+      return null;
+    }
+
     if (currentSnapshot == null || currentSnapshot.trick.isNotEmpty) {
       return null;
     }
@@ -747,6 +762,15 @@ class GameController extends ChangeNotifier {
       playerCount: currentSnapshot.players.length,
       cards: List<String>.unmodifiable(cards),
     );
+  }
+
+  bool _isRoundTransition(
+    GameSnapshot? previousSnapshot,
+    GameSnapshot? currentSnapshot,
+  ) {
+    return previousSnapshot != null &&
+        currentSnapshot != null &&
+        currentSnapshot.roundNumber > previousSnapshot.roundNumber;
   }
 
   String _resolveCollectWinnerPlayerId(

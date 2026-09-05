@@ -275,6 +275,83 @@ void main() {
     expect(controller.roundOverController.lastRound?.nextRoundNumber, 2);
     expect(controller.roundOverController.lastRound?.winnerPlayerId, 'p1');
   });
+
+  test('does not replay simulated next-round AI moves before the summary', () {
+    final controller = GameController(
+      serverBaseUrl: 'http://localhost:6666',
+      playerId: 'p1',
+      room: LobbyRoom(
+        roomId: 'room-replay',
+        gameId: 'game-replay',
+        roomName: 'Test Room',
+        players: <String>['p1', 'AI-1', 'AI-2'],
+      ),
+      singlePlayer: true,
+      singlePlayerAiPlayers: const <SinglePlayerAiConfig>[
+        SinglePlayerAiConfig(name: 'AI-1', difficulty: AiDifficulty.easy),
+        SinglePlayerAiConfig(name: 'AI-2', difficulty: AiDifficulty.easy),
+      ],
+    );
+
+    controller.applyStateMessageForTesting(
+      _stateMessage(
+        version: 20,
+        roundNumber: 1,
+        currentPlayerId: 'p1',
+        roundOver: false,
+        gameOver: false,
+        players: <Map<String, Object?>>[
+          _player(id: 'p1', score: 0, handCount: 1, hand: <String>['3B']),
+          _player(id: 'AI-1', score: 0, handCount: 1, hand: <String>['4B']),
+          _player(id: 'AI-2', score: 0, handCount: 1, hand: <String>['5B']),
+        ],
+        trick: <Map<String, Object?>>[],
+        possibleActions: <Map<String, Object?>>[],
+        appliedMoves: <Map<String, Object?>>[],
+      ),
+    );
+
+    controller.applyStateMessageForTesting(
+      _stateMessage(
+        version: 21,
+        roundNumber: 2,
+        currentPlayerId: 'AI-1',
+        roundOver: false,
+        gameOver: false,
+        players: <Map<String, Object?>>[
+          _player(id: 'p1', score: 50, handCount: 17, hand: _newHand()),
+          _player(id: 'AI-1', score: 0, handCount: 16, hand: _newHand()),
+          _player(id: 'AI-2', score: 0, handCount: 15, hand: _newHand()),
+        ],
+        trick: <Map<String, Object?>>[],
+        possibleActions: <Map<String, Object?>>[],
+        appliedMoves: <Map<String, Object?>>[
+          _move(playerId: 'AI-1', desc: 'SINGLE[4B]'),
+          _move(playerId: 'AI-2', desc: 'SINGLE[5B]'),
+          _move(playerId: 'AI-1', desc: 'Pass'),
+        ],
+        previousRound: <String, Object?>{
+          'roundNumber': 1,
+          'winnerPlayerName': 'p1',
+          'finishingOrderPlayerNames': <String>['p1', 'AI-1', 'AI-2'],
+          'haggisCards': <String>['J', 'Q', 'K'],
+          'playerScores': <Map<String, Object?>>[
+            _previousRoundPlayerScore(
+              playerName: 'p1',
+              tricksPoints: 40,
+              opponentsRemainingCardsPoints: 10,
+              haggisPoints: 0,
+              roundPoints: 50,
+            ),
+          ],
+        },
+      ),
+    );
+
+    expect(controller.roundOverController.lastRound?.roundNumber, 1);
+    expect(controller.viewModel.trick, isEmpty);
+    expect(controller.viewModel.currentTrick, isEmpty);
+  });
 }
 
 List<String> _newHand() => <String>[
