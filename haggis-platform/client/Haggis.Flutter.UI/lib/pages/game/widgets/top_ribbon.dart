@@ -90,37 +90,25 @@ class TopRibbon extends StatelessWidget {
       builder: (BuildContext context, BoxConstraints constraints) {
         final useSingleLine = constraints.maxWidth >= 720;
         if (useSingleLine) {
-          return SizedBox(
-            // PlayerPill shows the last move below the score. On wider
-            // landscape layouts all players share this row, so 72 px clips
-            // the lower part of the pill on high-density phones (e.g. S23).
-            height: 86,
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: onLeave,
-                  icon: const Icon(Icons.arrow_back),
-                  color: Colors.white,
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconButton(
+                onPressed: onLeave,
+                icon: const Icon(Icons.arrow_back),
+                color: Colors.white,
+              ),
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [...infoItems, ...playerItems],
                 ),
-                Expanded(
-                  child: ClipRect(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final item in [
-                            ...infoItems,
-                            ...playerItems,
-                          ]) ...[item, const SizedBox(width: 8)],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Row(mainAxisSize: MainAxisSize.min, children: actions),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              Row(mainAxisSize: MainAxisSize.min, children: actions),
+            ],
           );
         }
 
@@ -159,25 +147,11 @@ class TopRibbon extends StatelessWidget {
             ),
             if (playerItems.isNotEmpty) ...[
               const SizedBox(height: 6),
-              SizedBox(
-                height: 86,
-                child: ClipRect(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (
-                          int index = 0;
-                          index < playerItems.length;
-                          index++
-                        ) ...[
-                          if (index > 0) const SizedBox(width: 8),
-                          playerItems[index],
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                alignment: WrapAlignment.start,
+                children: playerItems,
               ),
             ],
           ],
