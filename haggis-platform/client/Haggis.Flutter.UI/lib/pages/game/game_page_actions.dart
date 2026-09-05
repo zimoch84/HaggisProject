@@ -177,16 +177,16 @@ void handleRefresh({
   final pendingRound = controller.roundOverController.consumePendingRound();
   onRebuild();
   if (pendingRound != null) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (BuildContext context) =>
-                RoundOverPage(viewModel: pendingRound),
-          ),
-        );
-      }
-    });
+    // The snapshot already contains the next deal when a round ends. Push the
+    // summary synchronously so that the new hand is never painted first.
+    // This listener is normally called from the async game/animation callback,
+    // outside the build phase.
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) =>
+            RoundOverPage(viewModel: pendingRound),
+      ),
+    );
   }
 }
 
