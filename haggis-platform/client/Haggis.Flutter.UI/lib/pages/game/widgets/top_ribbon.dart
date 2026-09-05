@@ -157,7 +157,7 @@ class TopRibbon extends StatelessWidget {
             if (playerItems.isNotEmpty) ...[
               const SizedBox(height: 6),
               SizedBox(
-                height: 72,
+                height: 86,
                 child: ClipRect(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,

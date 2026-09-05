@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haggis_flutter/local_game/local_game_engine.dart';
+import 'package:haggis_flutter/models/game_models.dart';
 import 'package:haggis_flutter/models/single_player_models.dart';
 
 void main() {
@@ -58,5 +59,57 @@ void main() {
     expect(moves, lessThan(250));
     expect(state.previousRound, isNotNull);
     expect(state.roundNumber > 1 || state.gameOver, isTrue);
+  });
+
+  test(
+    'bomb player leads the next trick after earlier play and passes',
+    () async {
+      final moves = <TrickMove>[
+        TrickMove(playerId: 'AI-1', description: 'SINGLE[10R]'),
+        TrickMove(playerId: 'Player', description: 'BOMB[3R|5R|7R|9R]'),
+        TrickMove(playerId: 'AI-2', description: 'Pass'),
+        TrickMove(playerId: 'AI-1', description: 'Pass'),
+      ];
+
+      expect(localTrickWinnerId(moves), 'Player');
+    },
+  );
+
+  test('local engine gives the lead to bomb player after AI passes', () async {
+    var ai1Calls = 0;
+    final engine = LocalGameEngine(
+      humanId: 'Player',
+      aiPlayers: const <SinglePlayerAiConfig>[
+        SinglePlayerAiConfig(name: 'AI-1', difficulty: AiDifficulty.easy),
+        SinglePlayerAiConfig(name: 'AI-2', difficulty: AiDifficulty.easy),
+      ],
+      aiActionSelector: (playerId, actions) {
+        if (playerId == 'AI-1' && ai1Calls++ == 0) {
+          return actions
+              .firstWhere((action) => action.type != 'Pass')
+              .displayAction;
+        }
+        return 'Pass';
+      },
+    );
+
+    var state = engine.start();
+    final opening = state.possibleActions.firstWhere(
+      (action) => action.type != 'Pass',
+    );
+    state = await engine.play(opening.displayAction);
+
+    final bomb = state.possibleActions.firstWhere(
+      (action) => action.displayAction.startsWith('BOMB['),
+    );
+    final afterBomb = await engine.play(bomb.displayAction);
+
+    expect(
+      afterBomb.appliedMoves
+          .map((move) => move.playerId)
+          .where((playerId) => playerId == 'AI-1' || playerId == 'AI-2'),
+      containsAll(<String>['AI-1', 'AI-2']),
+    );
+    expect(afterBomb.currentPlayerId, 'Player');
   });
 }

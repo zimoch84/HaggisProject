@@ -6,6 +6,9 @@ import '../models/single_player_models.dart';
 import 'ai/heuristic_action_ranker.dart';
 import 'ai/heuristic_models.dart';
 
+typedef LocalAiActionSelector =
+    String Function(String playerId, List<PossibleAction> actions);
+
 /// Client-side Haggis session. This file deliberately has no Flutter or
 /// networking imports, so AI work can be moved to an isolate.
 class LocalGameEngine {
@@ -13,11 +16,13 @@ class LocalGameEngine {
     required this.humanId,
     required List<SinglePlayerAiConfig> aiPlayers,
     this.seed = 115826734,
+    this.aiActionSelector,
   }) : _ai = {for (final config in aiPlayers) config.name: config.difficulty},
        _seating = <String>[humanId, ...aiPlayers.map((config) => config.name)];
 
   final String humanId;
   final int seed;
+  final LocalAiActionSelector? aiActionSelector;
   final Map<String, AiDifficulty> _ai;
   final List<String> _seating;
   final Map<String, int> _totals = <String, int>{};
@@ -98,7 +103,19 @@ class LocalGameEngine {
             .map((card) => card.toHeuristicMap())
             .toList(),
       };
-      final selected = difficulty.value >= AiDifficulty.medium.value
+      final selected = aiActionSelector != null
+          ? aiActionSelector!(
+              _currentPlayer.id,
+              actions
+                  .map(
+                    (action) => PossibleAction(
+                      type: action.isPass ? 'Pass' : 'Play',
+                      displayAction: action.description,
+                    ),
+                  )
+                  .toList(growable: false),
+            )
+          : difficulty.value >= AiDifficulty.medium.value
           ? await Isolate.run(() => _chooseAiAction(input))
           : _chooseAiAction(input);
       final action = actions.firstWhere(
@@ -331,15 +348,18 @@ class LocalGameEngine {
   }
 
   void _collectTrick() {
-    _Move? winner;
-    for (final move in _trick) {
-      if (!move.action.isPass && !move.action.trick!.isBomb) winner = move;
-    }
-    winner ??= _lastNonPass;
-    if (winner != null) {
-      final target = _players.firstWhere(
-        (player) => player.id == winner!.playerId,
-      );
+    final winnerId = localTrickWinnerId(
+      _trick
+          .map(
+            (move) => TrickMove(
+              playerId: move.playerId,
+              description: move.description,
+            ),
+          )
+          .toList(growable: false),
+    );
+    if (winnerId != null) {
+      final target = _players.firstWhere((player) => player.id == winnerId);
       target.discard.addAll(
         _trick
             .where((move) => !move.action.isPass)
@@ -520,6 +540,19 @@ class LocalGameEngine {
         13: 5,
       }[card.rank] ??
       0;
+}
+
+/// Returns the player who made the last non-pass move in a trick.
+///
+/// A bomb is a winning move too, so it must not be filtered out when deciding
+/// who leads the next trick.
+String? localTrickWinnerId(List<TrickMove> moves) {
+  for (var i = moves.length - 1; i >= 0; i--) {
+    if (moves[i].description.trim().toLowerCase() != 'pass') {
+      return moves[i].playerId;
+    }
+  }
+  return null;
 }
 
 /// Deterministic entry point used by parity fixtures and tuning tools.

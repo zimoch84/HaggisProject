@@ -15,7 +15,7 @@ class TableCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final display = DisplayCardLabel.fromLabel(label);
-    final wildAssets = wildLayerAssetPaths(display.rankToken);
+    final wildAssetPath = wildCardAssetPath(display.rankToken);
     final centerSuitAssetPath = display.isWildAssignment
         ? cardSuitAssetPath(display.assignmentSuitToken)
         : cardSuitAssetPath(display.suitToken);
@@ -37,8 +37,13 @@ class TableCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          if (wildAssets != null) ...[
-            _LayeredWildCardFace(assets: wildAssets, borderRadius: 18),
+          if (wildAssetPath != null) ...[
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(wildAssetPath, fit: BoxFit.contain),
+              ),
+            ),
             if (display.isWildAssignment)
               Align(
                 alignment: Alignment.centerLeft,
@@ -99,7 +104,7 @@ class HandCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final display = DisplayCardLabel.fromLabel(label);
-    final wildAssets = wildLayerAssetPaths(display.rankToken);
+    final wildAssetPath = wildMiniAssetPath(display.rankToken);
     final centerSuitAssetPath = display.isWildAssignment
         ? cardSuitAssetPath(display.assignmentSuitToken)
         : cardSuitAssetPath(display.suitToken);
@@ -135,10 +140,12 @@ class HandCard extends StatelessWidget {
             ),
             child: Stack(
               children: [
-                if (wildAssets != null) ...[
-                  _LayeredWildCardFace(
-                    assets: wildAssets,
-                    borderRadius: borderRadius,
+                if (wildAssetPath != null) ...[
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(borderRadius),
+                      child: Image.asset(wildAssetPath, fit: BoxFit.contain),
+                    ),
                   ),
                   if (display.isWildAssignment)
                     Align(

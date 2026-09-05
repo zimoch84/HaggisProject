@@ -65,39 +65,30 @@
     {
       "label": "start Android Emulator 1",
       "type": "process",
-      "command": "powershell",
+      "command": "bash",
       "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-Command",
-        "$sdk = Join-Path $env:LOCALAPPDATA 'Android\\sdk'; $emulator = Join-Path $sdk 'emulator\\emulator.exe'; $adb = Join-Path $sdk 'platform-tools\\adb.exe'; $device = 'emulator-5554'; if (-not (& $adb devices | Select-String $device)) { Start-Process $emulator -ArgumentList '-avd','Medium_Phone_API_36.1','-port','5554'; } & $adb -s $device wait-for-device; do { Start-Sleep -Seconds 2; $boot = (& $adb -s $device shell getprop sys.boot_completed 2>$null).Trim(); } while ($boot -ne '1'); & $adb -s $device shell wm size 1080x2340; & $adb -s $device shell wm density 450; & $adb -s $device shell settings put system font_scale 1.0; & $adb -s $device shell settings put system accelerometer_rotation 0; & $adb -s $device shell settings put system user_rotation 1"
+        "-lc",
+        "ADB=/home/zimoch/Android/Sdk/platform-tools/adb; EMULATOR=/home/zimoch/Android/Sdk/emulator/emulator; if ! \"$ADB\" devices | grep -qE '^emulator-5554[[:space:]]+device$'; then \"$EMULATOR\" -avd haggis_api36 -port 5554 -no-snapshot -no-audio -scale 1.5 >/tmp/haggis-emulator-5554.log 2>&1 & fi; \"$ADB\" -s emulator-5554 wait-for-device; until [ \"$(\"$ADB\" -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ]; do sleep 2; done"
       ],
       "problemMatcher": []
     },
     {
       "label": "start Android Emulator 2",
       "type": "process",
-      "command": "powershell",
+      "command": "bash",
       "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-Command",
-        "$sdk = Join-Path $env:LOCALAPPDATA 'Android\\sdk'; $emulator = Join-Path $sdk 'emulator\\emulator.exe'; $adb = Join-Path $sdk 'platform-tools\\adb.exe'; $device = 'emulator-5556'; if (-not (& $adb devices | Select-String $device)) { Start-Process $emulator -ArgumentList '-avd','Medium_Phone_API_36.1_2','-port','5556'; } & $adb -s $device wait-for-device; do { Start-Sleep -Seconds 2; $boot = (& $adb -s $device shell getprop sys.boot_completed 2>$null).Trim(); } while ($boot -ne '1')"
+        "-lc",
+        "ADB=/home/zimoch/Android/Sdk/platform-tools/adb; EMULATOR=/home/zimoch/Android/Sdk/emulator/emulator; if ! \"$ADB\" devices | grep -qE '^emulator-5556[[:space:]]+device$'; then \"$EMULATOR\" -avd haggis_api36 -port 5556 -no-snapshot -no-audio -scale 1.5 >/tmp/haggis-emulator-5556.log 2>&1 & fi; \"$ADB\" -s emulator-5556 wait-for-device; until [ \"$(\"$ADB\" -s emulator-5556 shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ]; do sleep 2; done"
       ],
       "problemMatcher": []
     },
     {
       "label": "start Android Emulator Galaxy S23+ Like",
       "type": "process",
-      "command": "powershell",
+      "command": "bash",
       "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-Command",
-        "$sdk = Join-Path $env:LOCALAPPDATA 'Android\\sdk'; $emulator = Join-Path $sdk 'emulator\\emulator.exe'; $adb = Join-Path $sdk 'platform-tools\\adb.exe'; $device = 'emulator-5560'; if (-not (& $adb devices | Select-String $device)) { Start-Process $emulator -ArgumentList '-avd','Galaxy_S23Plus_Like','-port','5560'; } & $adb -s $device wait-for-device; do { Start-Sleep -Seconds 2; $boot = (& $adb -s $device shell getprop sys.boot_completed 2>$null).Trim(); } while ($boot -ne '1')"
+        "-lc",
+        "ADB=/home/zimoch/Android/Sdk/platform-tools/adb; EMULATOR=/home/zimoch/Android/Sdk/emulator/emulator; if ! \"$ADB\" devices | grep -qE '^emulator-5560[[:space:]]+device$'; then \"$EMULATOR\" -avd haggis_api36 -port 5560 -no-snapshot -no-audio -scale 1.5 >/tmp/haggis-emulator-5560.log 2>&1 & fi; \"$ADB\" -s emulator-5560 wait-for-device; until [ \"$(\"$ADB\" -s emulator-5560 shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ]; do sleep 2; done"
       ],
       "problemMatcher": []
     }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 
@@ -16,8 +17,6 @@ import 'round_over_controller.dart';
 import 'score_history_controller.dart';
 
 class GameController extends ChangeNotifier {
-  static const int _forcedStartSeed = 115826734;
-
   GameController({
     required this.serverBaseUrl,
     required this.playerId,
@@ -31,6 +30,7 @@ class GameController extends ChangeNotifier {
   final LobbyRoom room;
   final bool singlePlayer;
   final List<SinglePlayerAiConfig> singlePlayerAiPlayers;
+  final int _startSeed = Random().nextInt(2147483647);
 
   RemoteGameWebSocketClient? _client;
   LocalGameEngine? _localEngine;
@@ -220,7 +220,7 @@ class GameController extends ChangeNotifier {
       _localEngine = LocalGameEngine(
         humanId: playerId,
         aiPlayers: singlePlayerAiPlayers,
-        seed: _forcedStartSeed,
+        seed: _startSeed,
       );
       _acceptLocalSnapshot(
         _localEngine!.start(),
@@ -275,15 +275,15 @@ class GameController extends ChangeNotifier {
     _autoStartRequested = true;
     AppLogger.info(
       'GameCtrl',
-      'Sending create game for ${room.gameId}. seed=$_forcedStartSeed players=${singlePlayer ? _buildSinglePlayerRoster() : room.players.length}',
+      'Sending create game for ${room.gameId}. seed=$_startSeed players=${singlePlayer ? _buildSinglePlayerRoster() : room.players.length}',
     );
     _client!.createGame(
       playerId,
       singlePlayer ? 3 : room.players.length,
-      seed: _forcedStartSeed,
+      seed: _startSeed,
       players: singlePlayer ? _buildSinglePlayerRoster() : null,
     );
-    _status = 'Start command sent. Seed: $_forcedStartSeed';
+    _status = 'Start command sent. Seed: $_startSeed';
     notifyListeners();
   }
 
