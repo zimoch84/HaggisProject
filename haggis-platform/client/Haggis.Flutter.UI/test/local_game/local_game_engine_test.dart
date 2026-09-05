@@ -26,6 +26,81 @@ void main() {
     expect(actions, contains('PAIRSEQ2[4R|4B|5R|5B]'));
   });
 
+  test('generates ordinary sequences only within one suit', () {
+    final legal = localGeneratedTrickDescriptions(<String>[
+      '3R',
+      '4R',
+      '5R',
+    ]);
+    final mixed = localGeneratedTrickDescriptions(<String>[
+      '3R',
+      '4B',
+      '5R',
+    ]);
+
+    expect(legal, contains('SEQ3[3R|4R|5R]'));
+    expect(mixed.where((action) => action.startsWith('SEQ')), isEmpty);
+  });
+
+  test('uses a wildcard to fill a missing card in a sequence', () {
+    final actions = localGeneratedTrickDescriptions(<String>[
+      '3R',
+      '5R',
+      'J',
+    ]);
+
+    expect(actions, contains('SEQ3[3R|J[4R]|5R]'));
+  });
+
+  test('keeps suits consistent in triple stairs', () {
+    final legal = localGeneratedTrickDescriptions(<String>[
+      '4R',
+      '4B',
+      '4G',
+      '5R',
+      '5B',
+      '5G',
+    ]);
+    final illegal = localGeneratedTrickDescriptions(<String>[
+      '4R',
+      '4B',
+      '4G',
+      '5R',
+      '5B',
+      '5O',
+    ]);
+
+    expect(legal, contains('TRIPLESTAIR2[4R|4B|4G|5R|5B|5G]'));
+    expect(illegal.where((action) => action.startsWith('TRIPLESTAIR')), isEmpty);
+  });
+
+  test('generates only valid natural and wildcard bombs', () {
+    final naturalBomb = localGeneratedTrickDescriptions(<String>[
+      '3R',
+      '5R',
+      '7R',
+      '9R',
+    ]);
+    final fourSuitBomb = localGeneratedTrickDescriptions(<String>[
+      '3R',
+      '5B',
+      '7G',
+      '9O',
+    ]);
+    final invalidBomb = localGeneratedTrickDescriptions(<String>[
+      '3R',
+      '5B',
+      '7G',
+      '8O',
+    ]);
+    final wildBomb = localGeneratedTrickDescriptions(<String>['J', 'Q']);
+
+    expect(naturalBomb, contains('BOMB[3R|5R|7R|9R]'));
+    expect(fourSuitBomb, contains('BOMB[3R|5B|7G|9O]'));
+    expect(invalidBomb.where((action) => action.startsWith('BOMB')), isEmpty);
+    expect(wildBomb, contains('BOMB[J|Q]'));
+  });
+
   test('DotNetRandom matches the seeded System.Random sequence', () {
     final random = DotNetRandom(12345);
     expect(List<int>.generate(5, (_) => random.next(1000)), <int>[
