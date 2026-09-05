@@ -4,6 +4,28 @@ import 'package:haggis_flutter/models/game_models.dart';
 import 'package:haggis_flutter/models/single_player_models.dart';
 
 void main() {
+  test('does not generate a paired sequence with changing suits', () {
+    final actions = localGeneratedTrickDescriptions(<String>[
+      '4R',
+      '4B',
+      '5B',
+      '5G',
+    ]);
+
+    expect(actions.where((action) => action.startsWith('PAIRSEQ')), isEmpty);
+  });
+
+  test('generates a paired sequence when suits stay consistent', () {
+    final actions = localGeneratedTrickDescriptions(<String>[
+      '4R',
+      '4B',
+      '5R',
+      '5B',
+    ]);
+
+    expect(actions, contains('PAIRSEQ2[4R|4B|5R|5B]'));
+  });
+
   test('DotNetRandom matches the seeded System.Random sequence', () {
     final random = DotNetRandom(12345);
     expect(List<int>.generate(5, (_) => random.next(1000)), <int>[

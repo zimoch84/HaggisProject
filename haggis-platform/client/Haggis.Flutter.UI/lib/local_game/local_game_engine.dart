@@ -727,38 +727,33 @@ List<_Trick> _generateTricks(List<_Card> hand) {
   }
   for (final groupSize in <int>[2, 3, 4, 5]) {
     final maxLength = <int, int>{2: 7, 3: 5, 4: 4, 5: 3}[groupSize]!;
-    for (var length = 2; length <= maxLength; length++) {
-      for (var start = 2; start <= 10 - length + 1; start++) {
-        final selected = <_Card>[];
-        var requiredWilds = 0;
-        var valid = true;
-        for (var rank = start; rank < start + length; rank++) {
-          final same = natural
-              .where((card) => card.rank == rank)
-              .take(groupSize)
-              .toList();
-          if (same.isEmpty) {
-            valid = false;
-            break;
+    for (final suits in _combinations('RBGYO'.split(''), groupSize)) {
+      for (var length = 2; length <= maxLength; length++) {
+        for (var start = 2; start <= 10 - length + 1; start++) {
+          final selected = <_Card>[];
+          final missing = <(int rank, String suit)>[];
+          for (var rank = start; rank < start + length; rank++) {
+            for (final suit in suits) {
+              final card = natural
+                  .where((candidate) =>
+                      candidate.rank == rank && candidate.suit == suit)
+                  .firstOrNull;
+              if (card == null) {
+                missing.add((rank, suit));
+              } else {
+                selected.add(card);
+              }
+            }
           }
-          selected.addAll(same);
-          requiredWilds += groupSize - same.length;
+          if (missing.length > wilds.length || selected.isEmpty) continue;
+          add(
+            _Trick(_stairName(groupSize, length), <_Card>[
+              ...selected,
+              for (var index = 0; index < missing.length; index++)
+                wilds[index].asRank(missing[index].$1, missing[index].$2),
+            ]),
+          );
         }
-        if (!valid || requiredWilds > wilds.length) continue;
-        final replacements = <_Card>[];
-        var wi = 0;
-        for (var rank = start; rank < start + length; rank++) {
-          final have = selected.where((card) => card.rank == rank).length;
-          for (var j = have; j < groupSize; j++) {
-            replacements.add(wilds[wi++].asRank(rank, 'R'));
-          }
-        }
-        add(
-          _Trick(_stairName(groupSize, length), <_Card>[
-            ...selected,
-            ...replacements,
-          ]),
-        );
       }
     }
   }
@@ -778,6 +773,14 @@ List<_Trick> _generateTricks(List<_Card> hand) {
     }
   }
   return result;
+}
+
+/// Exposes local move generation for controller/AI regression tests.
+List<String> localGeneratedTrickDescriptions(List<String> handLabels) {
+  final hand = handLabels.map(_parseCardLabel).toList(growable: false);
+  return _generateTricks(hand)
+      .map((trick) => trick.description)
+      .toList(growable: false);
 }
 
 String _sameName(int n) =>
