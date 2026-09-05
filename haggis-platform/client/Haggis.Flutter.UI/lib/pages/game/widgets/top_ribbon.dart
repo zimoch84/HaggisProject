@@ -91,7 +91,10 @@ class TopRibbon extends StatelessWidget {
         final useSingleLine = constraints.maxWidth >= 720;
         if (useSingleLine) {
           return SizedBox(
-            height: 72,
+            // PlayerPill shows the last move below the score. On wider
+            // landscape layouts all players share this row, so 72 px clips
+            // the lower part of the pill on high-density phones (e.g. S23).
+            height: 86,
             child: Row(
               children: [
                 IconButton(
