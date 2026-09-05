@@ -202,7 +202,85 @@ void main() {
       'Round 1 finished. Game over.',
     );
   });
+
+  test('publishes summary when the snapshot advances to the next round', () {
+    final controller = GameController(
+      serverBaseUrl: 'http://localhost:6666',
+      playerId: 'p1',
+      room: LobbyRoom(
+        roomId: 'room-advance',
+        gameId: 'game-advance',
+        roomName: 'Test Room',
+        players: <String>['p1', 'AI-1', 'AI-2'],
+      ),
+      singlePlayer: true,
+      singlePlayerAiPlayers: const <SinglePlayerAiConfig>[
+        SinglePlayerAiConfig(name: 'AI-1', difficulty: AiDifficulty.easy),
+        SinglePlayerAiConfig(name: 'AI-2', difficulty: AiDifficulty.easy),
+      ],
+    );
+
+    controller.applyStateMessageForTesting(
+      _stateMessage(
+        version: 10,
+        roundNumber: 1,
+        currentPlayerId: 'p1',
+        roundOver: false,
+        gameOver: false,
+        players: <Map<String, Object?>>[
+          _player(id: 'p1', score: 20, handCount: 1, hand: <String>['3B']),
+          _player(id: 'AI-1', score: 10, handCount: 1, hand: <String>['4B']),
+          _player(id: 'AI-2', score: 0, handCount: 1, hand: <String>['5B']),
+        ],
+        trick: <Map<String, Object?>>[],
+        possibleActions: <Map<String, Object?>>[],
+        appliedMoves: <Map<String, Object?>>[],
+      ),
+    );
+
+    controller.applyStateMessageForTesting(
+      _stateMessage(
+        version: 11,
+        roundNumber: 2,
+        currentPlayerId: 'p1',
+        roundOver: false,
+        gameOver: false,
+        players: <Map<String, Object?>>[
+          _player(id: 'p1', score: 70, handCount: 17, hand: _newHand()),
+          _player(id: 'AI-1', score: 0, handCount: 17, hand: _newHand()),
+          _player(id: 'AI-2', score: 0, handCount: 17, hand: _newHand()),
+        ],
+        trick: <Map<String, Object?>>[],
+        possibleActions: <Map<String, Object?>>[],
+        appliedMoves: <Map<String, Object?>>[],
+        previousRound: <String, Object?>{
+          'roundNumber': 1,
+          'winnerPlayerName': 'p1',
+          'finishingOrderPlayerNames': <String>['p1', 'AI-1', 'AI-2'],
+          'haggisCards': <String>['J', 'Q', 'K'],
+          'playerScores': <Map<String, Object?>>[
+            _previousRoundPlayerScore(
+              playerName: 'p1',
+              tricksPoints: 40,
+              opponentsRemainingCardsPoints: 10,
+              haggisPoints: 0,
+              roundPoints: 50,
+            ),
+          ],
+        },
+      ),
+    );
+
+    expect(controller.roundOverController.lastRound?.roundNumber, 1);
+    expect(controller.roundOverController.lastRound?.nextRoundNumber, 2);
+    expect(controller.roundOverController.lastRound?.winnerPlayerId, 'p1');
+  });
 }
+
+List<String> _newHand() => <String>[
+  '2B', '3B', '4B', '5B', '6B', '7B', '8B', '9B', '10B',
+  '2G', '3G', '4G', '5G', '6G', '7G', '8G',
+];
 
 Map<String, dynamic> _stateMessage({
   required int version,
