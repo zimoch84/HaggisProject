@@ -157,6 +157,13 @@ class GameController extends ChangeNotifier {
               .map(
                 (GamePlayer player) => GamePlayerViewModel(
                   id: player.id,
+                  aiDifficultyLabel: singlePlayer
+                      ? singlePlayerAiPlayers
+                            .where((config) => config.name == player.id)
+                            .firstOrNull
+                            ?.difficulty
+                            .label
+                      : null,
                   score: player.score,
                   handCount: player.handCount,
                   finished: player.finished,

@@ -9,21 +9,13 @@ class TableSection extends StatelessWidget {
     super.key,
     required this.viewModel,
     required this.controller,
-    required this.onCreateGroup,
     required this.readyPreviewLabel,
-    required this.hasSavedGroup,
-    required this.onClearGroup,
-    required this.onGroupRainbowBomb,
     required this.onPlayPressed,
   });
 
   final GameViewModel viewModel;
   final GameController controller;
-  final VoidCallback onCreateGroup;
   final String? readyPreviewLabel;
-  final bool hasSavedGroup;
-  final VoidCallback onClearGroup;
-  final VoidCallback? onGroupRainbowBomb;
   final Future<void> Function() onPlayPressed;
 
   @override
@@ -155,13 +147,14 @@ class TableSection extends StatelessWidget {
                 Row(
                   children: [
                     if (viewModel.isGameInitialized)
-                      OutlinedButton.icon(
+                      FilledButton.icon(
                         onPressed: canPass ? controller.pass : null,
-                        style: OutlinedButton.styleFrom(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFB15D45),
+                          disabledBackgroundColor: const Color(0xFF5C4944),
                           foregroundColor: Colors.white,
-                          side: const BorderSide(color: Color(0x6656B891)),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
+                            horizontal: 16,
                             vertical: 10,
                           ),
                           shape: RoundedRectangleBorder(
@@ -171,7 +164,7 @@ class TableSection extends StatelessWidget {
                         icon: const Icon(Icons.front_hand_outlined),
                         label: const Text(
                           'Pass',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                          style: TextStyle(fontWeight: FontWeight.w800),
                         ),
                       )
                     else
@@ -213,69 +206,6 @@ class TableSection extends StatelessWidget {
                             )
                           : const SizedBox.shrink(),
                     ),
-                    if (viewModel.isGameInitialized &&
-                        controller.selectedCards.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: FilledButton.tonal(
-                          onPressed: onCreateGroup,
-                          style: FilledButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: const Color(0xAA31544B),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: const Text('Group'),
-                        ),
-                      ),
-                    if (viewModel.isGameInitialized &&
-                        onGroupRainbowBomb != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: FilledButton.tonalIcon(
-                          onPressed: onGroupRainbowBomb,
-                          icon: const Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 18,
-                          ),
-                          label: const Text('Rainbow'),
-                          style: FilledButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: const Color(0xAA31544B),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (viewModel.isGameInitialized && hasSavedGroup)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: FilledButton.tonal(
-                          onPressed: onClearGroup,
-                          style: FilledButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: const Color(0xAA31544B),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: const Text('Reset grupy'),
-                        ),
-                      ),
                     if (viewModel.isGameInitialized)
                       FilledButton.icon(
                         onPressed: canPlay ? onPlayPressed : null,
@@ -617,22 +547,29 @@ class _TableMovePile extends StatelessWidget {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         const pileScale = 1.16;
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _PlayerMoveBadge(playerId: move.playerId, isLatest: isLatest),
-            const SizedBox(width: 10),
-            SizedBox(
-              width: _tablePileWidth(move.cards, scale: pileScale),
-              height: _tablePileHeight(move.cards, scale: pileScale),
-              child: TableTrickPile(
-                playerId: move.playerId,
-                cards: move.cards,
-                scale: pileScale,
-              ),
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _PlayerMoveBadge(playerId: move.playerId, isLatest: isLatest),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: _tablePileWidth(move.cards, scale: pileScale),
+                  height: _tablePileHeight(move.cards, scale: pileScale),
+                  child: TableTrickPile(
+                    playerId: move.playerId,
+                    cards: move.cards,
+                    scale: pileScale,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );

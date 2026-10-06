@@ -584,26 +584,29 @@ class PlayerHandFan extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth = 62.0 * cardScale;
     final preferredStep = 32.0 * spacingScale;
-    final minimumStep = 14.0 * spacingScale;
-    final cardHeight = 98.0 * cardScale;
-    final naturalFanHeight = cardHeight + (48 * cardScale);
+    final naturalFanHeight = 146.0 * cardScale;
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final availableWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth
-            : cardWidth;
+            : 62.0 * cardScale;
         final fanHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : naturalFanHeight;
+        final effectiveScale = min(
+          cardScale,
+          min(availableWidth / 62.0, fanHeight / 116.0),
+        );
+        final cardWidth = 62.0 * effectiveScale;
+        final cardHeight = 98.0 * effectiveScale;
         final fittedStep = cards.length <= 1
             ? cardWidth
             : (availableWidth - cardWidth) / (cards.length - 1);
         final effectiveStep = cards.length <= 1
             ? cardWidth
-            : fittedStep.clamp(minimumStep, preferredStep).toDouble();
+            : fittedStep.clamp(0.0, preferredStep).toDouble();
         final contentWidth = cards.isEmpty
             ? cardWidth
             : cardWidth + (cards.length - 1) * effectiveStep;
@@ -822,7 +825,7 @@ class PlayerHandFan extends StatelessWidget {
             isSelected: isSelected,
             showHitZoneOutline: showHitZoneOutline,
             key: ValueKey<String>('hand-$label'),
-            scale: cardScale,
+            scale: cardHeight / 98.0,
           ),
         ),
       ),

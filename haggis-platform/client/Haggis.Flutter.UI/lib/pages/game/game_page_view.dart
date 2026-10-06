@@ -49,7 +49,6 @@ Widget buildGamePageView({
       children: [
         const GameBackground(),
         SafeArea(
-          bottom: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
             child: LayoutBuilder(
@@ -91,18 +90,16 @@ Widget buildGamePageView({
                           child: TableSection(
                             viewModel: viewModel,
                             controller: controller,
-                            onCreateGroup: onCreateGroup,
+
                             readyPreviewLabel: readyPreviewLabel,
-                            hasSavedGroup: handSplit.groupedHand.isNotEmpty,
-                            onClearGroup: onClearGroup,
-                            onGroupRainbowBomb: onGroupRainbowBomb,
+
                             onPlayPressed: onPlaySelected,
                           ),
                         ),
                       ),
                       const SizedBox(height: 14),
                       SizedBox(
-                        height: handSectionHeight,
+                        height: handSectionHeight + 48,
                         child: HandSection(
                           cards: sortedHand,
                           savedGroup: handSplit.groupedHand,
@@ -113,6 +110,11 @@ Widget buildGamePageView({
                           handSortMode: handSortMode,
                           onSortChanged: onSortChanged,
                           onGroupColorBomb: onGroupColorBomb,
+                          onCreateGroup: viewModel.isGameInitialized
+                              ? onCreateGroup
+                              : null,
+                          onClearGroup: onClearGroup,
+                          onGroupRainbowBomb: onGroupRainbowBomb,
                           showCardHitZones: showCardHitZones,
                           cardScale: handCardScale,
                           spacingScale: handSpacingScale,
@@ -145,18 +147,16 @@ Widget buildGamePageView({
                         child: TableSection(
                           viewModel: viewModel,
                           controller: controller,
-                          onCreateGroup: onCreateGroup,
+
                           readyPreviewLabel: readyPreviewLabel,
-                          hasSavedGroup: handSplit.groupedHand.isNotEmpty,
-                          onClearGroup: onClearGroup,
-                          onGroupRainbowBomb: onGroupRainbowBomb,
+
                           onPlayPressed: onPlaySelected,
                         ),
                       ),
                     ),
                     const SizedBox(height: 14),
                     SizedBox(
-                      height: handSectionHeight,
+                      height: handSectionHeight + 48,
                       child: HandSection(
                         cards: sortedHand,
                         savedGroup: handSplit.groupedHand,
@@ -167,6 +167,11 @@ Widget buildGamePageView({
                         handSortMode: handSortMode,
                         onSortChanged: onSortChanged,
                         onGroupColorBomb: onGroupColorBomb,
+                        onCreateGroup: viewModel.isGameInitialized
+                            ? onCreateGroup
+                            : null,
+                        onClearGroup: onClearGroup,
+                        onGroupRainbowBomb: onGroupRainbowBomb,
                         showCardHitZones: showCardHitZones,
                         cardScale: handCardScale,
                         spacingScale: handSpacingScale,

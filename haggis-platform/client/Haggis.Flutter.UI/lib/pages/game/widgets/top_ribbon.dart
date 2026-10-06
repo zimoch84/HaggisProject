@@ -36,8 +36,10 @@ class TopRibbon extends StatelessWidget {
     final infoItems = <Widget>[
       if (!viewModel.singlePlayer)
         InfoChip(icon: Icons.meeting_room_outlined, label: 'Room: $roomLabel'),
-      InfoChip(icon: Icons.group_outlined, label: '$playerCount'),
-      InfoChip(icon: Icons.casino_outlined, label: 'R${viewModel.roundNumber}'),
+      InfoChip(
+        icon: Icons.group_outlined,
+        label: '$playerCount/R${viewModel.roundNumber}',
+      ),
     ];
     final lastMoveByPlayer = <String, PlayerLastMove>{};
     for (final TrickMoveViewModel move in viewModel.currentTrick) {
@@ -73,12 +75,6 @@ class TopRibbon extends StatelessWidget {
         color: Colors.white,
       ),
       IconButton(
-        tooltip: 'Refresh',
-        onPressed: onRefresh,
-        icon: const Icon(Icons.sync),
-        color: Colors.white,
-      ),
-      IconButton(
         tooltip: 'Hand tuning',
         onPressed: onOpenHandTuning,
         icon: const Icon(Icons.tune),
@@ -86,86 +82,33 @@ class TopRibbon extends StatelessWidget {
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final useSingleLine = constraints.maxWidth >= 720;
-        if (useSingleLine) {
-          final ribbonItems = <Widget>[...infoItems, ...playerItems];
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconButton(
-                onPressed: onLeave,
-                icon: const Icon(Icons.arrow_back),
-                color: Colors.white,
-              ),
-              Expanded(
-                child: FittedBox(
-                  alignment: Alignment.centerLeft,
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var index = 0; index < ribbonItems.length; index++)
-                        ...[
-                          if (index > 0) const SizedBox(width: 8),
-                          ribbonItems[index],
-                        ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Row(mainAxisSize: MainAxisSize.min, children: actions),
-            ],
-          );
-        }
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
+    final ribbonItems = <Widget>[...infoItems, ...playerItems];
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        IconButton(
+          onPressed: onLeave,
+          icon: const Icon(Icons.arrow_back),
+          color: Colors.white,
+        ),
+        Expanded(
+          child: FittedBox(
+            alignment: Alignment.centerLeft,
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  onPressed: onLeave,
-                  icon: const Icon(Icons.arrow_back),
-                  color: Colors.white,
-                ),
-                Expanded(
-                  child: ClipRect(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (
-                            int index = 0;
-                            index < infoItems.length;
-                            index++
-                          ) ...[
-                            if (index > 0) const SizedBox(width: 8),
-                            infoItems[index],
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Row(mainAxisSize: MainAxisSize.min, children: actions),
+                for (var index = 0; index < ribbonItems.length; index++) ...[
+                  if (index > 0) const SizedBox(width: 8),
+                  ribbonItems[index],
+                ],
               ],
             ),
-            if (playerItems.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                alignment: WrapAlignment.start,
-                children: playerItems,
-              ),
-            ],
-          ],
-        );
-      },
+          ),
+        ),
+        const SizedBox(width: 8),
+        Row(mainAxisSize: MainAxisSize.min, children: actions),
+      ],
     );
   }
 }
@@ -278,9 +221,16 @@ class PlayerPill extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: compact ? 72 : 140),
+                constraints: BoxConstraints(
+                  maxWidth: player.aiDifficultyLabel != null
+                      ? 160
+                      : (compact ? 72 : 140),
+                ),
                 child: Text(
-                  player.id,
+                  player.aiDifficultyLabel == null
+                      ? player.id
+                      : '${player.id} [${player.aiDifficultyLabel}]',
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,

@@ -112,9 +112,11 @@ class _GamePageState extends State<GamePage> {
     }
 
     setState(() {
-      savedGroup
-        ..clear()
-        ..addAll(selectedCards);
+      for (final card in selectedCards) {
+        if (!savedGroup.contains(card)) {
+          savedGroup.add(card);
+        }
+      }
     });
     widget.controller.clearSelectedCards();
   }

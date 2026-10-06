@@ -61,6 +61,7 @@ class TrickCollectViewModel {
 class GamePlayerViewModel {
   const GamePlayerViewModel({
     required this.id,
+    this.aiDifficultyLabel,
     required this.score,
     required this.handCount,
     required this.finished,
@@ -72,6 +73,7 @@ class GamePlayerViewModel {
   });
 
   final String id;
+  final String? aiDifficultyLabel;
   final int score;
   final int handCount;
   final bool finished;
