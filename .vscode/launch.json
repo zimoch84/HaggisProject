@@ -2,6 +2,20 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Haggis: Build Android APK",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "python3 tool/release_android.py",
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.Flutter.UI"
+    },
+    {
+      "name": "Haggis: Deploy Android to Google Drive",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "python3 tool/release_android.py --drive gdrive:HaggisRelease",
+      "cwd": "${workspaceFolder}/haggis-platform/client/Haggis.Flutter.UI"
+    },
+    {
       "name": "Haggis Backend (.NET)",
       "type": "coreclr",
       "request": "launch",
