@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../logging/app_logger.dart';
 import '../../utils/ws_uri.dart';
 
 class RemoteGameWebSocketClient {
@@ -22,16 +23,26 @@ class RemoteGameWebSocketClient {
   Stream<Map<String, dynamic>> get messages => _messages.stream;
 
   Future<void> connect() async {
+    final uri = buildWsUri(serverBaseUrl, '/ws/games/$gameId');
+    AppLogger.info('GameWs', 'Connecting to $uri.');
     _channel = WebSocketChannel.connect(
-      buildWsUri(serverBaseUrl, '/ws/games/$gameId'),
+      uri,
     );
     await _channel.ready.timeout(const Duration(seconds: 5));
+    AppLogger.info('GameWs', 'WebSocket ready: $uri');
     _subscription = _channel.stream.listen(
       (dynamic event) {
+        AppLogger.info('GameWs', 'Received frame: $event');
         _messages.add(jsonDecode(event as String) as Map<String, dynamic>);
       },
-      onError: _messages.addError,
-      onDone: _messages.close,
+      onError: (Object error, StackTrace stackTrace) {
+        AppLogger.error('GameWs', 'WebSocket stream error.', error);
+        _messages.addError(error, stackTrace);
+      },
+      onDone: () {
+        AppLogger.warn('GameWs', 'WebSocket stream closed by remote side.');
+        _messages.close();
+      },
     );
   }
 
@@ -96,10 +107,12 @@ class RemoteGameWebSocketClient {
   }
 
   void send(Map<String, Object?> payload) {
+    AppLogger.info('GameWs', 'Sending payload: ${jsonEncode(payload)}');
     _channel.sink.add(jsonEncode(payload));
   }
 
   Future<void> dispose() async {
+    AppLogger.info('GameWs', 'Disposing websocket client for $gameId.');
     await _subscription?.cancel();
     await _channel.sink.close();
   }

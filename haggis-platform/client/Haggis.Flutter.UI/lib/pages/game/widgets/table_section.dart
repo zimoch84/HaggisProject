@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../controllers/game_controller.dart';
 import '../../../view_models/game_view_model.dart';
 import '../utils/card_ui_helpers.dart';
 import 'cards.dart';
@@ -8,23 +7,11 @@ class TableSection extends StatelessWidget {
   const TableSection({
     super.key,
     required this.viewModel,
-    required this.controller,
-    required this.onCreateGroup,
     required this.readyPreviewLabel,
-    required this.hasSavedGroup,
-    required this.onClearGroup,
-    required this.onGroupRainbowBomb,
-    required this.onPlayPressed,
   });
 
   final GameViewModel viewModel;
-  final GameController controller;
-  final VoidCallback onCreateGroup;
   final String? readyPreviewLabel;
-  final bool hasSavedGroup;
-  final VoidCallback onClearGroup;
-  final VoidCallback? onGroupRainbowBomb;
-  final Future<void> Function() onPlayPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -58,245 +45,124 @@ class TableSection extends StatelessWidget {
               )
               .join('|')
         : visibleMoves.map((_VisibleTrickMove move) => move.identity).join('|');
-    final roomPlayerCount = controller.room.players.length;
-    final canAttemptStart = roomPlayerCount >= 2 && roomPlayerCount <= 3;
-    final canPass = controller.isCurrentPlayersTurn && controller.canPass;
-    final canPlay =
-        controller.isCurrentPlayersTurn && controller.canPlaySelectedCards;
-
     return Column(
       children: [
         Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 280),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              final offsetAnimation = Tween<Offset>(
-                begin: const Offset(0, -0.08),
-                end: Offset.zero,
-              ).animate(animation);
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(position: offsetAnimation, child: child),
-              );
-            },
-            child: collectingTrick != null
-                ? Align(
-                    alignment: Alignment.topCenter,
-                    key: ValueKey<String>(
-                      'collect:${collectingTrick.winnerPlayerId}:${collectingTrick.cards.join('|')}',
-                    ),
-                    child: _AnimatedCollectTrickPile(collect: collectingTrick),
-                  )
-                : latestVisibleMove != null
-                ? Align(
-                    alignment: Alignment.topCenter,
-                    key: ValueKey<String>('cards:$trickKey'),
-                    child: _TableTrickDisplay(
-                      cardMove: latestCardMove,
-                      passMove: latestPassMove,
-                    ),
-                  )
-                : viewModel.trick.isEmpty
-                ? const SizedBox.shrink(key: ValueKey<String>('empty-table'))
-                : ListView.separated(
-                    key: ValueKey<String>('text:$trickKey'),
-                    itemCount: viewModel.trick.length,
-                    separatorBuilder: (BuildContext context, int index) =>
-                        const SizedBox(height: 10),
-                    itemBuilder: (BuildContext context, int index) {
-                      final move = viewModel.trick[index];
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xAA131F22),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0x6656B891)),
-                        ),
-                        child: Text(
-                          '${move.playerId}: ${move.description}',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: MediaQuery.sizeOf(context).width - 64,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    if (viewModel.isGameInitialized)
-                      OutlinedButton.icon(
-                        onPressed: canPass ? controller.pass : null,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Color(0x6656B891)),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder:
+                      (Widget child, Animation<double> animation) {
+                        final offsetAnimation = Tween<Offset>(
+                          begin: const Offset(0, -0.08),
+                          end: Offset.zero,
+                        ).animate(animation);
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: offsetAnimation,
+                            child: child,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                        );
+                      },
+                  child: collectingTrick != null
+                      ? Align(
+                          alignment: Alignment.topCenter,
+                          key: ValueKey<String>(
+                            'collect:${collectingTrick.winnerPlayerId}:${collectingTrick.cards.join('|')}',
                           ),
-                        ),
-                        icon: const Icon(Icons.front_hand_outlined),
-                        label: const Text(
-                          'Pass',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      )
-                    else
-                      FilledButton.icon(
-                        onPressed: canAttemptStart
-                            ? controller.startGame
-                            : null,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFB15D45),
-                          disabledBackgroundColor: const Color(0xFF5C4944),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
+                          child: _AnimatedCollectTrickPile(
+                            collect: collectingTrick,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                        )
+                      : latestVisibleMove != null
+                      ? Align(
+                          alignment: Alignment.topCenter,
+                          key: ValueKey<String>('cards:$trickKey'),
+                          child: _TableTrickDisplay(
+                            cardMove: latestCardMove,
+                            passMove: latestPassMove,
                           ),
+                        )
+                      : viewModel.trick.isEmpty
+                      ? const SizedBox.shrink(
+                          key: ValueKey<String>('empty-table'),
+                        )
+                      : ListView.separated(
+                          key: ValueKey<String>('text:$trickKey'),
+                          itemCount: viewModel.trick.length,
+                          separatorBuilder: (BuildContext context, int index) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (BuildContext context, int index) {
+                            final move = viewModel.trick[index];
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xAA131F22),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color(0x6656B891),
+                                ),
+                              ),
+                              child: Text(
+                                '${move.playerId}: ${move.description}',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            );
+                          },
                         ),
-                        icon: const Icon(Icons.rocket_launch_outlined),
-                        label: const Text(
-                          'StartGame',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                    const Spacer(),
-                    if (viewModel.isGameInitialized &&
-                        controller.selectedCards.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: FilledButton.tonal(
-                          onPressed: onCreateGroup,
-                          style: FilledButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: const Color(0xAA31544B),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: const Text('Group'),
-                        ),
-                      ),
-                    if (viewModel.isGameInitialized &&
-                        onGroupRainbowBomb != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: FilledButton.tonalIcon(
-                          onPressed: onGroupRainbowBomb,
-                          icon: const Icon(
-                            Icons.auto_awesome_rounded,
-                            size: 18,
-                          ),
-                          label: const Text('Rainbow'),
-                          style: FilledButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: const Color(0xAA31544B),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (viewModel.isGameInitialized && hasSavedGroup)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: FilledButton.tonal(
-                          onPressed: onClearGroup,
-                          style: FilledButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: const Color(0xAA31544B),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: const Text('Reset grupy'),
-                        ),
-                      ),
-                    if (viewModel.isGameInitialized)
-                      FilledButton.icon(
-                        onPressed: canPlay ? onPlayPressed : null,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFB15D45),
-                          disabledBackgroundColor: const Color(0xFF5C4944),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: const Text(
-                          'Play',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                  ],
                 ),
-                if (viewModel.isGameInitialized &&
-                    readyPreviewLabel != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xAA162A2E),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0x6656B891)),
-                    ),
-                    child: Text(
-                      readyPreviewLabel!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+              ),
+            ],
           ),
         ),
+        if (viewModel.isGameInitialized && readyPreviewLabel != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _ReadyPreviewPanel(label: readyPreviewLabel!),
+          ),
       ],
+    );
+  }
+}
+
+class _ReadyPreviewPanel extends StatelessWidget {
+  const _ReadyPreviewPanel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 520),
+      child: Container(
+        width: MediaQuery.sizeOf(context).width * 0.34,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xAA162A2E),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0x6656B891)),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -577,22 +443,29 @@ class _TableMovePile extends StatelessWidget {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         const pileScale = 1.16;
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _PlayerMoveBadge(playerId: move.playerId, isLatest: isLatest),
-            const SizedBox(width: 10),
-            SizedBox(
-              width: _tablePileWidth(move.cards, scale: pileScale),
-              height: _tablePileHeight(move.cards, scale: pileScale),
-              child: TableTrickPile(
-                playerId: move.playerId,
-                cards: move.cards,
-                scale: pileScale,
-              ),
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _PlayerMoveBadge(playerId: move.playerId, isLatest: isLatest),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: _tablePileWidth(move.cards, scale: pileScale),
+                  height: _tablePileHeight(move.cards, scale: pileScale),
+                  child: TableTrickPile(
+                    playerId: move.playerId,
+                    cards: move.cards,
+                    scale: pileScale,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );

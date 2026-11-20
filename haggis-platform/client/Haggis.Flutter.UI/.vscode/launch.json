@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Haggis: Build Android APK",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "python3 tool/release_android.py",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Haggis: Deploy Android to Google Drive",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "python3 tool/release_android.py --drive gdrive:HaggisRelease",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

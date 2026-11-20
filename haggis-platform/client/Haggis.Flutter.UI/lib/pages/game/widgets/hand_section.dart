@@ -12,13 +12,9 @@ class HandSection extends StatelessWidget {
     required this.selectedCards,
     required this.cardLabelBuilder,
     required this.onCardTap,
-    required this.handSortMode,
-    required this.onSortChanged,
-    required this.onGroupColorBomb,
     required this.showCardHitZones,
     required this.cardScale,
     required this.spacingScale,
-    required this.arcScale,
     required this.verticalOffset,
   });
 
@@ -28,13 +24,9 @@ class HandSection extends StatelessWidget {
   final List<String> selectedCards;
   final String Function(String card) cardLabelBuilder;
   final Future<void> Function(String card) onCardTap;
-  final HandSortMode handSortMode;
-  final ValueChanged<HandSortMode> onSortChanged;
-  final VoidCallback? onGroupColorBomb;
   final bool showCardHitZones;
   final double cardScale;
   final double spacingScale;
-  final double arcScale;
   final double verticalOffset;
 
   @override
@@ -48,7 +40,7 @@ class HandSection extends StatelessWidget {
           children: [
             Positioned.fill(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -67,7 +59,6 @@ class HandSection extends StatelessWidget {
                                 showHitZoneOutline: showCardHitZones,
                                 cardScale: cardScale * 0.92,
                                 spacingScale: spacingScale,
-                                arcScale: arcScale,
                                 verticalOffset: verticalOffset.clamp(
                                   -12.0,
                                   36.0,
@@ -103,7 +94,6 @@ class HandSection extends StatelessWidget {
                                 showHitZoneOutline: showCardHitZones,
                                 cardScale: cardScale,
                                 spacingScale: spacingScale,
-                                arcScale: arcScale,
                                 verticalOffset: verticalOffset,
                               ),
                       ),
@@ -112,44 +102,6 @@ class HandSection extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(
-              top: 0,
-              right: 0,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (onGroupColorBomb != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 10),
-                      child: FilledButton.tonalIcon(
-                        onPressed: onGroupColorBomb,
-                        icon: const Icon(Icons.palette_outlined, size: 18),
-                        label: const Text('Kolor'),
-                        style: FilledButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor: const Color(0xAA31544B),
-                        ),
-                      ),
-                    ),
-                  HandSortToggle(
-                    handSortMode: handSortMode,
-                    onSortChanged: onSortChanged,
-                  ),
-                ],
-              ),
-            ),
-            if (savedGroup.isNotEmpty)
-              const Positioned(
-                left: 20,
-                top: 10,
-                child: Text(
-                  'Grupa',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
           ],
         );
       },
@@ -172,11 +124,11 @@ class HandSection extends StatelessWidget {
       return desiredWidth + horizontalPadding;
     }
 
-    final maxWidth = (availableWidth - gapToMainHand).clamp(
-      cardWidth,
-      double.infinity,
-    );
-    return (desiredWidth + horizontalPadding).clamp(cardWidth, maxWidth);
+    final maxWidth =
+        ((availableWidth - horizontalPadding - gapToMainHand) *
+                (cards.isEmpty ? 1.0 : 0.4))
+            .clamp(0.0, double.infinity);
+    return (desiredWidth + horizontalPadding).clamp(0.0, maxWidth);
   }
 }
 
@@ -235,11 +187,9 @@ class HandTuningPanel extends StatelessWidget {
     super.key,
     required this.cardScale,
     required this.spacingScale,
-    required this.arcScale,
     required this.verticalOffset,
     required this.onCardScaleChanged,
     required this.onSpacingScaleChanged,
-    required this.onArcScaleChanged,
     required this.onVerticalOffsetChanged,
     required this.showCardHitZones,
     required this.onShowCardHitZonesChanged,
@@ -247,11 +197,9 @@ class HandTuningPanel extends StatelessWidget {
 
   final double cardScale;
   final double spacingScale;
-  final double arcScale;
   final double verticalOffset;
   final ValueChanged<double> onCardScaleChanged;
   final ValueChanged<double> onSpacingScaleChanged;
-  final ValueChanged<double> onArcScaleChanged;
   final ValueChanged<double> onVerticalOffsetChanged;
   final bool showCardHitZones;
   final ValueChanged<bool> onShowCardHitZonesChanged;
@@ -288,13 +236,6 @@ class HandTuningPanel extends StatelessWidget {
             min: 0.7,
             max: 1.6,
             onChanged: onSpacingScaleChanged,
-          ),
-          HandTuningSlider(
-            label: 'Luk wachlarza',
-            value: arcScale,
-            min: 0.7,
-            max: 1.8,
-            onChanged: onArcScaleChanged,
           ),
           HandTuningSlider(
             label: 'Skala kart',

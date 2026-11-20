@@ -1,5 +1,5 @@
 {
-    "dart.flutterSdkPath": "Q:\\Program Files\\Flutter",
+    "dart.flutterSdkPath": "/home/zimoch/develop/flutter",
     "dart.flutterHotReloadOnSave": "all",
     "dart.projectSearchDepth": 5,
     "chatgpt.openOnStartup": true,

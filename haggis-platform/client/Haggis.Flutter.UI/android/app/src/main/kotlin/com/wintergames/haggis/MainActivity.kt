@@ -1,4 +1,4 @@
-package com.example.haggis_flutter
+package com.wintergames.haggis
 
 import io.flutter.embedding.android.FlutterActivity
 

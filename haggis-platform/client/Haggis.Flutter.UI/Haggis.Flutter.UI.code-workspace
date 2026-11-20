@@ -5,7 +5,7 @@
     }
   ],
   "settings": {
-    "dart.flutterSdkPath": "Q:\\Program Files\\Flutter",
+    "dart.flutterSdkPath": "/home/zimoch/develop/flutter",
     "dart.flutterHotReloadOnSave": "all"
   },
   "launch": {
