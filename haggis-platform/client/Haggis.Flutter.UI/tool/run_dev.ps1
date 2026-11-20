@@ -8,66 +8,21 @@ param(
 $ErrorActionPreference = "Stop"
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$buildInfoPath = Join-Path $projectRoot "lib/app/app_build_info.dart"
-$buildInfo = Get-Content -LiteralPath $buildInfoPath -Raw
-$markerMatch = [regex]::Match($buildInfo, "sourceMarker\s*=\s*'([^']+)'")
-if (-not $markerMatch.Success) {
-    throw "Could not read sourceMarker from $buildInfoPath"
+$pubspecPath = Join-Path $projectRoot "pubspec.yaml"
+$pubspec = Get-Content -LiteralPath $pubspecPath -Raw
+$versionMatch = [regex]::Match($pubspec, '(?m)^version: +(\d{4})\.(\d{1,2})\.(\d{1,2})\+(\d+)\s*$')
+if (-not $versionMatch.Success) {
+    throw "Expected version: YYYY.M.D+build in $pubspecPath"
 }
-
-$label = $markerMatch.Groups[1].Value
+$label = 'ui-{0}{1:D2}{2:D2}-{3:D3}' -f $versionMatch.Groups[1].Value, [int]$versionMatch.Groups[2].Value, [int]$versionMatch.Groups[3].Value, [int]$versionMatch.Groups[4].Value
 
 if ($UseHash) {
-    $pathsToHash = @(
-        "lib",
-        "pubspec.yaml",
-        "analysis_options.yaml",
-        "assets/applicationsettings.json"
-    )
-
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    $chunks = New-Object System.Collections.Generic.List[byte[]]
-
-    foreach ($relativePath in $pathsToHash) {
-        $path = Join-Path $projectRoot $relativePath
-        if (-not (Test-Path -LiteralPath $path)) {
-            continue
-        }
-
-        $files = if ((Get-Item -LiteralPath $path).PSIsContainer) {
-            Get-ChildItem -LiteralPath $path -Recurse -File | Sort-Object FullName
-        } else {
-            @(Get-Item -LiteralPath $path)
-        }
-
-        foreach ($file in $files) {
-            $relativeFile = $file.FullName.Substring($projectRoot.Length).TrimStart("\", "/").Replace("\", "/")
-            $chunks.Add([System.Text.Encoding]::UTF8.GetBytes($relativeFile))
-            $chunks.Add([byte[]](0))
-            $chunks.Add([System.IO.File]::ReadAllBytes($file.FullName))
-            $chunks.Add([byte[]](0))
-        }
-    }
-
-    $totalLength = 0
-    foreach ($chunk in $chunks) {
-        $totalLength += $chunk.Length
-    }
-
-    $buffer = New-Object byte[] $totalLength
-    $offset = 0
-    foreach ($chunk in $chunks) {
-        [System.Buffer]::BlockCopy($chunk, 0, $buffer, $offset, $chunk.Length)
-        $offset += $chunk.Length
-    }
-
-    $hash = [System.BitConverter]::ToString($sha.ComputeHash($buffer)).Replace("-", "").Substring(0, 10).ToLowerInvariant()
-    $label = "ui-$hash"
+    throw "UseHash is no longer supported; set the version in pubspec.yaml."
 }
 
-Write-Host "APP_BUILD_LABEL=$label"
+Write-Host "UI version=$label"
 if ($PrintOnly) {
     return
 }
 
-flutter run -d $Device "--dart-define=APP_BUILD_LABEL=$label" @FlutterArgs
+flutter run -d $Device @FlutterArgs

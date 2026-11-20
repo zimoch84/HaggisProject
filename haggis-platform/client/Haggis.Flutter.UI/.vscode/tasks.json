@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Haggis: Build Android APK",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "${workspaceFolder}/tool/release_android.py"
+      ],
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "Haggis: Deploy Android to Google Drive",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "${workspaceFolder}/tool/release_android.py",
+        "--drive",
+        "gdrive:HaggisRelease"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../controllers/game_controller.dart';
@@ -177,15 +179,24 @@ void handleRefresh({
   final pendingRound = controller.roundOverController.consumePendingRound();
   onRebuild();
   if (pendingRound != null) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (BuildContext context) =>
-                RoundOverPage(viewModel: pendingRound),
-          ),
-        );
+    // The snapshot already contains the next deal when a round ends. Queue the
+    // route change after the controller notification, but before the next
+    // frame, so the new hand is never painted first and Navigator is not used
+    // while the widget tree is notifying listeners.
+    scheduleMicrotask(() {
+      if (!mounted) {
+        return;
       }
+      unawaited(
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute<void>(
+                builder: (BuildContext context) =>
+                    RoundOverPage(viewModel: pendingRound),
+              ),
+            )
+            .then((_) => controller.resumeLocalGameAfterRoundSummary()),
+      );
     });
   }
 }
@@ -194,12 +205,10 @@ Future<void> openHandTuning({
   required BuildContext context,
   required double handCardScale,
   required double handSpacingScale,
-  required double handArcScale,
   required double handVerticalOffset,
   required bool showCardHitZones,
   required ValueChanged<double> onCardScaleChanged,
   required ValueChanged<double> onSpacingScaleChanged,
-  required ValueChanged<double> onArcScaleChanged,
   required ValueChanged<double> onVerticalOffsetChanged,
   required ValueChanged<bool> onShowCardHitZonesChanged,
 }) async {
@@ -209,7 +218,6 @@ Future<void> openHandTuning({
       final screenSize = MediaQuery.of(context).size;
       double cardScale = handCardScale;
       double spacingScale = handSpacingScale;
-      double arcScale = handArcScale;
       double verticalOffset = handVerticalOffset;
       bool cardHitZones = showCardHitZones;
 
@@ -244,7 +252,6 @@ Future<void> openHandTuning({
                   child: HandTuningPanel(
                     cardScale: cardScale,
                     spacingScale: spacingScale,
-                    arcScale: arcScale,
                     verticalOffset: verticalOffset,
                     showCardHitZones: cardHitZones,
                     onCardScaleChanged: (double value) {
@@ -258,12 +265,6 @@ Future<void> openHandTuning({
                         spacingScale = value;
                       });
                       onSpacingScaleChanged(value);
-                    },
-                    onArcScaleChanged: (double value) {
-                      updateValues(() {
-                        arcScale = value;
-                      });
-                      onArcScaleChanged(value);
                     },
                     onVerticalOffsetChanged: (double value) {
                       updateValues(() {

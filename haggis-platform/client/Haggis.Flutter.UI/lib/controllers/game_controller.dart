@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../infrastructure/logging/app_logger.dart';
 import '../infrastructure/remote/remote_game_websocket_client.dart';
+import '../local_game/local_game_engine.dart';
 import '../models/game_models.dart';
 import '../models/lobby_models.dart';
 import '../models/single_player_models.dart';
@@ -14,8 +17,6 @@ import 'round_over_controller.dart';
 import 'score_history_controller.dart';
 
 class GameController extends ChangeNotifier {
-  static const int _forcedStartSeed = 115826734;
-
   GameController({
     required this.serverBaseUrl,
     required this.playerId,
@@ -29,8 +30,10 @@ class GameController extends ChangeNotifier {
   final LobbyRoom room;
   final bool singlePlayer;
   final List<SinglePlayerAiConfig> singlePlayerAiPlayers;
+  final int _startSeed = Random().nextInt(2147483647);
 
-  late final RemoteGameWebSocketClient _client;
+  RemoteGameWebSocketClient? _client;
+  LocalGameEngine? _localEngine;
   StreamSubscription<Map<String, dynamic>>? _subscription;
 
   final RoundOverController roundOverController = RoundOverController();
@@ -154,6 +157,13 @@ class GameController extends ChangeNotifier {
               .map(
                 (GamePlayer player) => GamePlayerViewModel(
                   id: player.id,
+                  aiDifficultyLabel: singlePlayer
+                      ? singlePlayerAiPlayers
+                            .where((config) => config.name == player.id)
+                            .firstOrNull
+                            ?.difficulty
+                            .label
+                      : null,
                   score: player.score,
                   handCount: player.handCount,
                   finished: player.finished,
@@ -212,19 +222,38 @@ class GameController extends ChangeNotifier {
   }
 
   Future<void> connect() async {
+    if (singlePlayer) {
+      AppLogger.info('GameCtrl', 'Starting local game ${room.gameId}.');
+      _localEngine = LocalGameEngine(
+        humanId: playerId,
+        aiPlayers: singlePlayerAiPlayers,
+        seed: _startSeed,
+      );
+      _acceptLocalSnapshot(
+        _localEngine!.start(),
+        status: 'Local game started.',
+      );
+      return;
+    }
+    AppLogger.info(
+      'GameCtrl',
+      'Connecting to game room ${room.gameId} via $serverBaseUrl as $playerId.',
+    );
     _client = RemoteGameWebSocketClient(
       serverBaseUrl: serverBaseUrl,
       gameId: room.gameId,
     );
-    await _client.connect();
-    _subscription = _client.messages.listen(
+    await _client!.connect();
+    _subscription = _client!.messages.listen(
       _onMessage,
       onError: (Object error, StackTrace _) {
         _status = 'Game socket error: $error';
+        AppLogger.error('GameCtrl', 'Game subscription error.', error);
         notifyListeners();
       },
       onDone: () {
         _status = 'Game socket closed.';
+        AppLogger.warn('GameCtrl', 'Game subscription closed.');
         notifyListeners();
       },
     );
@@ -233,26 +262,35 @@ class GameController extends ChangeNotifier {
   }
 
   void joinGame() {
-    _client.join(playerId);
+    AppLogger.info('GameCtrl', 'Joining game ${room.gameId} as $playerId.');
+    _client!.join(playerId);
   }
 
   void requestSnapshot() {
-    _client.requestSnapshot(playerId);
+    AppLogger.info('GameCtrl', 'Requesting snapshot for ${room.gameId}.');
+    _client!.requestSnapshot(playerId);
   }
 
   void startGame() {
+    if (singlePlayer) {
+      return;
+    }
     if (!canStartGame) {
       return;
     }
 
     _autoStartRequested = true;
-    _client.createGame(
+    AppLogger.info(
+      'GameCtrl',
+      'Sending create game for ${room.gameId}. seed=$_startSeed players=${singlePlayer ? _buildSinglePlayerRoster() : room.players.length}',
+    );
+    _client!.createGame(
       playerId,
       singlePlayer ? 3 : room.players.length,
-      seed: _forcedStartSeed,
+      seed: _startSeed,
       players: singlePlayer ? _buildSinglePlayerRoster() : null,
     );
-    _status = 'Start command sent. Seed: $_forcedStartSeed';
+    _status = 'Start command sent. Seed: $_startSeed';
     notifyListeners();
   }
 
@@ -275,10 +313,19 @@ class GameController extends ChangeNotifier {
     }
 
     _commandInFlight = true;
+    AppLogger.info('GameCtrl', 'Sending action ${action.displayAction}.');
+    if (singlePlayer) {
+      _status = 'Playing: ${action.displayAction}';
+      _selectedCards.clear();
+      _wildAssignments.clear();
+      notifyListeners();
+      unawaited(_playLocal(action));
+      return;
+    }
     if (action.type.toLowerCase() == 'pass') {
-      _client.sendPass(playerId);
+      _client!.sendPass(playerId);
     } else {
-      _client.sendPlay(playerId, action.displayAction);
+      _client!.sendPlay(playerId, action.displayAction);
     }
     _status = 'Sent: ${action.displayAction}';
     _selectedCards.clear();
@@ -413,6 +460,71 @@ class GameController extends ChangeNotifier {
     playAction(action);
   }
 
+  Future<void> _playLocal(PossibleActionViewModel action) async {
+    try {
+      final engine = _localEngine;
+      if (engine == null || _disposed) return;
+      final next = action.type.toLowerCase() == 'pass'
+          ? await engine.pass()
+          : await engine.play(action.displayAction);
+      if (_disposed) return;
+      _acceptLocalSnapshot(next, status: 'Local move applied.');
+    } catch (error) {
+      if (_disposed) return;
+      _commandInFlight = false;
+      _status = 'Local game error: $error';
+      AppLogger.error('GameCtrl', 'Local move failed.', error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> resumeLocalGameAfterRoundSummary() async {
+    if (!singlePlayer || _disposed) {
+      return;
+    }
+
+    final engine = _localEngine;
+    if (engine == null) {
+      return;
+    }
+
+    final next = await engine.continueAfterRoundSummary();
+    if (_disposed) {
+      return;
+    }
+    _acceptLocalSnapshot(next, status: 'Local game resumed.');
+  }
+
+  void _acceptLocalSnapshot(GameSnapshot next, {required String status}) {
+    final previous = _snapshot;
+    _snapshot = next;
+    final collectingTrick = _buildCollectingTrickForTransition(previous, next);
+    final replayStarted = _startAppliedMovesReplay(
+      previous,
+      next,
+      collectingTrick,
+    );
+    _commandInFlight = false;
+    _autoStartRequested = false;
+    _syncSelectedCardWithSnapshot();
+    _status = status;
+    _updateDerivedRoundState(
+      previous,
+      next,
+      establishBaselineOnly: !_hasEstablishedSnapshotBaseline,
+      deferRoundOverPopup: replayStarted || collectingTrick != null,
+    );
+    if (!replayStarted) {
+      if (collectingTrick != null) {
+        _startCollectAnimation(collectingTrick);
+      } else {
+        _publishDeferredRoundOver();
+      }
+    }
+    _hasEstablishedSnapshotBaseline = true;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _disposed = true;
@@ -423,7 +535,7 @@ class GameController extends ChangeNotifier {
     _collectingTrick = null;
     _deferredRoundOver = null;
     _subscription?.cancel();
-    _client.dispose();
+    _client?.dispose();
     roundOverController.dispose();
     scoreHistoryController.dispose();
     super.dispose();
@@ -442,6 +554,7 @@ class GameController extends ChangeNotifier {
 
   void _onMessage(Map<String, dynamic> json) {
     final type = (json['type'] ?? '').toString();
+    AppLogger.info('GameCtrl', 'Received message type=$type payload=$json');
 
     if (type == 'RoomJoined') {
       final roomJson = json['room'] as Map<String, dynamic>?;
@@ -564,6 +677,15 @@ class GameController extends ChangeNotifier {
     GameSnapshot? currentSnapshot,
     TrickCollectViewModel? collectingTrick,
   ) {
+    // When a local move finishes the round, the engine may already contain
+    // AI moves from the next round. Those moves are only an internal
+    // simulation needed to return control to the human player; replaying them
+    // makes the finished round appear to hang for several seconds.
+    if (_isRoundTransition(previousSnapshot, currentSnapshot)) {
+      _cancelAppliedMovesReplay();
+      return false;
+    }
+
     final appliedMoves = currentSnapshot?.appliedMoves ?? const <TrickMove>[];
     if (appliedMoves.length <= 1) {
       _cancelAppliedMovesReplay();
@@ -624,6 +746,12 @@ class GameController extends ChangeNotifier {
     GameSnapshot? previousSnapshot,
     GameSnapshot? currentSnapshot,
   ) {
+    // The round summary must be shown before anything from the next deal is
+    // painted. A round transition is not a normal trick collection.
+    if (_isRoundTransition(previousSnapshot, currentSnapshot)) {
+      return null;
+    }
+
     if (currentSnapshot == null || currentSnapshot.trick.isNotEmpty) {
       return null;
     }
@@ -658,6 +786,15 @@ class GameController extends ChangeNotifier {
       playerCount: currentSnapshot.players.length,
       cards: List<String>.unmodifiable(cards),
     );
+  }
+
+  bool _isRoundTransition(
+    GameSnapshot? previousSnapshot,
+    GameSnapshot? currentSnapshot,
+  ) {
+    return previousSnapshot != null &&
+        currentSnapshot != null &&
+        currentSnapshot.roundNumber > previousSnapshot.roundNumber;
   }
 
   String _resolveCollectWinnerPlayerId(
@@ -828,8 +965,7 @@ class GameController extends ChangeNotifier {
       return null;
     }
 
-    final playerScores =
-        previousRound?.playerScores ?? const <PreviousRoundPlayerScore>[];
+    final playerScores = previousRound.playerScores;
     final currentPlayersById = <String, GamePlayer>{
       for (final GamePlayer player in currentSnapshot.players)
         player.id: player,
@@ -863,11 +999,9 @@ class GameController extends ChangeNotifier {
       status: currentSnapshot.gameOver
           ? 'Round ${previousRound.roundNumber} finished. Game over.'
           : 'Round ${previousRound.roundNumber} finished. Round ${currentSnapshot.roundNumber} started.',
-      winnerPlayerId: previousRound?.winnerPlayerName ?? '',
+      winnerPlayerId: previousRound.winnerPlayerName,
       players: players,
-      haggisCards: List<String>.unmodifiable(
-        previousRound?.haggisCards ?? const <String>[],
-      ),
+      haggisCards: List<String>.unmodifiable(previousRound.haggisCards),
       lastSequenceLines: List<String>.unmodifiable(sequence),
     );
   }
