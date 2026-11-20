@@ -12,12 +12,6 @@ class HandSection extends StatelessWidget {
     required this.selectedCards,
     required this.cardLabelBuilder,
     required this.onCardTap,
-    required this.handSortMode,
-    required this.onSortChanged,
-    required this.onGroupColorBomb,
-    this.onCreateGroup,
-    this.onClearGroup,
-    this.onGroupRainbowBomb,
     required this.showCardHitZones,
     required this.cardScale,
     required this.spacingScale,
@@ -30,12 +24,6 @@ class HandSection extends StatelessWidget {
   final List<String> selectedCards;
   final String Function(String card) cardLabelBuilder;
   final Future<void> Function(String card) onCardTap;
-  final HandSortMode handSortMode;
-  final ValueChanged<HandSortMode> onSortChanged;
-  final VoidCallback? onGroupColorBomb;
-  final VoidCallback? onCreateGroup;
-  final VoidCallback? onClearGroup;
-  final VoidCallback? onGroupRainbowBomb;
   final bool showCardHitZones;
   final double cardScale;
   final double spacingScale;
@@ -43,14 +31,6 @@ class HandSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final groupButtonStyle = FilledButton.styleFrom(
-      backgroundColor: const Color(0x66163034),
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: const Color(0x33163034),
-      disabledForegroundColor: Colors.white38,
-      side: const BorderSide(color: Color(0x6656B891)),
-      shape: const StadiumBorder(),
-    );
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final savedGroupWidth = _resolveSavedGroupWidth(constraints.maxWidth);
@@ -60,7 +40,7 @@ class HandSection extends StatelessWidget {
           children: [
             Positioned.fill(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 92, 8, 4),
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -120,80 +100,6 @@ class HandSection extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 8,
-              right: 0,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            height: 48,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (onCreateGroup != null &&
-                                    selectedCards.any(
-                                      (card) => !savedGroup.contains(card),
-                                    ))
-                                  FilledButton.tonal(
-                                    style: groupButtonStyle,
-                                    onPressed: onCreateGroup,
-                                    child: const Text('Group'),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(
-                            height: 48,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (savedGroup.isNotEmpty)
-                                  FilledButton.tonal(
-                                    style: groupButtonStyle,
-                                    onPressed: onClearGroup,
-                                    child: const Text('Reset group'),
-                                  )
-                                else ...[
-                                  if (onGroupRainbowBomb != null)
-                                    FilledButton.tonal(
-                                      style: groupButtonStyle,
-                                      onPressed: onGroupRainbowBomb,
-                                      child: const Text('Rainbow'),
-                                    ),
-                                  if (onGroupRainbowBomb != null &&
-                                      onGroupColorBomb != null)
-                                    const SizedBox(width: 6),
-                                  if (onGroupColorBomb != null)
-                                    FilledButton.tonal(
-                                      style: groupButtonStyle,
-                                      onPressed: onGroupColorBomb,
-                                      child: const Text('Color (bomb)'),
-                                    ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  HandSortToggle(
-                    handSortMode: handSortMode,
-                    onSortChanged: onSortChanged,
-                  ),
-                ],
               ),
             ),
           ],

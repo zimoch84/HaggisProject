@@ -4,6 +4,8 @@ import 'game_page_layout.dart';
 import 'models/card_ui_models.dart';
 import 'utils/card_ui_helpers.dart';
 import 'widgets/background.dart';
+import 'widgets/cards.dart';
+import 'widgets/game_controls.dart';
 import 'widgets/hand_section.dart';
 import 'widgets/table_section.dart';
 import 'widgets/top_ribbon.dart';
@@ -51,136 +53,114 @@ Widget buildGamePageView({
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-            child: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                final isLandscape = isLandscapeLayout(constraints);
-                final reservedTopHeight = isLandscape ? 112.0 : 138.0;
-                final reservedTableGap = isLandscape ? 22.0 : 26.0;
-                final handSectionHeight = computeHandSectionHeight(
-                  availableHeight:
-                      constraints.maxHeight -
-                      reservedTopHeight -
-                      reservedTableGap,
-                  isLandscape: isLandscape,
-                  handCardScale: handCardScale,
-                  handVerticalOffset: handVerticalOffset,
-                );
-                if (isLandscape) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TopRibbon(
-                        viewModel: viewModel,
-                        players: viewModel.players,
-                        onLeave: onLeave,
-                        hasLastRound:
-                            controller.roundOverController.hasLastRound,
-                        onOpenLastRound: onOpenLastRound,
-                        onOpenScoreHistory: onOpenScoreHistory,
-                        onRefresh: controller.requestSnapshot,
-                        onOpenHandTuning: onOpenHandTuning,
-                      ),
-                      const SizedBox(height: 4),
-                      Expanded(
-                        child: SurfaceCard(
-                          padding: const EdgeInsets.fromLTRB(18, 4, 18, 14),
-                          backgroundColor: Colors.transparent,
-                          borderColor: Colors.transparent,
-                          boxShadow: const [],
-                          child: TableSection(
-                            viewModel: viewModel,
-                            controller: controller,
-
-                            readyPreviewLabel: readyPreviewLabel,
-
-                            onPlayPressed: onPlaySelected,
-                          ),
+            child: GameBoardLayout(
+              handCardScale: handCardScale,
+              handVerticalOffset: handVerticalOffset,
+              topRibbon: TopRibbon(
+                viewModel: viewModel,
+                players: viewModel.players,
+                onLeave: onLeave,
+                hasLastRound: controller.roundOverController.hasLastRound,
+                onOpenLastRound: onOpenLastRound,
+                onOpenScoreHistory: onOpenScoreHistory,
+                onRefresh: controller.requestSnapshot,
+                onOpenHandTuning: onOpenHandTuning,
+              ),
+              leftControls: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GameActionButton(
+                          label: viewModel.isGameInitialized
+                              ? 'Pass'
+                              : 'StartGame',
+                          icon: viewModel.isGameInitialized
+                              ? Icons.front_hand_outlined
+                              : Icons.rocket_launch_outlined,
+                          onPressed: viewModel.isGameInitialized
+                              ? (controller.isCurrentPlayersTurn &&
+                                        controller.canPass
+                                    ? controller.pass
+                                    : null)
+                              : (controller.room.players.length >= 2 &&
+                                        controller.room.players.length <= 3
+                                    ? controller.startGame
+                                    : null),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        height: handSectionHeight + 48,
-                        child: HandSection(
-                          cards: sortedHand,
-                          savedGroup: handSplit.groupedHand,
-                          playableCards: playableCards,
-                          selectedCards: controller.selectedCards,
-                          cardLabelBuilder: controller.displayCardLabel,
-                          onCardTap: onCardTap,
-                          handSortMode: handSortMode,
-                          onSortChanged: onSortChanged,
-                          onGroupColorBomb: onGroupColorBomb,
-                          onCreateGroup: viewModel.isGameInitialized
+                        HandGroupControls(
+                          hasSavedGroup: handSplit.groupedHand.isNotEmpty,
+                          onCreateGroup:
+                              viewModel.isGameInitialized &&
+                                  controller.selectedCards.any(
+                                    (card) =>
+                                        !handSplit.groupedHand.contains(card),
+                                  )
                               ? onCreateGroup
                               : null,
                           onClearGroup: onClearGroup,
                           onGroupRainbowBomb: onGroupRainbowBomb,
-                          showCardHitZones: showCardHitZones,
-                          cardScale: handCardScale,
-                          spacingScale: handSpacingScale,
-                          verticalOffset: handVerticalOffset,
+                          onGroupColorBomb: onGroupColorBomb,
                         ),
-                      ),
-                    ],
-                  );
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TopRibbon(
-                      viewModel: viewModel,
-                      players: viewModel.players,
-                      onLeave: onLeave,
-                      hasLastRound: controller.roundOverController.hasLastRound,
-                      onOpenLastRound: onOpenLastRound,
-                      onOpenScoreHistory: onOpenScoreHistory,
-                      onRefresh: controller.requestSnapshot,
-                      onOpenHandTuning: onOpenHandTuning,
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Expanded(
-                      child: SurfaceCard(
-                        padding: const EdgeInsets.fromLTRB(18, 4, 18, 14),
-                        backgroundColor: Colors.transparent,
-                        borderColor: Colors.transparent,
-                        boxShadow: const [],
-                        child: TableSection(
-                          viewModel: viewModel,
-                          controller: controller,
-
-                          readyPreviewLabel: readyPreviewLabel,
-
-                          onPlayPressed: onPlaySelected,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      height: handSectionHeight + 48,
-                      child: HandSection(
-                        cards: sortedHand,
-                        savedGroup: handSplit.groupedHand,
+                  ),
+                ),
+              ),
+              table: TableSection(
+                viewModel: viewModel,
+                readyPreviewLabel: readyPreviewLabel,
+              ),
+              rightControls: Align(
+                alignment: Alignment.topCenter,
+                child: viewModel.isGameInitialized
+                    ? GameActionButton(
+                        label: 'Play',
+                        icon: Icons.play_arrow_rounded,
+                        onPressed:
+                            controller.isCurrentPlayersTurn &&
+                                controller.canPlaySelectedCards
+                            ? onPlaySelected
+                            : null,
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              hand: HandSection(
+                cards: sortedHand,
+                savedGroup: const [],
+                playableCards: playableCards,
+                selectedCards: controller.selectedCards,
+                cardLabelBuilder: controller.displayCardLabel,
+                onCardTap: onCardTap,
+                showCardHitZones: showCardHitZones,
+                cardScale: handCardScale,
+                spacingScale: handSpacingScale,
+                verticalOffset: handVerticalOffset,
+              ),
+              groupedHand: handSplit.groupedHand.isEmpty
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                      child: PlayerHandFan(
+                        cards: handSplit.groupedHand,
                         playableCards: playableCards,
                         selectedCards: controller.selectedCards,
                         cardLabelBuilder: controller.displayCardLabel,
                         onCardTap: onCardTap,
-                        handSortMode: handSortMode,
-                        onSortChanged: onSortChanged,
-                        onGroupColorBomb: onGroupColorBomb,
-                        onCreateGroup: viewModel.isGameInitialized
-                            ? onCreateGroup
-                            : null,
-                        onClearGroup: onClearGroup,
-                        onGroupRainbowBomb: onGroupRainbowBomb,
-                        showCardHitZones: showCardHitZones,
-                        cardScale: handCardScale,
+                        showHitZoneOutline: showCardHitZones,
+                        cardScale: handCardScale * 0.92,
                         spacingScale: handSpacingScale,
-                        verticalOffset: handVerticalOffset,
+                        verticalOffset: handVerticalOffset.clamp(-12.0, 36.0),
                       ),
                     ),
-                  ],
-                );
-              },
+              handSort: HandSortToggle(
+                handSortMode: handSortMode,
+                onSortChanged: onSortChanged,
+              ),
             ),
           ),
         ),

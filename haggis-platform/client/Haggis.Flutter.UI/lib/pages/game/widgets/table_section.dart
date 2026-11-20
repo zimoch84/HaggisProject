@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../controllers/game_controller.dart';
 import '../../../view_models/game_view_model.dart';
 import '../utils/card_ui_helpers.dart';
 import 'cards.dart';
@@ -8,15 +7,11 @@ class TableSection extends StatelessWidget {
   const TableSection({
     super.key,
     required this.viewModel,
-    required this.controller,
     required this.readyPreviewLabel,
-    required this.onPlayPressed,
   });
 
   final GameViewModel viewModel;
-  final GameController controller;
   final String? readyPreviewLabel;
-  final Future<void> Function() onPlayPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -50,12 +45,6 @@ class TableSection extends StatelessWidget {
               )
               .join('|')
         : visibleMoves.map((_VisibleTrickMove move) => move.identity).join('|');
-    final roomPlayerCount = controller.room.players.length;
-    final canAttemptStart = roomPlayerCount >= 2 && roomPlayerCount <= 3;
-    final canPass = controller.isCurrentPlayersTurn && controller.canPass;
-    final canPlay =
-        controller.isCurrentPlayersTurn && controller.canPlaySelectedCards;
-
     return Column(
       children: [
         Expanded(
@@ -135,104 +124,11 @@ class TableSection extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: MediaQuery.sizeOf(context).width - 64,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    if (viewModel.isGameInitialized)
-                      FilledButton.icon(
-                        onPressed: canPass ? controller.pass : null,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFB15D45),
-                          disabledBackgroundColor: const Color(0xFF5C4944),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        icon: const Icon(Icons.front_hand_outlined),
-                        label: const Text(
-                          'Pass',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      )
-                    else
-                      FilledButton.icon(
-                        onPressed: canAttemptStart
-                            ? controller.startGame
-                            : null,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFB15D45),
-                          disabledBackgroundColor: const Color(0xFF5C4944),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        icon: const Icon(Icons.rocket_launch_outlined),
-                        label: const Text(
-                          'StartGame',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                    Expanded(
-                      child:
-                          viewModel.isGameInitialized &&
-                              readyPreviewLabel != null
-                          ? Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Center(
-                                child: _ReadyPreviewPanel(
-                                  label: readyPreviewLabel!,
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    if (viewModel.isGameInitialized)
-                      FilledButton.icon(
-                        onPressed: canPlay ? onPlayPressed : null,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFB15D45),
-                          disabledBackgroundColor: const Color(0xFF5C4944),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: const Text(
-                          'Play',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
+        if (viewModel.isGameInitialized && readyPreviewLabel != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _ReadyPreviewPanel(label: readyPreviewLabel!),
           ),
-        ),
       ],
     );
   }

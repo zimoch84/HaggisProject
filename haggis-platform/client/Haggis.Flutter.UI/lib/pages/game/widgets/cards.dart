@@ -7,31 +7,65 @@ import '../utils/card_ui_helpers.dart';
 const Color _cardFaceColor = Color(0xFFFFFBFF);
 const Color _cardBorderColor = Color(0xFFE4DCCB);
 
-class TableCard extends StatelessWidget {
-  const TableCard({super.key, required this.label});
+/// Shared card surface and face. Subclasses choose the presentation and interaction.
+abstract class BaseCard extends StatelessWidget {
+  const BaseCard({super.key, required this.label});
 
   final String label;
 
-  @override
-  Widget build(BuildContext context) {
+  // Ratios based on the original 96 × 136 table card.
+  static const double cornerRadiusRatio = 16 / 96;
+  static const double horizontalInsetRatio = 10 / 96;
+  static const double verticalInsetRatio = 10 / 136;
+
+  bool get compact;
+  double get scale => 1;
+
+  @protected
+  Widget buildCard({
+    bool isSelected = false,
+    bool isPlayable = false,
+    bool showHitZoneOutline = false,
+  }) {
     final display = DisplayCardLabel.fromLabel(label);
-    final wildAssetPath = wildCardAssetPath(display.rankToken);
+    final wildAssetPath = compact
+        ? wildMiniAssetPath(display.rankToken)
+        : wildCardAssetPath(display.rankToken);
     final centerSuitAssetPath = display.isWildAssignment
         ? cardSuitAssetPath(display.assignmentSuitToken)
         : cardSuitAssetPath(display.suitToken);
+    final cardWidth = (compact ? 64.0 : 96.0) * scale;
+    final cardHeight = (compact ? 98.0 : 136.0) * scale;
+    final borderRadius = cardWidth * cornerRadiusRatio;
+    final horizontalInset = cardWidth * horizontalInsetRatio;
+    final verticalInset = cardHeight * verticalInsetRatio;
+    final centerMark = CenterCardMark(
+      suitAssetPath: centerSuitAssetPath,
+      color:
+          (display.accentToken.isEmpty
+                  ? const Color(0xFF8A5B1F)
+                  : cardAccent(display.accentToken))
+              .withValues(alpha: compact ? 0.2 : 0.24),
+      compact: compact,
+    );
 
     return Container(
-      width: 96,
-      height: 136,
+      width: cardWidth,
+      height: cardHeight,
       decoration: BoxDecoration(
         color: _cardFaceColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _cardBorderColor, width: 1.5),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(
+          color: isSelected ? const Color(0xFFF2C14E) : _cardBorderColor,
+          width: compact ? (isSelected || isPlayable ? 2 : 1) : 1.5,
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 6,
-            offset: Offset(0, 3),
+            color: isSelected
+                ? const Color(0x44F2C14E)
+                : const Color(0x22000000),
+            blurRadius: isSelected ? 14 : 6,
+            offset: Offset(0, isSelected ? 8 : 3),
           ),
         ],
       ),
@@ -40,7 +74,7 @@ class TableCard extends StatelessWidget {
           if (wildAssetPath != null) ...[
             Positioned.fill(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(borderRadius),
                 child: Image.asset(wildAssetPath, fit: BoxFit.contain),
               ),
             ),
@@ -48,45 +82,73 @@ class TableCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: WildAssignmentBadge(display: display, compact: false),
+                  padding: EdgeInsets.only(left: cardWidth / 16),
+                  child: WildAssignmentBadge(
+                    display: display,
+                    compact: compact,
+                  ),
                 ),
               ),
           ] else ...[
             Positioned(
-              top: 10,
-              left: 10,
-              child: CardCorner(display: display, compact: false),
+              top: verticalInset,
+              left: horizontalInset,
+              child: CardCorner(display: display, compact: compact),
             ),
             Center(
-              child: CenterCardMark(
-                suitAssetPath: centerSuitAssetPath,
-                color:
-                    (display.accentToken.isEmpty
-                            ? const Color(0xFF8A5B1F)
-                            : cardAccent(display.accentToken))
-                        .withValues(alpha: 0.24),
-              ),
+              child: compact
+                  ? Padding(
+                      padding: EdgeInsets.all(cardWidth / 8),
+                      child: centerMark,
+                    )
+                  : centerMark,
             ),
-            Positioned(
-              right: 10,
-              bottom: 10,
-              child: Transform.rotate(
-                angle: 3.14159,
-                child: CardCorner(display: display, compact: false),
+            if (!compact)
+              Positioned(
+                right: horizontalInset,
+                bottom: verticalInset,
+                child: Transform.rotate(
+                  angle: 3.14159,
+                  child: CardCorner(display: display, compact: false),
+                ),
               ),
-            ),
           ],
+          if (showHitZoneOutline)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(borderRadius),
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xCCFFB000)
+                          : const Color(0xCCFF4D4D),
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) => buildCard();
 }
 
-class HandCard extends StatelessWidget {
+class TableCard extends BaseCard {
+  const TableCard({super.key, required super.label});
+
+  @override
+  bool get compact => false;
+}
+
+class HandCard extends BaseCard {
   const HandCard({
     super.key,
-    required this.label,
+    required super.label,
     required this.isPlayable,
     required this.isSelected,
     this.showHitZoneOutline = false,
@@ -94,22 +156,18 @@ class HandCard extends StatelessWidget {
     this.onTap,
   });
 
-  final String label;
   final bool isPlayable;
   final bool isSelected;
   final bool showHitZoneOutline;
+  @override
   final double scale;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final display = DisplayCardLabel.fromLabel(label);
-    final wildAssetPath = wildMiniAssetPath(display.rankToken);
-    final centerSuitAssetPath = display.isWildAssignment
-        ? cardSuitAssetPath(display.assignmentSuitToken)
-        : cardSuitAssetPath(display.suitToken);
-    final borderRadius = 16 * scale.clamp(0.9, 1.2);
+  bool get compact => true;
 
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedScale(
@@ -118,97 +176,10 @@ class HandCard extends StatelessWidget {
         curve: Curves.easeOutCubic,
         child: Opacity(
           opacity: isPlayable || isSelected ? 1 : 0.82,
-          child: Container(
-            width: 64 * scale,
-            height: 98 * scale,
-            decoration: BoxDecoration(
-              color: _cardFaceColor,
-              borderRadius: BorderRadius.circular(borderRadius),
-              border: Border.all(
-                color: isSelected ? const Color(0xFFF2C14E) : _cardBorderColor,
-                width: isSelected || isPlayable ? 2 : 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: isSelected
-                      ? const Color(0x44F2C14E)
-                      : const Color(0x22000000),
-                  blurRadius: isSelected ? 14 : 6,
-                  offset: Offset(0, isSelected ? 8 : 3),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                if (wildAssetPath != null) ...[
-                  Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(borderRadius),
-                      child: Image.asset(wildAssetPath, fit: BoxFit.contain),
-                    ),
-                  ),
-                  if (display.isWildAssignment)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          left: 4 * scale.clamp(0.9, 1.2),
-                        ),
-                        child: WildAssignmentBadge(
-                          display: display,
-                          compact: true,
-                        ),
-                      ),
-                    ),
-                ] else
-                  Padding(
-                    padding: EdgeInsets.all(8 * scale.clamp(0.9, 1.2)),
-                    child: Stack(
-                      children: [
-                        Center(
-                          child: CenterCardMark(
-                            suitAssetPath: centerSuitAssetPath,
-                            color:
-                                (display.accentToken.isEmpty
-                                        ? const Color(0xFF8A5B1F)
-                                        : cardAccent(display.accentToken))
-                                    .withValues(alpha: 0.2),
-                            compact: true,
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.topLeft,
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8 * scale.clamp(0.9, 1.2),
-                              vertical: 6 * scale.clamp(0.9, 1.2),
-                            ),
-                            child: CardCorner(display: display, compact: true),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (showHitZoneOutline)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(
-                            16 * scale.clamp(0.9, 1.2),
-                          ),
-                          border: Border.all(
-                            color: isSelected
-                                ? const Color(0xCCFFB000)
-                                : const Color(0xCCFF4D4D),
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+          child: buildCard(
+            isSelected: isSelected,
+            isPlayable: isPlayable,
+            showHitZoneOutline: showHitZoneOutline,
           ),
         ),
       ),
@@ -595,9 +566,11 @@ class PlayerHandFan extends StatelessWidget {
         final fanHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : naturalFanHeight;
+        // Keep an exposed strip on every card, even in the narrow group area.
+        final minimumFanWidth = 62.0 + max(0, cards.length - 1) * 12.0;
         final effectiveScale = min(
           cardScale,
-          min(availableWidth / 62.0, fanHeight / 116.0),
+          min(availableWidth / minimumFanWidth, fanHeight / 116.0),
         );
         final cardWidth = 62.0 * effectiveScale;
         final cardHeight = 98.0 * effectiveScale;
